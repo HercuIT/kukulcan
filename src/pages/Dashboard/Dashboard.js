@@ -1,0 +1,4617 @@
+import "../../styles/DashboardStyle/DashboardStyle.css";
+/* eslint-disable no-unused-vars */
+import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import SaveWorkflowModal from "./SaveWorkflowModal";
+import OpenWorkflowModal from "./OpenWorkflowModal";
+import ShareWorkflowModal from "./ShareWorkflowModal";
+import UnsavedChangesModal from "./UnsavedChangesModal";
+import CheckoutModal from "./CheckoutModal";
+import VersionHistoryModal from "./VersionHistoryModal";
+import { EquipmentNode } from "./equipmentData";
+import { MaterialsNode } from "./MaterialData";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDocs,
+  doc,
+  getDoc,
+  updateDoc,
+  onSnapshot,
+  query,
+  where,
+  arrayUnion,
+  Timestamp,
+} from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { auth, db } from "../../backend/firebaseConfig";
+import { signOut } from "firebase/auth";
+import ModalMessage from "../../components/ModalMessage";
+import Selecto from "react-selecto";
+import Logo from "../../assets/Logofinal.png";
+
+const COMPILE_URL = "https://compilexml-mg5wgcxqda-uc.a.run.app";
+
+// === Helpers para normalizar nodos y generar IDs cortos ===
+const NODE_DEFINITION_NAMES = new Set([
+  "Procedure Phase",
+  "Procedure Operation",
+  "Procedure Unit Procedure",
+  "Procedure",
+  "Area Procedure",
+  "Site Procedure",
+]);
+
+// === NodeParametersModal (versión grande + atributos + audit) ===
+function NodeParametersModal({
+  open,
+  onClose,
+  onAccept,
+  nodeData,
+  isReadOnly,
+}) {
+  const TABS = [
+    "Current Node (Local Parameters)",
+    "Add Vanilla Node",
+    "Mix Node",
+  ];
+
+  // 1) Datos base (trae atributos para que sí aparezcan en el panel)
+  const seed = [
+    {
+      id: 1,
+      name: "Vanilla Flavor Amount",
+      type: "CPP",
+      origin: "Value",
+      desc: "Second Floor",
+      value: "3.8",
+      units: "Kg",
+      attributes: { testSpec: { quantity: "3.8kg ± 0.1kg" } },
+    },
+    {
+      id: 2,
+      name: "Mixing Temperature",
+      type: "CQA",
+      origin: "Defer",
+      desc: "Formulation",
+      value: "Temp Setpoint",
+      units: "C",
+      attributes: { qualifiedLimits: { min: 18, max: 25 } },
+    },
+    {
+      id: 3,
+      name: "Mixing Speed",
+      type: "CQA",
+      origin: "Defer",
+      desc: "Formulation",
+      value: "Target Speed",
+      units: "RPM",
+      attributes: { range: { lower: 100, upper: 800 } },
+    },
+  ];
+
+  // 2) Si el nodo ya trae parámetros guardados, los usamos; si no, usamos seed
+  const initialByTab = React.useMemo(() => {
+    const fromNode = nodeData?.parameters || nodeData?.paramsByTab;
+    if (fromNode && typeof fromNode === "object") {
+      // normalizamos: aseguramos las 3 pestañas
+      return {
+        [TABS[0]]: fromNode[TABS[0]] || [],
+        [TABS[1]]: fromNode[TABS[1]] || [],
+        [TABS[2]]: fromNode[TABS[2]] || [],
+      };
+    }
+    return { [TABS[0]]: seed, [TABS[1]]: [], [TABS[2]]: [] };
+  }, [nodeData]);
+
+  const [activeTab, setActiveTab] = React.useState(TABS[0]);
+  const [paramsByTab, setParamsByTab] = React.useState(initialByTab);
+  const [selectedParamId, setSelectedParamId] = React.useState(
+    initialByTab[TABS[0]]?.[0]?.id ?? null,
+  );
+
+  // Estado para la posición (desplazamiento) del panel
+  const [position, setPosition] = React.useState({ x: 0, y: 0 });
+  // Estado para saber si estamos arrastrando
+  const [isDragging, setIsDragging] = React.useState(false);
+  // Estado para guardar la posición inicial del clic
+  const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
+
+  // Efecto para manejar el arrastre
+  React.useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+      // Calcula la nueva posición restando la posición inicial del clic
+      setPosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y,
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    // Solo añadimos los listeners si estamos arrastrando
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    }
+
+    // Función de limpieza para quitar los listeners
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, dragStart]); // Dependencias
+
+  React.useEffect(() => {
+    if (open) {
+      setActiveTab(TABS[0]);
+      setParamsByTab(initialByTab);
+      setSelectedParamId(initialByTab[TABS[0]]?.[0]?.id ?? null);
+      setPosition({ x: 0, y: 0 });
+      //document.body.style.overflow = "hidden";
+    }
+    //return () => (document.body.style.overflow = "");
+  }, [open, initialByTab]);
+
+  if (!open) return null;
+
+  const nextId = () => Math.floor(Math.random() * 1e9);
+
+  const addParameter = () => {
+    const blank = {
+      id: nextId(),
+      name: "",
+      type: "",
+      origin: "",
+      desc: "",
+      value: "",
+      units: "",
+      attributes: {}, // deja el objeto para que el panel de atributos funcione
+    };
+    setParamsByTab((prev) => {
+      const list = [...(prev[activeTab] || []), blank];
+      return { ...prev, [activeTab]: list };
+    });
+    setSelectedParamId(blank.id);
+  };
+
+  const updateField = (id, field, value) => {
+    setParamsByTab((prev) => ({
+      ...prev,
+      [activeTab]: (prev[activeTab] || []).map((p) =>
+        p.id === id ? { ...p, [field]: value } : p,
+      ),
+    }));
+  };
+
+  const updateAttribute = (paramId, attrKey, value) => {
+    setParamsByTab((prev) => ({
+      ...prev,
+      [activeTab]: (prev[activeTab] || []).map((p) =>
+        p.id === paramId
+          ? {
+              ...p,
+              attributes: {
+                ...(p.attributes || {}),
+                [attrKey]: value,
+              },
+            }
+          : p,
+      ),
+    }));
+  };
+
+  const updateNestedAttribute = (paramId, attrKey, nestedKey, value) => {
+    setParamsByTab((prev) => ({
+      ...prev,
+      [activeTab]: (prev[activeTab] || []).map((p) =>
+        p.id === paramId
+          ? {
+              ...p,
+              attributes: {
+                ...(p.attributes || {}),
+                [attrKey]: {
+                  ...(p.attributes?.[attrKey] || {}),
+                  [nestedKey]: value,
+                },
+              },
+            }
+          : p,
+      ),
+    }));
+  };
+
+  const removeParameter = (id) => {
+    setParamsByTab((prev) => {
+      const list = (prev[activeTab] || []).filter((p) => p.id !== id);
+      return { ...prev, [activeTab]: list };
+    });
+    if (selectedParamId === id) setSelectedParamId(null);
+  };
+
+  const selectedParam =
+    (paramsByTab[activeTab] || []).find((p) => p.id === selectedParamId) ||
+    null;
+
+  const renderAttributes = () => {
+    if (!selectedParam) {
+      return (
+        <div style={{ color: "#6b7280" }}>
+          Select a parameter to see its attributes.
+        </div>
+      );
+    }
+
+    // Asignamos defaults si no existen para que la UI sea consistente
+    const attrs = selectedParam.attributes || {};
+    // Usar el nombre del parámetro como default si el atributo 'name' no existe
+    const name = attrs.name !== undefined ? attrs.name : selectedParam.name;
+    const upperLimit = attrs.upperLimit ?? "";
+    const lowerLimit = attrs.lowerLimit ?? "";
+    const testSpec1 = attrs.testSpec1 ?? "";
+    const qualifiedLimits = attrs.qualifiedLimits || { min: "", max: "" };
+    const hierarchyScope = attrs.hierarchyScope ?? "";
+    const expandedDesc = attrs.expandedDesc ?? "";
+    const paramId = selectedParam.id;
+
+    // REQ-UI-015: Tabla de Atributos Extendidos
+    return (
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
+            <th style={{ padding: 6, width: "30%" }}>Attribute</th>
+            <th style={{ padding: 6 }}>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {/* Name */}
+          <tr>
+            <td style={{ padding: 4, fontWeight: "bold" }}>Name</td>
+            <td style={{ padding: 4 }}>
+              <input
+                value={name}
+                onChange={(e) =>
+                  updateAttribute(paramId, "name", e.target.value)
+                }
+                style={{ width: "100%" }}
+                disabled={isReadOnly}
+                placeholder="Attribute name"
+              />
+            </td>
+          </tr>
+          {/* Upper Limit */}
+          <tr>
+            <td style={{ padding: 4, fontWeight: "bold" }}>Upper Limit</td>
+            <td style={{ padding: 4 }}>
+              <input
+                type="number"
+                value={upperLimit}
+                onChange={(e) =>
+                  updateAttribute(paramId, "upperLimit", e.target.value)
+                }
+                style={{ width: "100%" }}
+                disabled={isReadOnly}
+                placeholder="e.g., 100.5"
+              />
+            </td>
+          </tr>
+          {/* Lower Limit */}
+          <tr>
+            <td style={{ padding: 4, fontWeight: "bold" }}>Lower Limit</td>
+            <td style={{ padding: 4 }}>
+              <input
+                type="number"
+                value={lowerLimit}
+                onChange={(e) =>
+                  updateAttribute(paramId, "lowerLimit", e.target.value)
+                }
+                style={{ width: "100%" }}
+                disabled={isReadOnly}
+                placeholder="e.g., 90.0"
+              />
+            </td>
+          </tr>
+          {/* Test Specification 1 */}
+          <tr>
+            <td style={{ padding: 4, fontWeight: "bold" }}>
+              Test Specification 1
+            </td>
+            <td style={{ padding: 4 }}>
+              <input
+                value={testSpec1}
+                onChange={(e) =>
+                  updateAttribute(paramId, "testSpec1", e.target.value)
+                }
+                style={{ width: "100%" }}
+                disabled={isReadOnly}
+                placeholder="Test specification..."
+              />
+            </td>
+          </tr>
+          {/* Qualified Limits */}
+          <tr>
+            <td style={{ padding: 4, fontWeight: "bold" }}>Qualified Limits</td>
+            <td style={{ padding: 4, display: "flex", gap: 8 }}>
+              <input
+                value={qualifiedLimits.min}
+                onChange={(e) =>
+                  updateNestedAttribute(
+                    paramId,
+                    "qualifiedLimits",
+                    "min",
+                    e.target.value,
+                  )
+                }
+                style={{ width: "50%" }}
+                disabled={isReadOnly}
+                placeholder="Min"
+              />
+              <input
+                value={qualifiedLimits.max}
+                onChange={(e) =>
+                  updateNestedAttribute(
+                    paramId,
+                    "qualifiedLimits",
+                    "max",
+                    e.target.value,
+                  )
+                }
+                style={{ width: "50%" }}
+                disabled={isReadOnly}
+                placeholder="Max"
+              />
+            </td>
+          </tr>
+          {/* Hierarchy Scope */}
+          <tr>
+            <td style={{ padding: 4, fontWeight: "bold" }}>Hierarchy Scope</td>
+            <td style={{ padding: 4 }}>
+              <input
+                value={hierarchyScope}
+                onChange={(e) =>
+                  updateAttribute(paramId, "hierarchyScope", e.target.value)
+                }
+                style={{ width: "100%" }}
+                disabled={isReadOnly}
+                placeholder="e.g., Site/Area/Line"
+              />
+            </td>
+          </tr>
+          {/* Expanded Description */}
+          <tr>
+            <td style={{ padding: 4, fontWeight: "bold" }}>
+              Expanded Description
+            </td>
+            <td style={{ padding: 4 }}>
+              <textarea
+                value={expandedDesc}
+                onChange={(e) =>
+                  updateAttribute(paramId, "expandedDesc", e.target.value)
+                }
+                style={{ width: "100%", minHeight: "60px" }}
+                disabled={isReadOnly}
+                placeholder="Detailed description of the attribute..."
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0, // <-- Reemplaza top/left/right/bottom
+        background: "transparent",
+        zIndex: 10000,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center", // <-- MODIFICADO: Centra verticalmente
+        padding: "20px", // Mantenemos el padding por si el modal es más grande que la ventana
+        overflowY: "auto", // <-- MODIFICADO: Permite scroll si el modal no cabe
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        style={{
+          width: "1200px",
+          height: "600px",
+          background: "#fff",
+          borderRadius: 10,
+          boxShadow: "0 8px 30px rgba(0,0,0,.25)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          pointerEvents: "auto",
+          transform: `translate(${position.x}px, ${position.y}px)`,
+          userSelect: isDragging ? "none" : "auto", // Evita seleccionar texto
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "12px 20px",
+            borderBottom: "1px solid #e5e7eb",
+            cursor: "move",
+          }}
+          onMouseDown={(e) => {
+            setIsDragging(true);
+            // Guarda dónde hicimos clic (e.clientX) MENOS el desplazamiento
+            // actual (position.x) para que el panel no "salte"
+            setDragStart({
+              x: e.clientX - position.x,
+              y: e.clientY - position.y,
+            });
+            e.preventDefault(); // Evita que se seleccione el texto del título
+          }}
+        >
+          <h3 style={{ margin: 0 }}>
+            {nodeData?.label || "Node"} - Parameters
+          </h3>
+          <button
+            onClick={onClose}
+            style={{
+              fontSize: 22,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Cuerpo */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "260px 1fr",
+            flex: 1,
+            overflow: "hidden",
+          }}
+        >
+          {/* Tabs izquierda */}
+          <div style={{ borderRight: "1px solid #e5e7eb", overflowY: "auto" }}>
+            {TABS.map((tab) => (
+              <div
+                key={tab}
+                onClick={() => {
+                  setActiveTab(tab);
+                  // al cambiar de pestaña, seleccionamos el primer parámetro si existe
+                  const first = (paramsByTab[tab] || [])[0]?.id ?? null;
+                  setSelectedParamId(first);
+                }}
+                style={{
+                  padding: "12px 16px",
+                  background: activeTab === tab ? "#1677ff" : "transparent",
+                  color: activeTab === tab ? "#fff" : "#111827",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                {tab}
+              </div>
+            ))}
+          </div>
+
+          {/* Panel derecho */}
+          <div style={{ padding: 18, overflowY: "auto" }}>
+            {/* Barra superior + botón agregar */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 10,
+              }}
+            >
+              <h4 style={{ margin: 0 }}>
+                Parameters{" "}
+                {activeTab === "Add Vanilla Node" && "(Vanilla Node)"}
+              </h4>
+              <button
+                onClick={addParameter}
+                disabled={isReadOnly}
+                style={{
+                  background: isReadOnly ? "#ccc" : "#1677ff",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "6px 12px",
+                  cursor: isReadOnly ? "not-allowed" : "pointer",
+                }}
+              >
+                New Parameter
+              </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                gap: "18px",
+                alignItems: "flex-start",
+              }}
+            >
+              <div style={{ flex: 3 }}>
+                {" "}
+                {/* Columna 1: Parámetros (aprox 60%) */}
+                {/* Tabla parámetros */}
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
+                      <th style={{ padding: 6 }}>Name</th>
+                      <th style={{ padding: 6 }}>Type</th>
+                      <th style={{ padding: 6 }}>Origin</th>
+                      <th style={{ padding: 6 }}>Short Description</th>
+                      <th style={{ padding: 6 }}>Value</th>
+                      <th style={{ padding: 6 }}>Eng. Units</th>
+                      <th style={{ padding: 6, width: 30 }}>✖</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(paramsByTab[activeTab] || []).length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          style={{ color: "#6b7280", padding: 10 }}
+                        >
+                          No parameters. Use “New Parameter”.
+                        </td>
+                      </tr>
+                    ) : (
+                      (paramsByTab[activeTab] || []).map((p) => {
+                        const selected = p.id === selectedParamId;
+                        return (
+                          <tr
+                            key={p.id}
+                            onClick={() => setSelectedParamId(p.id)}
+                            style={{
+                              background: selected ? "#eef2ff" : "transparent",
+                            }}
+                            // --- AÑADIR ESTOS MANEJADORES ---
+                            onDragOver={(e) => {
+                              e.preventDefault(); // ¡Necesario para permitir el drop!
+                              e.currentTarget.style.background = "#d0f0d0"; // Feedback visual
+                            }}
+                            onDragEnter={(e) => e.preventDefault()}
+                            onDragLeave={(e) => {
+                              // Devolver el color original
+                              e.currentTarget.style.background = selected
+                                ? "#eef2ff"
+                                : "transparent";
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              e.currentTarget.style.background = selected
+                                ? "#eef2ff"
+                                : "transparent";
+
+                              try {
+                                // 1. Obtener los datos arrastrados
+                                const data = JSON.parse(
+                                  e.dataTransfer.getData("application/json"),
+                                );
+
+                                // 2. Decidir qué valor asignar (¡NUEVA LÓGICA!)
+                                let valueToAssign;
+
+                                if (data.details && data.details.tagPath) {
+                                  // Opción 1 (Preferida): Usar el tagPath de 'details'
+                                  valueToAssign = data.details.tagPath;
+                                } else if (
+                                  data.abstract &&
+                                  data.abstract.startsWith("Tag: ")
+                                ) {
+                                  // Opción 2: Extraer el valor de 'abstract' (quitando "Tag: ")
+                                  valueToAssign = data.abstract
+                                    .substring(5)
+                                    .trim();
+                                } else {
+                                  // Opción 3 (Fallback): Usar el label (comportamiento anterior)
+                                  valueToAssign = data.label || "Error";
+                                }
+
+                                // 3. Usar la función existente para actualizar el estado
+                                updateField(p.id, "value", valueToAssign);
+
+                                console.log(
+                                  `Dropped ${data.label} onto ${p.name}, assigned value: ${valueToAssign}`,
+                                );
+                              } catch (err) {
+                                console.error("Error al soltar:", err);
+                              }
+                            }}
+                          >
+                            <td style={{ padding: 4 }}>
+                              <input
+                                value={p.name}
+                                onChange={(e) =>
+                                  updateField(p.id, "name", e.target.value)
+                                }
+                                placeholder="Name"
+                                style={{ width: "100%" }}
+                                disabled={true}
+                              />
+                            </td>
+                            <td style={{ padding: 4 }}>
+                              <input
+                                value={p.type}
+                                onChange={(e) =>
+                                  updateField(p.id, "type", e.target.value)
+                                }
+                                placeholder="Type"
+                                style={{ width: "100%" }}
+                                disabled={isReadOnly}
+                              />
+                            </td>
+                            <td style={{ padding: 4 }}>
+                              <input
+                                value={p.origin}
+                                onChange={(e) =>
+                                  updateField(p.id, "origin", e.target.value)
+                                }
+                                placeholder="Origin"
+                                style={{ width: "100%" }}
+                                disabled={true}
+                              />
+                            </td>
+                            <td style={{ padding: 4 }}>
+                              <input
+                                value={p.desc}
+                                onChange={(e) =>
+                                  updateField(p.id, "desc", e.target.value)
+                                }
+                                placeholder="Short description"
+                                style={{ width: "100%" }}
+                                disabled={isReadOnly}
+                              />
+                            </td>
+                            <td style={{ padding: 4 }}>
+                              <input
+                                value={p.value}
+                                onChange={(e) =>
+                                  updateField(p.id, "value", e.target.value)
+                                }
+                                placeholder="Value"
+                                style={{ width: "100%" }}
+                                disabled={isReadOnly}
+                              />
+                            </td>
+                            <td style={{ padding: 4 }}>
+                              <input
+                                value={p.units}
+                                onChange={(e) =>
+                                  updateField(p.id, "units", e.target.value)
+                                }
+                                placeholder="Units"
+                                style={{ width: "100%" }}
+                                disabled={isReadOnly}
+                              />
+                            </td>
+                            <td style={{ textAlign: "center" }}>
+                              <button
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  removeParameter(p.id);
+                                }}
+                                disabled={isReadOnly}
+                                style={{
+                                  background: "transparent",
+                                  border: "none",
+                                  color: isReadOnly ? "#aaa" : "#ef4444",
+                                  fontWeight: 700,
+                                  cursor: isReadOnly
+                                    ? "not-allowed"
+                                    : "pointer",
+                                }}
+                                title="Delete"
+                              >
+                                ×
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>{" "}
+              {/* Fin Columna 1 */}
+              <div style={{ flex: 2 }}>
+                {" "}
+                {/* (aprox 40%) */}
+                {/* Extended Attributes */}
+                <div style={{ marginTop: 0 }}>
+                  <h4 style={{ margin: "14px 0 6px" }}>Extended Attributes</h4>
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 6,
+                      padding: 10,
+                      minHeight: 56,
+                    }}
+                  >
+                    {renderAttributes()}
+                  </div>
+                </div>
+              </div>{" "}
+              {/* Fin Columna 2 */}
+            </div>{" "}
+            {/* Fin Contenedor Flex Row */}
+            {/* Audit Trail (fijo, ilustrativo) */}
+            <div style={{ marginTop: 18 }}>
+              <h4 style={{ margin: "14px 0 6px" }}>Audit Trail</h4>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
+                    <th style={{ padding: 6 }}>Short Description</th>
+                    <th style={{ padding: 6 }}>Action</th>
+                    <th style={{ padding: 6 }}>User</th>
+                    <th style={{ padding: 6 }}>Version</th>
+                    <th style={{ padding: 6 }}>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: 6 }}>Mixing Speed</td>
+                    <td style={{ padding: 6 }}>Update</td>
+                    <td style={{ padding: 6 }}>designer@example.com</td>
+                    <td style={{ padding: 6 }}>2.0</td>
+                    <td style={{ padding: 6 }}>03JUL25 1005 LTG</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            padding: "10px 20px",
+            borderTop: "1px solid #e5e7eb",
+            textAlign: "right",
+          }}
+        >
+          <button onClick={onClose} style={{ marginRight: 8 }}>
+            Cancel
+          </button>
+          <button
+            onClick={() => onAccept?.({ paramsByTab })}
+            disabled={isReadOnly}
+            style={{
+              background: isReadOnly ? "#ccc" : "#1677ff",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "8px 14px",
+              cursor: isReadOnly ? "not-allowed" : "pointer",
+            }}
+          >
+            Accept
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function slug(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+// Si el nodo trae family explícitoo
+function classifyType(node) {
+  const t = String(node.type || "").trim();
+  if (/^(begin|start)$/i.test(t)) return "BeginElement";
+  if (/^end$/i.test(t)) return "EndElement";
+  if (/^connection$/i.test(t)) return "Connection";
+  if (node.family) return String(node.family);
+
+  if (NODE_DEFINITION_NAMES.has(t)) return "NodeDefinition";
+  if (/(cutter|press|belt|robot|machine|laser|conveyor)/i.test(t))
+    return "Equipment";
+
+  // Extiende aquí en el futuro: Assets, DataLayer, WorkInstructions, Materials…
+  return t || "Node";
+}
+
+// Genera IDs cortos y legibles para este XML (mapea oldId -> newId)
+function makeCompactIds(nodesInOrder) {
+  const used = new Set();
+  const idMap = new Map();
+  let seq = 1;
+
+  for (const n of nodesInOrder) {
+    const t = String(n.type || "");
+    let newId;
+
+    if (/^(begin|start)$/i.test(t)) {
+      newId = "node_begin";
+    } else if (/^end$/i.test(t)) {
+      newId = "node_end";
+    } else if (/^connection$/i.test(t)) {
+      newId = `connection_${seq++}`;
+    } else {
+      const base = slug(n.label || n.name || n.type) || "node";
+      let candidate = `${base.substring(0, 16)}_${seq++}`;
+      while (used.has(candidate))
+        candidate = `${base.substring(0, 16)}_${seq++}`;
+      newId = candidate;
+    }
+
+    used.add(newId);
+    idMap.set(n.id, newId);
+  }
+
+  return idMap;
+}
+
+// Modal para el formulario "Create Node"
+function CreateNodeModal({ open, onClose, onOk }) {
+  const [name, setName] = React.useState("");
+  const [version, setVersion] = React.useState("1.0");
+  const [desc, setDesc] = React.useState("");
+  const [abstract, setAbstract] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [params, setParams] = React.useState([
+    { id: Date.now(), name: "", dataType: "REAL", defaultValue: "" },
+  ]);
+  const [program, setProgram] = React.useState("MainProgram");
+  const [routine, setRoutine] = React.useState("SFC_Control_Routine");
+
+  React.useEffect(() => {
+    if (open) {
+      setName("");
+      setVersion("1.0");
+      setDesc("");
+      setAbstract("");
+      setError("");
+      setProgram("MainProgram");
+      setRoutine("SFC_Control_Routine");
+      setParams([
+        { id: Date.now(), name: "", dataType: "REAL", defaultValue: "" },
+      ]);
+    }
+  }, [open]);
+
+  const addParam = () =>
+    setParams((l) => [
+      ...l,
+      {
+        id: Math.floor(Math.random() * 1e9),
+        name: "",
+        dataType: "REAL",
+        defaultValue: "",
+      },
+    ]);
+  const removeParam = (id) => setParams((l) => l.filter((p) => p.id !== id));
+  const updateParam = (id, field, value) =>
+    setParams((l) =>
+      l.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
+    );
+
+  const normalizeDefaultValue = (p) => {
+    switch (p.dataType) {
+      case "BOOL":
+        return Boolean(p.defaultValue);
+      case "INT":
+        return Number.isFinite(parseInt(p.defaultValue, 10))
+          ? parseInt(p.defaultValue, 10)
+          : 0;
+      case "REAL":
+        return Number.isFinite(parseFloat(p.defaultValue))
+          ? parseFloat(p.defaultValue)
+          : 0.0;
+      case "STRING":
+      default:
+        return String(p.defaultValue ?? "");
+    }
+  };
+
+  const validateParams = () => {
+    for (const p of params) {
+      if (!p.name || !p.dataType)
+        return `Parámetro inválido: completa Name y Data Type (${p.name || "sin nombre"}).`;
+      if (p.dataType === "BOOL") {
+        if (p.defaultValue === undefined || p.defaultValue === null)
+          return `Default Value requerido para ${p.name}.`;
+      } else if (p.dataType === "INT") {
+        if (!/^-?\\d+$/.test(String(p.defaultValue)))
+          return `Default Value entero inválido en ${p.name}.`;
+      } else if (p.dataType === "REAL") {
+        if (isNaN(parseFloat(String(p.defaultValue))))
+          return `Default Value real inválido en ${p.name}.`;
+      } else if (String(p.defaultValue).length === 0) {
+        return `Default Value requerido para ${p.name}.`;
+      }
+    }
+    return null;
+  };
+
+  const handleOk = () => {
+    if (!name.trim() || !version.trim() || !desc.trim() || !abstract.trim()) {
+      setError("Por favor, completa todos los campos.");
+      return;
+    }
+    const err = validateParams();
+    if (err) return setError(err);
+    const cleanParams = params.map((p) => ({
+      name: p.name.trim(),
+      dataType: p.dataType,
+      defaultValue: normalizeDefaultValue(p),
+    }));
+    onOk({
+      name,
+      version,
+      desc,
+      abstract,
+      implementation: {
+        program,
+        routine,
+      },
+      parameters: cleanParams,
+    });
+  };
+
+  if (!open) return null;
+  return (
+    <div className="create-node-modal-backdrop">
+      <div
+        className="create-node-modal"
+        style={{
+          maxHeight: "80vh",
+          overflowY: "auto",
+          paddingRight: "8px",
+        }}
+      >
+        <h2>Create Node</h2>
+        <label>Node Definition Name</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter node name"
+        />
+        <label>Node Version</label>
+        <input
+          value={version}
+          onChange={(e) => setVersion(e.target.value)}
+          placeholder="1.0"
+        />
+        <label>Description</label>
+        <textarea
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          placeholder="Describe the node"
+        />
+        <label>Node Abstract</label>
+        <textarea
+          value={abstract}
+          onChange={(e) => setAbstract(e.target.value)}
+          placeholder="Abstract or summary"
+        />
+
+        <div
+          style={{
+            marginTop: 12,
+            borderTop: "1px solid #e5e7eb",
+            paddingTop: 12,
+          }}
+        >
+          <h3 style={{ margin: "0 0 8px 0" }}>Implementation</h3>
+
+          <label>Program</label>
+          <select value={program} onChange={(e) => setProgram(e.target.value)}>
+            <option value="MainProgram">MainProgram</option>
+            <option value="AuxProgram1">AuxProgram1</option>
+            {/* puedes agregar más simulados si quieres */}
+          </select>
+
+          <label>Routine</label>
+          <select value={routine} onChange={(e) => setRoutine(e.target.value)}>
+            <option value="SFC_Control_Routine">SFC_Control_Routine</option>
+            <option value="Aux_SFC_Routine">Aux_SFC_Routine</option>
+          </select>
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            borderTop: "1px solid #e5e7eb",
+            paddingTop: 12,
+          }}
+        >
+          <h3 style={{ margin: "0 0 8px 0" }}>Custom Parameters</h3>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginBottom: 8,
+            }}
+          >
+            <button
+              onClick={addParam}
+              style={{
+                background: "#1677ff",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                padding: "6px 10px",
+                cursor: "pointer",
+              }}
+            >
+              + Add Parameter
+            </button>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
+                <th style={{ padding: 6 }}>Name</th>
+                <th style={{ padding: 6 }}>Data Type</th>
+                <th style={{ padding: 6 }}>Default Value</th>
+                <th style={{ width: 40 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {params.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ padding: 8, color: "#6b7280" }}>
+                    No parameters, use “+ Add Parameter”.
+                  </td>
+                </tr>
+              )}
+              {params.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ padding: 4 }}>
+                    <input
+                      value={p.name}
+                      onChange={(e) =>
+                        updateParam(p.id, "name", e.target.value)
+                      }
+                      placeholder="Name"
+                      style={{ width: "100%" }}
+                    />
+                  </td>
+                  <td style={{ padding: 4 }}>
+                    <select
+                      value={p.dataType}
+                      onChange={(e) =>
+                        updateParam(p.id, "dataType", e.target.value)
+                      }
+                      style={{ width: "100%" }}
+                    >
+                      <option value="REAL">REAL</option>
+                      <option value="INT">INT</option>
+                      <option value="BOOL">BOOL</option>
+                      <option value="STRING">STRING</option>
+                    </select>
+                  </td>
+                  <td style={{ padding: 4 }}>
+                    {p.dataType === "BOOL" ? (
+                      <label
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(p.defaultValue)}
+                          onChange={(e) =>
+                            updateParam(p.id, "defaultValue", e.target.checked)
+                          }
+                        />
+                        <span>{String(Boolean(p.defaultValue))}</span>
+                      </label>
+                    ) : p.dataType === "INT" ? (
+                      <input
+                        type="number"
+                        step="1"
+                        value={p.defaultValue}
+                        onChange={(e) =>
+                          updateParam(p.id, "defaultValue", e.target.value)
+                        }
+                        placeholder="0"
+                        style={{ width: "100%" }}
+                      />
+                    ) : p.dataType === "REAL" ? (
+                      <input
+                        type="number"
+                        step="any"
+                        value={p.defaultValue}
+                        onChange={(e) =>
+                          updateParam(p.id, "defaultValue", e.target.value)
+                        }
+                        placeholder="0.0"
+                        style={{ width: "100%" }}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={p.defaultValue}
+                        onChange={(e) =>
+                          updateParam(p.id, "defaultValue", e.target.value)
+                        }
+                        placeholder="Default value"
+                        style={{ width: "100%" }}
+                      />
+                    )}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    <button
+                      title="Delete"
+                      onClick={() => removeParam(p.id)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "#ef4444",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ✖
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {error && (
+          <div style={{ color: "red", marginBottom: 10, fontWeight: "bold" }}>
+            {error}
+          </div>
+        )}
+        <div className="create-node-modal-buttons">
+          <button onClick={onClose}>Cancel</button>
+          <button onClick={handleOk}>OK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Menú contextual
+function ContextMenu({ x, y, visible, onNew }) {
+  if (!visible) return null;
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: y,
+        left: x,
+        background: "#fff",
+        border: "1px solid #ccc",
+        boxShadow: "0 2px 8px #888",
+        zIndex: 999,
+        borderRadius: 4,
+      }}
+    >
+      <div
+        style={{ padding: "8px 18px", cursor: "pointer", fontWeight: "bold" }}
+        onClick={onNew}
+      >
+        New
+      </div>
+    </div>
+  );
+}
+
+// Listas maestras de Procedure Phase y Operations
+const PROCEDURE_PHASES = ["Mixing", "Drying", "Inspection"];
+
+const OPERATIONS_BY_PHASE = {
+  Mixing: ["Add Ingredient", "Set Temperature", "Measure Flow"],
+  Drying: ["Start Drying", "Stop Drying"],
+  Inspection: ["Visual Check", "Measure Flow"],
+};
+
+// Wizard guiado: Phase -> Operation
+function PredefinedNodeWizard({ open, onClose, onCreate }) {
+  const [phase, setPhase] = React.useState("");
+  const [operation, setOperation] = React.useState("");
+
+  React.useEffect(() => {
+    if (open) {
+      setPhase("");
+      setOperation("");
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const operationsForPhase = phase ? OPERATIONS_BY_PHASE[phase] || [] : [];
+  const canCreate = phase && operation;
+
+  const handleCreate = () => {
+    if (!canCreate) return;
+    onCreate({ procedurePhase: phase, operation });
+  };
+
+  return (
+    <div className="create-node-modal-backdrop">
+      <div className="create-node-modal">
+        <h3>New Pre-defined Node Definition</h3>
+
+        <div style={{ marginBottom: 16 }}>
+          <h4>1. Procedure Phase</h4>
+          <select value={phase} onChange={(e) => setPhase(e.target.value)}>
+            <option value="">Select a Phase...</option>
+            {PROCEDURE_PHASES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <h4>2. Operation</h4>
+          <select
+            value={operation}
+            onChange={(e) => setOperation(e.target.value)}
+            disabled={!phase} // 🔒 no se puede elegir antes de Phase
+          >
+            <option value="">
+              {phase ? "Select an Operation..." : "Select a Phase first"}
+            </option>
+            {operationsForPhase.map((op) => (
+              <option key={op} value={op}>
+                {op}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="create-node-modal-buttons">
+          <button onClick={onClose}>Cancel</button>
+          <button onClick={handleCreate} disabled={!canCreate}>
+            Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Componente TreeNode modificado
+function TreeNode({
+  label,
+  hasChildren,
+  children,
+  parentRefs,
+  index,
+  resetOpen,
+  forceOpen,
+  level = 0,
+  isLastChild = false,
+  onContextMenu,
+  desc,
+  abstract,
+  color,
+  usedComponents = [],
+  onClick,
+  isDraggable,
+  setDragComponent,
+  isDesigner,
+  node,
+  expandedNodes,
+  setExpandedNodes,
+  setInteractionMode, // ✅ agregado
+}) {
+
+  const open = expandedNodes?.[label] || false;
+  const nodeRef = useRef(null);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (resetOpen) {
+      setExpandedNodes((prev) => ({
+        ...prev,
+        [label]: false,
+      }));
+    }
+  }, [resetOpen, label, setExpandedNodes]);
+
+  useEffect(() => {
+    if (forceOpen) {
+      setExpandedNodes((prev) => ({
+        ...prev,
+        [label]: true,
+      }));
+    }
+  }, [forceOpen, label, setExpandedNodes]);
+
+  useEffect(() => {
+    if (parentRefs) parentRefs.current[index] = nodeRef;
+  }, [parentRefs, index]);
+
+  const findNextNode = () => {
+    const all = Array.from(document.querySelectorAll(".tree-label"));
+    const i = all.findIndex((el) => el === nodeRef.current);
+    return i !== -1 && i < all.length - 1 ? all[i + 1] : null;
+  };
+
+  const findPrevNode = () => {
+    const all = Array.from(document.querySelectorAll(".tree-label"));
+    const i = all.findIndex((el) => el === nodeRef.current);
+    return i > 0 ? all[i - 1] : null;
+  };
+
+  // ✅ ARREGLADO COMPLETO
+  const handleKeyDown = (e) => {
+    if (["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+      e.preventDefault();
+    }
+
+    if (e.key === "Enter") {
+      if (children) {
+        setExpandedNodes(prev => ({
+          ...prev,
+          [label]: !prev[label]
+        }));
+      }
+    }
+
+  
+    // ↓ bajar
+    if (e.key === "ArrowDown") {
+      const next = findNextNode();
+      if (next) next.focus();
+    }
+
+  
+    // ↑ subir
+    if (e.key === "ArrowUp") {
+      const prev = findPrevNode();
+      if (prev) prev.focus();
+    }
+
+  
+    // → abrir nodo
+    if (e.key === "ArrowRight") {
+      if (children && !open) {
+        setExpandedNodes(prev => ({
+          ...prev,
+          [label]: true
+        }));
+      }
+    }
+
+  
+    // ← cerrar nodo
+    if (e.key === "ArrowLeft") {
+      if (children && open) {
+        setExpandedNodes(prev => ({
+          ...prev,
+          [label]: false
+        }));
+      }
+    }
+  };
+
+  // Determina si este nodo está usado
+  const isUsed = usedComponents.includes(label);
+
+
+ return (
+    <div
+      className={`tree-node ${isLastChild ? "last-child" : ""}`}
+      style={{ position: "relative" }}
+    >
+      <div
+        className="tree-label"
+        tabIndex={0}
+        ref={nodeRef}
+        style={{
+          cursor: isDraggable ? "grab" : children ? "pointer" : "default",
+          fontWeight: isUsed ? "bold" : children ? "bold" : "normal",
+          background: isUsed ? "#ffeeba" : "inherit",
+          color: color || (isUsed ? "#d35400" : "inherit"),
+          borderRadius: "4px",
+          padding: "2px 4px",
+        }}
+        draggable={(isDraggable || (!children && isDesigner)) && isDesigner}
+        onDragStart={(e) => {
+          if ((isDraggable || (!children && isDesigner)) && isDesigner) {
+            const payload = { label, desc, abstract, color };
+            if (node?.details) payload.details = node.details;
+            if (node?.type) payload.type = node.type;
+            e.dataTransfer.setData("application/json", JSON.stringify(payload));
+            setDragComponent?.(payload);
+          }
+        }}
+        onClick={() => {
+          if (label === "User Created Definitions") return;
+          if (children && children.length > 0) {
+            setExpandedNodes(prev => ({ ...prev, [label]: !prev[label] }));
+          } else if (onClick) {
+            onClick();
+          }
+        }}
+        onKeyDown={handleKeyDown}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (label === "User Created Definitions") {
+            setInteractionMode?.("place-start-object");
+            return;
+          }
+          if (onContextMenu) {
+            onContextMenu(e, node);
+          }
+        }}
+        onMouseEnter={(e) => {
+          if (desc || abstract) {
+            setShowTooltip(true);
+            setTooltipPos({ x: e.clientX + 10, y: e.clientY + 10 });
+          }
+        }}
+        onMouseMove={(e) => {
+          if (showTooltip) {
+            setTooltipPos({ x: e.clientX + 10, y: e.clientY + 10 });
+          }
+        }}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        {hasChildren && (open ? "- " : "+ ")} {label}
+      </div>
+
+      {showTooltip && (
+        <div style={{
+          position: "fixed",
+          left: tooltipPos.x,
+          top: tooltipPos.y,
+          background: "#fff",
+          border: "1px solid #bbb",
+          padding: 8,
+          zIndex: 9999
+        }}>
+          <div><strong>Description:</strong> {desc}</div>
+          <div><strong>Abstract:</strong> {abstract}</div>
+        </div>
+      )}
+
+      {open && children && (
+        <div className="tree-children">
+          {React.Children.map(children, (child) =>
+            React.cloneElement(child, {
+              level: level + 1,
+              parentRefs,
+              resetOpen,
+              onContextMenu,
+              usedComponents,
+              setDragComponent,
+              isDesigner,
+              expandedNodes,
+              setExpandedNodes,
+              setInteractionMode
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+       
+
+
+
+
+
+
+
+const PREDEFINED_PROCEDURE_LABELS = [
+  "Procedure Phase",
+  "Procedure Operation",
+  "Procedure Unit Procedure",
+  "Procedure",
+  "Area Procedure",
+  "Site Procedure",
+];
+
+function TreeViewExample({
+  usedComponents = [],
+  setDragComponent,
+  onEquipmentSelect,
+  isDesigner,
+  setInteractionMode,
+}) {
+  const [expandedNodes, setExpandedNodes] = useState({});
+  const [filterType, setFilterType] = useState("all");
+  const treeRefs = useRef([]);
+  const treeContainerRef = useRef(null);
+  const [search, setSearch] = useState("");
+  const [resetOpen, setResetOpen] = useState(0);
+  const [selectedTreeNode, setSelectedTreeNode] = useState(null);
+
+  const [contextMenu, setContextMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    target: null,
+  });
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [userCreatedNodes, setUserCreatedNodes] = useState([]);
+  const [preDefinedNodes, setPreDefinedNodes] = useState([]);
+  const [predefWizardOpen, setPredefWizardOpen] = useState(false);
+
+  const [forceOpenNodeDefs] = useState(true);
+
+  const [paramModal, setParamModal] = useState({
+    open: false,
+    param: null,
+    nodeLabel: "",
+  });
+
+  const openParamDetails = (param, nodeLabel) =>
+    setParamModal({ open: true, param, nodeLabel });
+
+  const closeParamDetails = () =>
+    setParamModal({ open: false, param: null, nodeLabel: "" });
+
+  useEffect(() => {
+    if (search === "") setResetOpen((prev) => prev + 1);
+  }, [search]);
+
+  useEffect(() => {
+    const closeMenu = () => setContextMenu((c) => ({ ...c, visible: false }));
+    if (contextMenu.visible) {
+      window.addEventListener("click", closeMenu);
+      window.addEventListener("contextmenu", closeMenu);
+    }
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("contextmenu", closeMenu);
+    };
+  }, [contextMenu.visible]);
+
+  // === DRAG ===
+  const handleDragStart = (e, node) => {
+    const dragData = {
+      label: node.label,
+      desc: node.desc,
+      abstract: node.abstract,
+      color: node.color,
+      details: node.details,
+      implementation: node.implementation || null,
+      procedurePhase: node.procedurePhase || null,
+      operation: node.operation || null,
+    };
+
+    e.dataTransfer.setData("application/json", JSON.stringify(dragData));
+  };
+
+  let idx = 0;
+
+  // =========================
+  //  RENDER TREE
+  // =========================
+  const renderTree = (node, level = 0) => {
+    if (!node) return null;
+
+    const { label, children, forceOpen } = node;
+    const currentIdx = idx++;
+
+    const isEquipment = !!node.details;
+    const isLeafNode = !children || children.length === 0;
+    const isUserCreated = label === "User Created Definitions";
+
+    let actualChildren = Array.isArray(children) ? children : [];
+
+    // Los nodos se pueden expandir/colapsar aunque haya un filtro activo (HTE-55)
+    const isOpen = forceOpen || expandedNodes[label] || false;
+
+    if (filterType !== "all" && level === 0) {
+      if (filterType === "workflows" && label !== "Workflows") return null;
+      if (filterType === "equipment" && label !== "Nodes") return null;
+      if (filterType === "materials" && label !== "Materials") return null;
+    }
+
+    if (isUserCreated) {
+      actualChildren = [
+        ...userCreatedNodes
+          .filter(n => n && n.name)
+          .map((n) => {
+            const paramsChildren = Array.isArray(n.parameters)
+              ? n.parameters
+                  .filter(p => p && typeof p === "object" && p.name)
+                  .map(p => ({
+                    label: String(p.name),
+                    type: "parameter",
+                    desc: `Data Type: ${p?.dataType || "N/A"}`,
+                    abstract: `Default: ${String(p?.defaultValue ?? "")}`,
+                    onClick: () => openParamDetails(p, `${n.name} v ${n.version}`),
+                  }))
+              : [];
+            return {
+              label: `${n.name} v ${n.version}`,
+              desc: n.desc,
+              abstract: n.abstract,
+              color: "green",
+              details: { capacity: "NA", lastMaintenance: null, manufacturerModel: null, status: "Unknown" },
+              implementation: n.implementation,
+              isDraggable: true,
+              type: n.name,
+              children: [
+                { label: "Parameters", children: paramsChildren },
+                { label: "Equipment", children: [] },
+                { label: "Material", children: [] },
+                { label: "Personnel", children: [] },
+                { label: "Elements", children: [] },
+              ],
+            };
+          })
+          .filter(Boolean),
+        ...(Array.isArray(children) ? children.filter(child => child && child.label) : []),
+      ];
+    }
+
+    if (label === "Pre-Defined Definitions" && children) {
+      actualChildren = [
+        ...children
+          .filter(child => child && child.label)
+          .map(child => ({ ...child, color: "blue" })),
+        // Nodos creados con el PredefinedNodeWizard
+        ...preDefinedNodes.map((n) => ({
+          label: `${n.procedurePhase} - ${n.operation}`,
+          color: "blue",
+          isDraggable: true,
+        })),
+      ];
+    }
+
+    const childCount = isUserCreated ? userCreatedNodes.length : actualChildren.length;
+    const displayLabel = childCount > 0 ? `${label} (${childCount})` : label;
+    const hasChildren = Array.isArray(actualChildren) && actualChildren.length > 0;
+
+    return (
+      <>
+        <div
+          className="tree-node"
+          onClick={
+            node?.label === "User Created Definitions"
+              ? undefined
+              : isEquipment && onEquipmentSelect
+              ? () => onEquipmentSelect(node)
+              : undefined
+          }
+          onContextMenu={
+            isUserCreated || PREDEFINED_PROCEDURE_LABELS.includes(label)
+              ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setContextMenu({
+                    visible: true,
+                    x: e.clientX,
+                    y: e.clientY,
+                    target: isUserCreated ? "userCreated" : "preDefined",
+                  });
+                }
+              : undefined
+          }
+          draggable={isLeafNode || node.isDraggable}
+          onDragStart={(e) => { if (isLeafNode) handleDragStart(e, node); }}
+          style={{ marginLeft: level * 10, cursor: "pointer", color: node.color || "black" }}
+        >
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {isUserCreated && userCreatedNodes.length > 0 && (
+              <span
+                style={{ marginRight: 6, cursor: "pointer", fontWeight: "bold", color: "#1677ff" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isDesigner) return alert("Acción no permitida.");
+                  setModalOpen(true);
+                }}
+              >
+                +
+              </span>
+            )}
+            {hasChildren && (
+              <span
+                style={{ marginRight: 4, cursor: "pointer" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedNodes(prev => ({ ...prev, [label]: !prev[label] }));
+                }}
+              >
+                {isOpen ? "- " : "+ "}
+              </span>
+            )}
+            <div
+              className="tree-label"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedTreeNode(label);
+                if (hasChildren) {
+                  setExpandedNodes(prev => ({ ...prev, [label]: !prev[label] }));
+                }
+              }}
+              onMouseEnter={(e) => {
+                if (node.desc || node.abstract || node.details) {
+                  const tooltip = document.createElement("div");
+                  tooltip.id = "tree-tooltip";
+                  tooltip.style.cssText = `position:fixed;left:${e.clientX+12}px;top:${e.clientY+12}px;background:#fff;border:1px solid #bbb;box-shadow:0 2px 8px rgba(0,0,0,0.15);padding:8px 12px;z-index:9999;font-size:13px;max-width:280px;border-radius:4px;pointer-events:none;`;
+                  tooltip.innerHTML = `
+                    ${node.desc ? `<div><strong>Description:</strong> ${node.desc}</div>` : ""}
+                    ${node.abstract ? `<div><strong>Abstract:</strong> ${node.abstract}</div>` : ""}
+                    ${node.details?.capacity ? `<div><strong>Capacity:</strong> ${node.details.capacity}</div>` : ""}
+                    ${node.details?.status ? `<div><strong>Status:</strong> ${node.details.status}</div>` : ""}
+                    ${node.details?.manufacturerModel ? `<div><strong>Model:</strong> ${node.details.manufacturerModel}</div>` : ""}
+                    ${node.details?.tagPath ? `<div><strong>Tag Path:</strong> ${node.details.tagPath}</div>` : ""}
+                  `;
+                  document.body.appendChild(tooltip);
+                }
+              }}
+              onMouseMove={(e) => {
+                const tooltip = document.getElementById("tree-tooltip");
+                if (tooltip) { tooltip.style.left = `${e.clientX+12}px`; tooltip.style.top = `${e.clientY+12}px`; }
+              }}
+              onMouseLeave={() => {
+                const tooltip = document.getElementById("tree-tooltip");
+                if (tooltip) tooltip.remove();
+              }}
+              style={{
+                cursor: hasChildren ? "pointer" : "default",
+                background: selectedTreeNode === label ? "#d0e8ff" : "inherit",
+                color: selectedTreeNode === label ? "#1677ff" : "inherit",
+                borderRadius: "4px",
+                padding: "2px 4px",
+              }}
+            >
+              {displayLabel}
+            </div>
+          </div>
+          {isOpen && Array.isArray(actualChildren) &&
+            actualChildren.map((child, i) => renderTree(child, level + 1))}
+        </div>
+      </>
+    );
+  };
+
+  // =========================
+  //  NODOS PRINCIPALES
+  // =========================
+  const preDefinedNode = {
+    label: "Pre-Defined Definitions",
+    children: PREDEFINED_PROCEDURE_LABELS.map((label) => ({ label })),
+  };
+
+  const workflowsNode = {
+    label: "Workflows",
+    children: [
+      {
+        label: "Node Definitions",
+        forceOpen: false,
+        children: [{ label: "User Created Definitions" }, preDefinedNode],
+      },
+      { label: "Nodes" },
+    ],
+  };
+
+  const equipmentNode = {
+    label: new EquipmentNode().label,
+    children: new EquipmentNode().children,
+  };
+
+  const assetsNode = {
+    label: "Assets",
+    children: [{ label: "Assets Definitions" }, { label: "Assets Instances" }],
+  };
+
+  const dataLayerNode = {
+    label: "Data Layer",
+    children: [
+      {
+        label: "Devices",
+        children: [
+          { label: "Sensor de Temperatura", isDraggable: true, details: { tagPath: "/Linea1/Temp" } },
+          { label: "Sensor de Presión", isDraggable: true, details: { tagPath: "/Linea1/Presion" } },
+        ],
+      },
+    ],
+  };
+
+  const workInstructionsNode = {
+    label: "Work Instructions",
+    children: [
+      { label: "Work Instruction Definitions" },
+      { label: "Work Instruction Instances" },
+    ],
+  };
+
+  const materialsNode = new MaterialsNode();
+
+  const schedulerNode = {
+    label: "Scheduler",
+    children: [
+      { label: "Scheduled Tasks" },
+      { label: "Calendar" },
+      { label: "Timeline" },
+    ],
+  };
+
+  // =========================
+  //  FILTRO (búsqueda)
+  // =========================
+  const filterTree = (node) => {
+    if (!node) return null;
+    if (!search) return node;
+    const labelMatch = node.label.toLowerCase().includes(search.toLowerCase());
+    const children = (node.children || []).map(filterTree).filter(Boolean);
+    if (labelMatch) return { ...node, forceOpen: true };
+    if (children.length) return { ...node, children, forceOpen: true };
+    return null;
+  };
+
+  idx = 0;
+
+  // RETURN
+  return (
+    <div ref={treeContainerRef} className="tree-container">
+
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search"
+      />
+
+      <div style={{ marginBottom: "10px" }}>
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+        >
+          <option value="all">All</option>
+          <option value="workflows">Workflows</option>
+          <option value="equipment">Equipment</option>
+          <option value="materials">Materials</option>
+        </select>
+      </div>
+
+      {renderTree(filterTree(workflowsNode))}
+      {renderTree(filterTree(equipmentNode))}
+      {renderTree(filterTree(assetsNode))}
+      {renderTree(filterTree(dataLayerNode))}
+      {renderTree(filterTree(workInstructionsNode))}
+      {renderTree(filterTree(materialsNode))}
+      {renderTree(filterTree(schedulerNode))}
+
+      <ContextMenu
+        x={contextMenu.x}
+        y={contextMenu.y}
+        visible={contextMenu.visible}
+        onNew={() => {
+          if (!isDesigner) return;
+
+          if (contextMenu.target === "userCreated") {
+            setModalOpen(true);
+          } else {
+            setPredefWizardOpen(true);
+          }
+
+          setContextMenu((c) => ({ ...c, visible: false }));
+        }}
+      />
+
+      <CreateNodeModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onOk={(newNode) => {
+          if (!isDesigner) return;
+          const enriched = {
+            ...newNode,
+            parameters: newNode.parameters || [],
+            label: `${newNode.name} v ${newNode.version}`,
+            isDraggable: true,
+          };
+          setUserCreatedNodes((prev) => [...prev, enriched]);
+          setModalOpen(false);
+        }}
+      />
+
+      <PredefinedNodeWizard
+        open={predefWizardOpen}
+        onClose={() => setPredefWizardOpen(false)}
+        onCreate={(data) => {
+          setPreDefinedNodes((prev) => [...prev, data]);
+          setPredefWizardOpen(false);
+        }}
+      />
+
+      {paramModal.open && (
+        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.30)",zIndex:10000,display:"flex",justifyContent:"center",alignItems:"center" }}>
+          <div style={{ width:420,background:"#fff",borderRadius:10,boxShadow:"0 8px 30px rgba(0,0,0,.25)" }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid #e5e7eb" }}>
+              <h3 style={{ margin:0 }}>Parameter Properties</h3>
+              <button onClick={closeParamDetails} style={{ fontSize:22,background:"none",border:"none",cursor:"pointer" }}>×</button>
+            </div>
+            <div style={{ padding:16 }}>
+              <p><strong>Node:</strong> {paramModal?.nodeLabel || "N/A"}</p>
+              <p><strong>Name:</strong> {paramModal?.param?.name || "N/A"}</p>
+              <p><strong>Data Type:</strong> {paramModal?.param?.dataType || "N/A"}</p>
+              <p><strong>Default Value:</strong>{" "}{paramModal?.param?.defaultValue !== undefined ? String(paramModal.param.defaultValue) : "N/A"}</p>
+            </div>
+            <div style={{ padding:10,textAlign:"right" }}>
+              <button onClick={closeParamDetails}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+
+//  MENU BAR
+
+const menuOptions = {
+  TMApp: ["Home", "Settings", "Profile"],
+  File: ["New", "Open", "Save", "Save As", "Exit"],
+  Edit: ["Undo", "Redo", "Cut", "Copy", "Paste"],
+  View: ["Zoom In", "Zoom Out", "Full Screen"],
+  Help: ["Documentation", "About", "Contact"],
+};
+
+function MenuBar({
+  user,
+  workflow,
+  onNewWorkflow,
+  onSaveWorkflow,
+  onOpenWorkflow,
+  onSaveAsWorkflow,
+  onCheckout,
+  onVersionHistory,
+  OnLogout,
+  isDesigner,
+  isSessionReadOnly,
+  onShare,
+}) {
+  const [openMenu, setOpenMenu] = useState(null);
+  const menuRef = useRef(null);
+  const navigate = useNavigate();
+
+  const handleOptionClick = (menu, option) => {
+    setOpenMenu(null);
+
+    if ((option === "Save" || option === "Save As") && !isDesigner) {
+      alert("Acción no permitida.");
+      return;
+    }
+
+    if (menu === "File" && option === "New") return onNewWorkflow?.();
+    if (menu === "File" && option === "Save") return onSaveWorkflow?.();
+    if (menu === "File" && option === "Save As") return onSaveAsWorkflow?.();
+    if (menu === "File" && option === "Open") return onOpenWorkflow?.();
+    if (menu === "File" && option === "Checkout") return onCheckout?.();
+    if (menu === "File" && option === "Version History")
+      return onVersionHistory?.();
+    if (menu === "TMApp" && option === "Home") return navigate("/");
+
+    alert(`Seleccionaste: ${menu} > ${option}`);
+  };
+
+  const isReviewer = workflow?.metadata?.assignedReviewerId === user?.uid;
+  const isPendingReview = workflow?.metadata?.status === "pending_review";
+
+  const canShare = isDesigner;
+  const canReview = isReviewer && isPendingReview;
+
+  const fileOptions = [...menuOptions.File];
+  if (workflow) fileOptions.push("Version History");
+  if (workflow && isDesigner && isSessionReadOnly) fileOptions.push("Checkout");
+
+  return (
+    <nav className="menu-bar" ref={menuRef}>
+      <img
+        src={Logo}
+        alt="Logo"
+        style={{ height: 40, marginRight: 16 }}
+      />
+
+      {Object.keys(menuOptions).map((menu) => {
+        const options = menu === "File" ? fileOptions : menuOptions[menu];
+
+        return (
+          <div key={menu} className="menu-item">
+            <button
+              className="menu-btn"
+              onClick={() => setOpenMenu(openMenu === menu ? null : menu)}
+            >
+              {menu}
+            </button>
+
+            {openMenu === menu && (
+              <div
+                className="dropdown"
+                onMouseLeave={() => setOpenMenu(null)}
+              >
+                {options.map((option) => (
+                  <div
+                    key={option}
+                    className="dropdown-option"
+                    onClick={() => handleOptionClick(menu, option)}
+                  >
+                    {option}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <div className="center-section">
+        <h2>{workflow?.name || "New Workflow"}</h2>
+        {canShare && <button onClick={onShare}>Workflow Actions</button>}
+        {canReview && <button>Review Workflow</button>}
+      </div>
+
+      <div>
+        <span>{user?.email}</span>
+        <button onClick={OnLogout}>LOGOUT</button>
+      </div>
+    </nav>
+  );
+} // ← FIN MenuBar
+
+
+// =============================
+//  HELPERS
+// =============================
+
+function getDefaultWorkflowNodes() {
+  const baseX = 140;
+  const startY = 100;
+  const vSpacing = 120;
+  return [
+    { label: "Begin", x: baseX, y: startY, type: "start", id: "begin" },
+    {
+      label: "Connection 1",
+      x: baseX,
+      y: startY + vSpacing,
+      type: "connection",
+      id: "connection1",
+    },
+    {
+      label: "End",
+      x: baseX,
+      y: startY + vSpacing * 2,
+      type: "end",
+      id: "end",
+    },
+  ];
+}
+
+function buildCompileWorkflowFromCanvas(nodes, connections) {
+  const ordered = [...nodes].sort((a, b) => (a.y ?? 0) - (b.y ?? 0));
+  const idMap = makeCompactIds(ordered);
+
+  const nodeWithImpl = ordered.find(
+    (n) =>
+      n.implementation &&
+      (n.implementation.program || n.implementation.routine)
+  );
+
+  const programName = nodeWithImpl?.implementation?.program || "MainProgram";
+  const routineName =
+    nodeWithImpl?.implementation?.routine || "SFC_Control_Routine";
+
+  const xmlNodes = ordered.map((node) => ({
+    id: idMap.get(node.id),
+    name: node.label || node.type || "Node",
+    type: node.type,
+    family: classifyType(node),
+    parameters: node.parameters || null,
+    x: node.x ?? 0,
+    y: node.y ?? 0,
+    implementation: node.implementation || null,
+  }));
+
+  const xmlConnections = (connections || []).map((c) => ({
+    from: idMap.get(c.from),
+    to: idMap.get(c.to),
+  }));
+
+  return {
+    id: `W-${Date.now()}`,
+    name: "Flujo desde Canvas",
+    version: "1.0",
+    program: programName,
+    routine: routineName,
+    nodes: xmlNodes,
+    connections: xmlConnections,
+  };
+}
+
+function mapCanvasNodeToWorkflowNode(node) {
+  if (!["start", "connection", "end"].includes(node.type)) {
+    const safe = (node.label || node.type || "Node").replace(/\s+/g, "");
+    return {
+      id: node.id,
+      type: node.type,
+      params: {
+        tagPath: `[default]Linea1/${safe}`,
+        value: true,
+      },
+    };
+  }
+  return { id: node.id, type: node.type, params: {} };
+}
+
+function inferConnectionsLinear(nodes) {
+  const sorted = [...nodes].sort((a, b) => a.y - b.y);
+  const conns = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    conns.push({ from: sorted[i].id, to: sorted[i + 1].id });
+  }
+  return conns;
+}
+
+function buildWorkflowFromCanvas(nodes) {
+  const ordered = [...nodes].sort((a, b) => a.y - b.y);
+  const wfNodes = ordered.map(mapCanvasNodeToWorkflowNode);
+  const connections = inferConnectionsLinear(ordered);
+
+  return {
+    workflowId: `wf-${Date.now()}`,
+    name: "Flujo desde Canvas (sim)",
+    nodes: wfNodes,
+    connections,
+  };
+}
+
+function validateWorkflow(nodes, connections) {
+  const errors = [];
+
+  if (!nodes.length) {
+    errors.push("El workflow está vacío.");
+    return errors;
+  }
+
+  const startNodes = nodes.filter((n) => n.type === "start");
+  if (startNodes.length === 0) errors.push("Debe existir un nodo START.");
+  if (startNodes.length > 1) errors.push("Solo puede existir un nodo START.");
+
+  const endNodes = nodes.filter((n) => n.type === "end");
+  if (endNodes.length === 0) errors.push("Debe existir al menos un nodo END.");
+
+  const map = {};
+  nodes.forEach((n) => (map[n.id] = []));
+
+  connections.forEach((c) => {
+    if (map[c.from]) map[c.from].push(c.to);
+  });
+
+  nodes.forEach((n) => {
+    const hasOut = map[n.id]?.length > 0;
+    const hasIn = connections.some((c) => c.to === n.id);
+
+    if (!hasOut && !hasIn) {
+      errors.push(`Nodo "${n.label || n.id}" está desconectado.`);
+    }
+  });
+
+  if (startNodes.length === 1) {
+    const visited = new Set();
+
+    const dfs = (id) => {
+      if (visited.has(id)) return;
+      visited.add(id);
+      (map[id] || []).forEach(dfs);
+    };
+
+    dfs(startNodes[0].id);
+
+    nodes.forEach((n) => {
+      if (!visited.has(n.id)) {
+        errors.push(`Nodo "${n.label || n.id}" no es alcanzable desde START.`);
+      }
+    });
+  }
+
+  return errors;
+
+}
+
+
+export default function App({ user, userRoles }) {
+  // Estado de si la sesión es de solo lectura
+  const [isSessionReadOnly, setIsSessionReadOnly] = useState(false);
+
+  // Estado de los botones de la tool bar (parallel/branch currently not implemented)
+  const [isParametersModalOpen, setParametersModalOpen] = useState(false);
+
+  const [selectedEquipment, setSelectedEquipment] = useState(null);
+
+  const [isKeyboardNavigation] = useState(false);
+  // Levantamos la selección para que la toolbar pueda reaccionar
+  const [selectedNodes, setSelectedNodes] = useState([]);
+
+  const [selectedNode, setSelectedNode] = useState(null);
+
+  const handleEquipmentSelect = (equipment) => {
+    setSelectedEquipment(equipment);
+  };
+
+  // Abrir el modal de parámetros para un nodo recién agregado al canvas
+  const handleOpenParamsForNewNode = (idx, node) => {
+    if (idx == null || !node) return;
+
+    // seleccionar ese nodo en el canvas (solo si NO es navegación con teclado)
+    if (!isKeyboardNavigation) {
+      setSelectedNodes([idx]);
+    }
+
+    // pasarle al modal los datos del nodo
+    setSelectedEquipment(node);
+
+    // abrir el modal
+    setParametersModalOpen(true);
+  };
+
+  const [interactionMode, setInteractionMode] = useState("select");
+
+  const [compileDialog, setCompileDialog] = React.useState({
+    open: false,
+    url: null,
+    filename: null,
+    message: "",
+  });
+
+  const [usedComponents, setUsedComponents] = useState([]);
+
+  const [canvasNodes, setCanvasNodes] = useState(getDefaultWorkflowNodes());
+
+  const [manualConnections, setManualConnections] = useState([]); //ESTE ES EL FIX
+
+  const [isSaveModalOpen, setSaveModalOpen] = useState(false);
+
+  const [isCheckoutModalOpen, setCheckoutModalOpen] = useState(false);
+
+  const [isVersionHistoryModalOpen, setVersionHistoryModalOpen] = useState(false);
+
+  const [isLoadModalOpen, setLoadModalOpen] = useState(false);
+
+  const [savedWorkflows, setSavedWorkflows] = useState([]);
+
+  const [currentWorkflowId, setCurrentWorkflowId] = useState(null);
+
+  const [currentWorkflow, setCurrentWorkflow] = useState(null);
+
+  const [isShareModalOpen, setShareModalOpen] = useState(false);
+
+  const [potentialReviewers, setPotentialReviewers] = useState([]);
+
+  const [allUsers, setAllUsers] = useState([]);
+
+  const [isDirty, setIsDirty] = useState(false);
+
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
+  const inactivityTimer = useRef(null);
+
+  const isDirtyRef = useRef(isDirty);
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [isGridEnabled, setIsGridEnabled] = useState(false);
+
+  const toggleGrid = () => setIsGridEnabled((s) => !s);
+
+  const topRightRef = useRef(null);
+
+  const isDeployer = userRoles?.deployer === true;
+
+  const toolbarRef = useRef(null);
+
+  const contentRowRef = useRef(null);
+
+  const [contentMarginTop, setContentMarginTop] = useState(null);
+
+  const [toolbarLeftPx, setToolbarLeftPx] = useState(null);
+  const [toolbarTopPx, setToolbarTopPx] = useState(null);
+
+  const appId = "manufacturing-suite-v1";
+
+  const navigate = useNavigate();
+
+  const isDesigner = userRoles?.designer === true;
+
+  // Define los estados que SÍ permiten la edición
+  const allowedStatuses = ["draft", "changes_requested"];
+
+  // El workflow está bloqueado si tiene un estado que NO está en la lista de permitidos
+  const isWorkflowReadOnly =
+    currentWorkflow &&
+    currentWorkflow.metadata &&
+    !allowedStatuses.includes(currentWorkflow.metadata.status);
+
+  // La UI de parámetros será de solo lectura si el usuario NO es designer O si el workflow está bloqueado
+  const isParametersReadOnly =
+    !isDesigner || isWorkflowReadOnly || isSessionReadOnly;
+
+  useEffect(() => {
+    // Detector de expiración de token Firebase
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (!user) {
+        console.log("Token de Firebase expirado o sesión cerrada");
+        handleLogoutRequest();
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  const performLogout = () => {
+    signOut(auth).then(() => navigate("/login"));
+  };
+
+  const handleLogoutRequest = () => {
+    console.log("=== INACTIVIDAD O SESIÓN EXPIRADA ===");
+    console.log("isDirty:", isDirtyRef.current);
+
+    if (isDirtyRef.current) {
+      console.log("Mostrando modal de cambios no guardados");
+      setShowUnsavedModal(true);
+    } else {
+      console.log("Cerrando sesión directamente (sin cambios)");
+      performLogout();
+    }
+  };
+
+  // Función para reiniciar el temporizador
+  const resetInactivityTimer = () => {
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    inactivityTimer.current = setTimeout(handleLogoutRequest, 15 * 60 * 1000);
+  };
+
+  // useEffect para activar los listeners de inactividad
+  useEffect(() => {
+    const events = [
+      "mousedown",
+      "mousemove",
+      "keydown",
+      "scroll",
+      "touchstart",
+    ];
+
+    const listener = () => {
+      resetInactivityTimer();
+    };
+
+    events.forEach((event) => window.addEventListener(event, listener));
+    resetInactivityTimer();
+
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, listener));
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    };
+  }, []);
+
+  // Align toolbar left edge with the canvas container left edge (topRightRef)
+  useEffect(() => {
+    const compute = () => {
+      try {
+        const canvasEl = topRightRef.current;
+        if (!canvasEl) return;
+        const rect = canvasEl.getBoundingClientRect();
+        const left = Math.round(rect.left + window.pageXOffset + 8);
+        setToolbarLeftPx(left);
+
+        const menuEl = document.querySelector(".menu-bar");
+        const menuBottom = menuEl
+          ? Math.round(
+              menuEl.getBoundingClientRect().bottom + window.pageYOffset,
+            )
+          : Math.round(8 + window.pageYOffset);
+        const top = menuBottom + 6;
+        setToolbarTopPx(top);
+
+        const SMALL_CONTENT_GAP = 8;
+        setContentMarginTop(SMALL_CONTENT_GAP);
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    compute();
+    window.addEventListener("resize", compute);
+    window.addEventListener("scroll", compute, true);
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("scroll", compute, true);
+    };
+  }, [topRightRef.current]);
+
+  const PERMISSION_ERROR_MSG =
+    "No tienes permisos para realizar esta acción. Se requiere el rol de 'Designer'.";
+
+  useEffect(() => {
+    if (!currentWorkflowId) {
+      setCurrentWorkflow(null);
+      return;
+    }
+
+    const docRef = doc(db, "artifacts", appId, "workflows", currentWorkflowId);
+
+    const unsubscribe = onSnapshot(docRef, (doc) => {
+      if (doc.exists()) {
+        setCurrentWorkflow({ id: doc.id, ...doc.data() });
+      } else {
+        setCurrentWorkflow(null);
+        setCurrentWorkflowId(null);
+        console.error("El workflow que estabas viendo fue eliminado.");
+      }
+    });
+
+    return () => unsubscribe();
+  }, [currentWorkflowId]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const rolesCollection = collection(db, "roles");
+        const querySnapshot = await getDocs(rolesCollection);
+
+        const usersList = querySnapshot.docs.map((doc) => ({
+          uid: doc.id,
+          email: doc.data().email || `Usuario ${doc.id.substring(0, 5)}`,
+          isReviewer: doc.data().reviewer === true,
+        }));
+
+        setAllUsers(usersList);
+
+        const reviewersList = usersList.filter((user) => user.isReviewer);
+        setPotentialReviewers(reviewersList);
+      } catch (error) {
+        console.error("Error al cargar usuarios y revisores:", error);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  const showPermissionError = () => {
+    setModalMsg(PERMISSION_ERROR_MSG);
+  };
+
+  const handleApprove = async () => {
+    if (!currentWorkflow) {
+      alert("No workflow selected.");
+      return;
+    }
+
+    try {
+      const functions = getFunctions();
+      const approveWorkflowFn = httpsCallable(functions, "approveWorkflow");
+
+      const result = await approveWorkflowFn({
+        appId: "manufacturing-suite-v1",
+        workflowId: currentWorkflow.id,
+      });
+
+      alert(result.data.message);
+    } catch (error) {
+      if (error.code === "unauthenticated") {
+        handleLogoutRequest();
+      } else {
+        console.error("Error approving workflow:", error);
+        alert("Error: " + error.message);
+      }
+    }
+  };
+
+  const handleOpenShareModal = () => {
+    setShareModalOpen(true);
+  };
+
+  async function sendWorkflow(flow) {
+    const res = await fetch("/create-flow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(flow),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error en servidor");
+    return data;
+  }
+
+  async function sendCompile(workflowToCompile) {
+    try {
+      if (Array.isArray(workflowToCompile.connections)) {
+        workflowToCompile.connections = workflowToCompile.connections.map(
+          (c) => ({
+            ...c,
+            condition: c.condition || "TRUE",
+          }),
+        );
+      }
+
+      const resp = await fetch(COMPILE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(workflowToCompile),
+      });
+
+      if (!resp.ok) {
+        let data = {};
+        try {
+          data = await resp.json();
+        } catch {
+          data = { message: "Fallo de compilación", errors: [] };
+        }
+        const errs = Array.isArray(data.errors) ? data.errors : [];
+        const list = errs.length ? "\n- " + errs.join("\n- ") : "";
+        throw new Error(`${data.message || "Fallo de compilación"}${list}`);
+      }
+
+      return await resp.blob();
+    } catch (err) {
+      throw new Error(
+        "Error de compilación: no se pudo conectar con el servicio en la nube.\n" +
+          "Detalle: " +
+          (err.message || err),
+      );
+    }
+  }
+
+  useEffect(() => {
+    const fetchWorkflows = async () => {
+      if (!user) return;
+      try {
+        const q = query(
+          collection(db, "artifacts", appId, "workflows"),
+          where("metadata.designerIds", "array-contains", user.uid),
+        );
+
+        const querySnapshot = await getDocs(q);
+        const workflowsList = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setSavedWorkflows(workflowsList);
+      } catch (error) {
+        console.error("Error al obtener los flujos de trabajo:", error);
+      }
+    };
+    fetchWorkflows();
+  }, [user]);
+
+  const handleLogout = () => {
+    signOut(auth)
+      .then(() => {
+        navigate("/login");
+      })
+      .catch((error) => console.error("Error al cerrar sesión:", error));
+  };
+
+  const handleSave = () => {
+    if (!isDesigner) {
+      showPermissionError();
+      return;
+    }
+    if (canvasNodes.length === 0) return alert("The canvas is empty.");
+
+    const allowedStatuses = ["draft", "changes_requested"];
+    if (
+      currentWorkflowId &&
+      !allowedStatuses.includes(currentWorkflow?.metadata?.status)
+    ) {
+      alert(
+        `Cannot edit a workflow that is not in "draft" or "changes_requested" status. Current status: ${currentWorkflow?.metadata?.status}`,
+      );
+      return;
+    }
+
+    if (currentWorkflowId) {
+      executeUpdateWorkflow();
+    } else {
+      setSaveModalOpen(true);
+    }
+  };
+
+  const handleSaveAs = () => {
+    if (!isDesigner) {
+      showPermissionError();
+      return;
+    }
+    if (canvasNodes.length === 0) return alert("The canvas is empty.");
+    setSaveModalOpen(true);
+  };
+
+  const executeUpdateWorkflow = async () => {
+    if (!user || !currentWorkflowId) {
+      alert("Error: No se pudo verificar el usuario o el workflow.");
+      return false;
+    }
+
+    setIsSaving(true);
+
+    const workflowDocRef = doc(
+      db,
+      "artifacts",
+      appId,
+      "workflows",
+      currentWorkflowId,
+    );
+
+    try {
+      const docSnap = await getDoc(workflowDocRef);
+      const currentStatus = docSnap.data()?.metadata?.status;
+      const allowedStatuses = ["draft", "changes_requested"];
+
+      if (docSnap.exists() && !allowedStatuses.includes(currentStatus)) {
+        alert(
+          `No se puede editar un workflow que no está en estado "draft" o "changes_requested". Estado actual: ${currentStatus}`,
+        );
+        return false;
+      }
+
+      const cleanedCanvasNodes = canvasNodes.map((node) => {
+        const cleanedNode = {};
+        for (const key in node) {
+          if (node[key] !== undefined) {
+            cleanedNode[key] = node[key];
+          }
+        }
+        return cleanedNode;
+      });
+
+      await updateDoc(workflowDocRef, {
+        "content.nodes": cleanedCanvasNodes,
+        "metadata.lastModifiedAt": serverTimestamp(),
+        "metadata.lastModifiedBy": user.uid,
+        "metadata.version": (docSnap.data().metadata.version || 1) + 1,
+      });
+
+      console.log("✅ Workflow actualizado");
+      setIsDirty(false);
+      return true;
+    } catch (e) {
+      console.error("❌ Error actualizando workflow:", e);
+
+      if (e.code === "permission-denied") {
+        alert(
+          "Error de permisos: No tienes permisos para actualizar este workflow.",
+        );
+      } else if (e.message.includes("Unsupported field value: undefined")) {
+        alert(
+          "Error: Hay valores inválidos en el workflow. Por favor intenta guardar nuevamente.",
+        );
+      } else {
+        alert("Error al actualizar: " + e.message);
+      }
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const executeSaveAsNew = async (workflowName) => {
+    if (!user) {
+      alert(
+        "Error: No se pudo verificar el usuario. La sesión puede haber expirado.",
+      );
+      return;
+    }
+
+    setIsSaving(true);
+
+    const cleanedCanvasNodes = canvasNodes.map((node) => {
+      const cleanedNode = {};
+      for (const key in node) {
+        if (node[key] !== undefined) {
+          cleanedNode[key] = node[key];
+        }
+      }
+      return cleanedNode;
+    });
+
+    const workflowsCollection = collection(db, "artifacts", appId, "workflows");
+
+    const newWorkflowData = {
+      name: workflowName,
+      content: {
+        nodes: cleanedCanvasNodes,
+      },
+      metadata: {
+        status: "draft",
+        version: 1,
+        createdAt: serverTimestamp(),
+        createdBy: user.uid,
+        lastModifiedAt: serverTimestamp(),
+        lastModifiedBy: user.uid,
+        designerIds: [user.uid],
+        assignedReviewerId: null,
+        approvedBy: null,
+        deployedBy: null,
+      },
+    };
+
+    try {
+      const docRef = await addDoc(workflowsCollection, newWorkflowData);
+      console.log("✅ Workflow guardado con ID:", docRef.id);
+      setSaveModalOpen(false);
+      setCurrentWorkflowId(docRef.id);
+      setIsDirty(false);
+      return true;
+    } catch (e) {
+      console.error("❌ Error guardando workflow:", e);
+
+      if (e.code === "permission-denied") {
+        alert("Error de permisos: No tienes permisos para guardar workflows.");
+      } else if (e.message.includes("Unsupported field value: undefined")) {
+        alert(
+          "Error: Hay valores inválidos en el workflow. Por favor intenta guardar nuevamente.",
+        );
+      } else {
+        alert("Error al guardar: " + e.message);
+      }
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleLoadWorkflow = async (workflowId) => {
+    if (!user) return;
+
+    const workflowDocRef = doc(db, "artifacts", appId, "workflows", workflowId);
+
+    try {
+      const docSnap = await getDoc(workflowDocRef);
+      if (docSnap.exists()) {
+        const workflowData = docSnap.data();
+
+        setCanvasNodes(workflowData.content.nodes || []);
+
+        setCurrentWorkflowId(workflowId);
+        setIsDirty(false);
+        setIsSessionReadOnly(true);
+        alert("Flujo de trabajo cargado. (Modo de solo lectura activado)");
+      } else {
+        alert("Error: No se pudo encontrar el flujo de trabajo.");
+      }
+    } catch (error) {
+      alert("Error al cargar el flujo de trabajo.");
+      console.error("Error al cargar:", error);
+    }
+    setLoadModalOpen(false);
+  };
+
+  const workflowTitle = currentWorkflow
+    ? currentWorkflow.name
+    : "New Workflow(Without save)";
+
+  const [isCompiling, setIsCompiling] = React.useState(false);
+  const [modalMsg, setModalMsg] = useState(null);
+
+  // Handler para el botón Compile
+  async function handleCompileDiagram() {
+    try {
+      setIsCompiling(true);
+
+      console.log("Connections:", manualConnections);
+
+      const wf = buildCompileWorkflowFromCanvas(
+        canvasNodes,
+        manualConnections
+      );
+
+      const connections = (manualConnections || []).map((c) => ({
+        from: c.from,
+        to: c.to,
+        fromPort: c.fromPort,
+        toPort: c.toPort,
+      }));
+      const errors = validateWorkflow(canvasNodes, connections);
+
+      if (errors.length > 0) {
+        setModalMsg(
+          "❌ Error de validación:\n\n" +
+            errors.map((e) => "• " + e).join("\n")
+        );
+        setIsCompiling(false);
+        return;
+      }
+
+      const xmlBlob = await sendCompile({
+        ...wf,
+        workflowName: workflowTitle,
+      });
+
+      const url = URL.createObjectURL(xmlBlob);
+
+      const rawName =
+        workflowTitle || wf.workflowName || wf.name || wf.id || "workflow";
+
+      let safeName = String(rawName)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9_.-]+/g, "_");
+
+      if (!safeName.toLowerCase().endsWith(".xml")) {
+        safeName += ".xml";
+      }
+
+      const filename = safeName;
+
+      setCompileDialog({
+        open: true,
+        url,
+        filename,
+        message: "Flujo válido y compilado. ¡Descargue su XML!",
+      });
+    } catch (err) {
+      console.error(err);
+      const lines = String(err.message || "Error en compilación").split("\n");
+      const title = lines.shift() || "Fallo de compilación";
+      const list = lines.map((l) => `• ${l.replace(/^- /, "")}`).join("\n");
+      setModalMsg(`❌ ${title}\n${list}`);
+    } finally {
+      setIsCompiling(false);
+    }
+  }
+
+  async function handleTestDiagram() {
+    try {
+      const flow = buildWorkflowFromCanvas(canvasNodes);
+      console.log("Flow ->", flow);
+      const { plan } = await sendWorkflow(flow);
+      console.log("✅ Plan simulado:", plan);
+      setModalMsg("Flujo enviado y simulado. Revisa consola del backend.");
+    } catch (err) {
+      console.error(err);
+      setModalMsg("❌ Error: " + err.message);
+    }
+  }
+
+  const isParallelDisabled = selectedNodes.length === 0;
+  const isBranchDisabled = selectedNodes.length === 0;
+
+  const protectedTypes = new Set(["start", "connection", "end"]);
+  const anyProtectedSelected = selectedNodes.some((idx) =>
+    protectedTypes.has(canvasNodes[idx]?.type),
+  );
+  const isRemoveDisabled =
+    !isDesigner || selectedNodes.length === 0 || anyProtectedSelected;
+
+  const isNodeBelowEnabled =
+    selectedNodes.length === 1 &&
+    canvasNodes[selectedNodes[0]]?.type === "connection";
+
+  const handleCheckout = async (description) => {
+    console.log("Checkout with description:", description);
+
+    if (!currentWorkflowId) {
+      console.error("No active workflow to checkout");
+      return;
+    }
+
+    try {
+      const workflowDocRef = doc(
+        db,
+        "artifacts",
+        appId,
+        "workflows",
+        currentWorkflowId,
+      );
+
+      await updateDoc(workflowDocRef, {
+        "metadata.checkoutDescription": description,
+        "metadata.lastModifiedAt": serverTimestamp(),
+        "metadata.lastModifiedBy": user.uid,
+        "metadata.history": arrayUnion({
+          description: description,
+          userId: user.uid,
+          timestamp: Timestamp.now(),
+        }),
+      });
+
+      setIsSessionReadOnly(false);
+
+      setCheckoutModalOpen(false);
+      alert("Checkout successful. Edit mode enabled.");
+    } catch (error) {
+      console.error("Error during checkout:", error);
+      alert("Error during checkout: " + error.message);
+    }
+  };
+
+  // =============================
+  //  RETURN PRINCIPAL DE APP
+  // =============================
+  return (
+    <div className="App">
+      <MenuBar
+        user={user}
+        userRoles={userRoles}
+        title={workflowTitle}
+        workflow={currentWorkflow}
+        onShare={handleOpenShareModal}
+        onApprove={handleApprove}
+        OnLogout={handleLogout}
+        onNewWorkflow={() => {
+          setCanvasNodes(getDefaultWorkflowNodes());
+          setUsedComponents([]);
+          setIsSessionReadOnly(false);
+        }}
+        onSaveWorkflow={handleSave}
+        onSaveAsWorkflow={handleSaveAs}
+        onOpenWorkflow={() => setLoadModalOpen(true)}
+        onCheckout={() => setCheckoutModalOpen(true)}
+        onVersionHistory={() => setVersionHistoryModalOpen(true)}
+        isDesigner={isDesigner}
+        isDeployer={isDeployer}
+        isSessionReadOnly={isSessionReadOnly}
+      />
+      <CheckoutModal
+        open={isCheckoutModalOpen}
+        onClose={() => setCheckoutModalOpen(false)}
+        onCheckout={handleCheckout}
+      />
+      <VersionHistoryModal
+        open={isVersionHistoryModalOpen}
+        onClose={() => setVersionHistoryModalOpen(false)}
+        history={currentWorkflow?.metadata?.history || []}
+      />
+      {currentWorkflow && (
+        <ShareWorkflowModal
+          open={isShareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          workflow={currentWorkflow}
+          appId={appId}
+          potentialReviewers={potentialReviewers}
+          allUsers={allUsers}
+          user={user}
+          userRoles={userRoles}
+        />
+      )}
+      <div className="topUp">
+        <div
+          className="toolbar"
+          role="toolbar"
+          aria-label="Canvas toolbar"
+          ref={toolbarRef}
+        >
+          {/* Selection / Placement */}
+          <button onClick={() => setInteractionMode("select")} title="Select">
+            <img src="/ICONOSPNG/SELECT.png" alt="Select" /> Select
+          </button>
+          <button onClick={() => setInteractionMode("place-node")} title="Node">
+            <img src="/ICONOSPNG/NODE.png" alt="Node" /> Node
+          </button>
+          <button
+            onClick={() => setInteractionMode("connect")}
+            title="Connection"
+          >
+            <img src="/ICONOSPNG/CONNECTION.png" alt="Connection" /> Connection
+          </button>
+
+          {/* Node organization */}
+          <button
+            onClick={() => {
+              try {
+                if (!isDesigner) return showPermissionError();
+                setCanvasNodes((prev) =>
+                  prev.map((n, i) =>
+                    selectedNodes.includes(i)
+                      ? { ...n, y: (n.y || 0) + 40 }
+                      : n,
+                  ),
+                );
+              } catch (err) {
+                console.error(err);
+                setModalMsg(
+                  "Error al mover nodo hacia abajo: " + (err.message || err),
+                );
+              }
+            }}
+            disabled={!isNodeBelowEnabled}
+            title="Node below"
+          >
+            <img src="/ICONOSPNG/NODEBELOW.png" alt="Node below" /> Node below
+          </button>
+
+          <button
+            onClick={() => {
+              try {
+                if (!isDesigner) return showPermissionError();
+                setCanvasNodes((prev) =>
+                  prev.map((n, i) =>
+                    selectedNodes.includes(i)
+                      ? { ...n, y: (n.y || 0) - 40 }
+                      : n,
+                  ),
+                );
+              } catch (err) {
+                console.error(err);
+                setModalMsg(
+                  "Error al mover nodo hacia arriba: " + (err.message || err),
+                );
+              }
+            }}
+            disabled={selectedNodes.length === 0}
+            title="Node above"
+          >
+            <img src="/ICONOSPNG/NODEABOVE.png" alt="Node above" /> Node above
+          </button>
+
+          <button
+            onClick={() => {
+              try {
+                if (!isDesigner) return showPermissionError();
+                setModalMsg("Remove Link accion simulada");
+              } catch (err) {
+                console.error(err);
+                setModalMsg("Error en Remove Link: " + (err.message || err));
+              }
+            }}
+            disabled={selectedNodes.length === 0}
+            title="Remove Link"
+          >
+            <img src="/ICONOSPNG/REMOVELINK.png" alt="Remove Link" /> Remove
+            Link
+          </button>
+
+          <button
+            disabled={isParallelDisabled}
+            title="Parallel"
+            onClick={() => {
+              try {
+                if (!isDesigner) return showPermissionError();
+                setModalMsg("Parallel action (simulada)");
+              } catch (err) {
+                console.error(err);
+                setModalMsg("Error en Parallel: " + (err.message || err));
+              }
+            }}
+          >
+            <img src="/ICONOSPNG/PARALEL.png" alt="Parallel" /> Parallel
+          </button>
+
+          <button
+            disabled={isBranchDisabled}
+            title="Branch"
+            onClick={() => {
+              try {
+                if (!isDesigner) return showPermissionError();
+                setModalMsg("Branch action (simulada)");
+              } catch (err) {
+                console.error(err);
+                setModalMsg("Error en Branch: " + (err.message || err));
+              }
+            }}
+          >
+            <img src="/ICONOSPNG/BRANCH.png" alt="Branch" /> Branch
+          </button>
+
+          <button
+            onClick={() => {
+              try {
+                if (!isDesigner) return showPermissionError();
+                if (isRemoveDisabled) {
+                  if (anyProtectedSelected) {
+                    setModalMsg(
+                      "No se pueden eliminar nodos Begin/Connection/End.",
+                    );
+                    return;
+                  }
+                  return;
+                }
+                setCanvasNodes((prev) =>
+                  prev.filter((_, i) => !selectedNodes.includes(i)),
+                );
+                setSelectedNodes([]);
+              } catch (err) {
+                console.error(err);
+                setModalMsg("Error al eliminar nodos: " + (err.message || err));
+              }
+            }}
+            disabled={isRemoveDisabled}
+            title={
+              isRemoveDisabled && anyProtectedSelected
+                ? "Protected node selected"
+                : "Remove"
+            }
+            className={isRemoveDisabled ? "disabled" : ""}
+          >
+            <img src="/ICONOSPNG/REMOVE.png" alt="Remove" /> Remove
+          </button>
+
+          <button
+            onClick={() => setModalMsg("Equipment view shortcut (simulada)")}
+            title="Equipment"
+          >
+            <img src="/ICONOSPNG/EQUIPMENT.png" alt="Equipment" /> Equipment
+          </button>
+
+          <button
+            onClick={() => setModalMsg("Material view shortcut (simulada)")}
+            title="Material"
+          >
+            <img src="/ICONOSPNG/MATERIAL.png" alt="Material" /> Material
+          </button>
+
+          <button
+            onClick={() => setModalMsg("Personnel view shortcut (simulada)")}
+            title="Personnel"
+          >
+            <img src="/ICONOSPNG/PERSONNEL.png" alt="Personnel" /> Personnel
+          </button>
+
+          <button
+            onClick={() => {
+              try {
+                if (!isDesigner) return showPermissionError();
+                setCanvasNodes((prev) =>
+                  prev.map((n, i) =>
+                    selectedNodes.includes(i)
+                      ? { ...n, x: (n.x || 0) - 80 }
+                      : n,
+                  ),
+                );
+              } catch (err) {
+                console.error(err);
+                setModalMsg("Error en Below Parallel: " + (err.message || err));
+              }
+            }}
+            disabled={selectedNodes.length === 0}
+            title="Below Parallel"
+          >
+            <img src="/ICONOSPNG/BELOWPARALEL.png" alt="Below Parallel" /> Below
+            Parallel
+          </button>
+
+          <button
+            onClick={() => {
+              try {
+                if (!isDesigner) return showPermissionError();
+                setCanvasNodes((prev) =>
+                  prev.map((n, i) =>
+                    selectedNodes.includes(i)
+                      ? { ...n, x: (n.x || 0) + 80 }
+                      : n,
+                  ),
+                );
+              } catch (err) {
+                console.error(err);
+                setModalMsg("Error en Above Parallel: " + (err.message || err));
+              }
+            }}
+            disabled={selectedNodes.length === 0}
+            title="Above Parallel"
+          >
+            <img src="/ICONOSPNG/ABOVEPARALEL.png" alt="Above Parallel" /> Above
+            Parallel
+          </button>
+
+          <button
+            onClick={() => {
+              try {
+                if (selectedNodes.length !== 1)
+                  return setModalMsg(
+                    "Seleccione un único nodo para ver parámetros.",
+                  );
+                const idx = selectedNodes[0];
+                if (!canvasNodes || !canvasNodes[idx])
+                  return setModalMsg("Nodo seleccionado no encontrado.");
+                setSelectedEquipment(canvasNodes[idx]);
+                setParametersModalOpen(true);
+              } catch (err) {
+                console.error(err);
+                setModalMsg(
+                  "Error al mostrar parámetros: " + (err.message || err),
+                );
+              }
+            }}
+            disabled={selectedNodes.length === 0}
+            title="Node Parameters"
+          >
+            <img src="/ICONOSPNG/PARAMETERS.png" alt="Parameters" /> Node
+            Parameters
+          </button>
+
+          <button onClick={toggleGrid} title="Grid">
+            <img src="/ICONOSPNG/GRID.png" alt="Grid" />{" "}
+            {isGridEnabled ? "Grid ON" : "Grid OFF"}
+          </button>
+          <button
+            type="button"
+            onClick={handleTestDiagram}
+            title="Test Diagram"
+          >
+            Test Diagram
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCompileDiagram}
+            style={{ marginLeft: 8 }}
+            title="Compile"
+          >
+            Compile
+          </button>
+        </div>
+      </div>
+
+      {/* VENTANAS DE COMPILACIÓN (overlays) */}
+      {isCompiling && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9998,
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: 20,
+              borderRadius: 12,
+              width: 360,
+              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                margin: "0 auto 12px",
+                border: "4px solid #e5e7eb",
+                borderTop: "4px solid #2563eb",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            />
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              Compilación en curso…
+            </div>
+            <div style={{ color: "#6b7280" }}>
+              Estamos validando y generando el XML
+            </div>
+          </div>
+          <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }`}</style>
+        </div>
+      )}
+
+      {compileDialog.open && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            style={{
+              width: 420,
+              background: "#fff",
+              borderRadius: 12,
+              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+              padding: 20,
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 8 }}>✅ Flujo válido</h3>
+            <p style={{ whiteSpace: "pre-wrap", marginTop: 0 }}>
+              {compileDialog.message}
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                justifyContent: "flex-end",
+                marginTop: 16,
+              }}
+            >
+              <button
+                onClick={() => {
+                  const a = document.createElement("a");
+                  a.href = compileDialog.url;
+                  a.download = compileDialog.filename || "workflow.xml";
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                }}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#2563eb",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                Descargar
+              </button>
+              <button
+                onClick={() => {
+                  if (compileDialog.url) URL.revokeObjectURL(compileDialog.url);
+                  setCompileDialog({
+                    open: false,
+                    url: null,
+                    filename: null,
+                    message: "",
+                  });
+                }}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  color: "#111827",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalMsg && (
+        <ModalMessage
+          title="Resultado"
+          message={modalMsg}
+          onClose={() => setModalMsg(null)}
+        />
+      )}
+
+      <div
+        ref={contentRowRef}
+        style={{
+          marginTop: contentMarginTop != null ? contentMarginTop : undefined,
+        }}
+      >
+        <div
+          className="topLeft"
+          style={{
+            width: "270px",
+            borderRight: "1px solid #ccc",
+            overflowY: "auto",
+            position: "relative",
+            marginTop: 0,
+          }}
+        >
+          <TreeViewExample
+  isDesigner={isDesigner}
+  usedComponents={usedComponents}
+  setDragComponent={(comp) => (window._dragComponent = comp)}
+  onEquipmentSelect={handleEquipmentSelect}
+  setInteractionMode={setInteractionMode} 
+/>
+        </div>
+        <div
+          ref={topRightRef}
+          className="topRight"
+          style={{ flex: 1, padding: "16px", position: "relative" }}
+        >
+          <Canvas
+            nodes={canvasNodes}
+            setNodes={setCanvasNodes}
+            setUsedComponents={setUsedComponents}
+            onDirty={() => setIsDirty(true)}
+            isGridEnabled={isGridEnabled}
+            boundingContainerRef={topRightRef}
+            interactionMode={interactionMode}
+            setInteractionMode={setInteractionMode}
+            isDesigner={isDesigner}
+            showPermissionError={showPermissionError}
+            selectedNodes={selectedNodes}
+            setSelectedNodes={setSelectedNodes}
+            onNodeAdded={handleOpenParamsForNewNode}
+            isReadOnly={isParametersReadOnly}
+            setModalMsg={setModalMsg}
+            manualConnections={manualConnections}
+            setManualConnections={setManualConnections}
+          />
+        </div>
+        <UnsavedChangesModal
+          open={showUnsavedModal}
+          onDiscard={() => {
+            console.log("🗑️ Usuario descartó cambios");
+            setIsDirty(false);
+            performLogout();
+          }}
+          onSave={async () => {
+            console.log("💾 Usuario eligió guardar");
+            setIsSaving(true);
+            try {
+              if (currentWorkflowId) {
+                await executeUpdateWorkflow();
+              } else {
+                const defaultName = `Workflow-${new Date().toISOString().split("T")[0]}-${Date.now()}`;
+                await executeSaveAsNew(defaultName);
+              }
+              setIsDirty(false);
+              performLogout();
+            } catch (error) {
+              console.error("Error al guardar:", error);
+              alert("Error al guardar los cambios: " + error.message);
+            } finally {
+              setIsSaving(false);
+            }
+          }}
+          isSaving={isSaving}
+        />
+        <OpenWorkflowModal
+          open={isLoadModalOpen}
+          onClose={() => setLoadModalOpen(false)}
+          workflows={savedWorkflows}
+          onSelect={handleLoadWorkflow}
+          user={user}
+          userRoles={userRoles}
+        />
+        <SaveWorkflowModal
+          open={isSaveModalOpen}
+          onClose={() => setSaveModalOpen(false)}
+          onSave={executeSaveAsNew}
+        />
+        <NodeParametersModal
+          open={isParametersModalOpen}
+          nodeData={selectedEquipment}
+          onClose={() => setParametersModalOpen(false)}
+          onAccept={({ paramsByTab }) => {
+            const idx = selectedNodes[0];
+            if (idx != null) {
+              setCanvasNodes((prev) => {
+                const copy = [...prev];
+                const oldParams = copy[idx].parameters;
+
+                if (JSON.stringify(oldParams) !== JSON.stringify(paramsByTab)) {
+                  copy[idx] = {
+                    ...copy[idx],
+                    parameters: paramsByTab,
+                  };
+                  setIsDirty(true);
+                }
+
+                return copy;
+              });
+            }
+            setParametersModalOpen(false);
+          }}
+          isReadOnly={isParametersReadOnly}
+        />
+      </div>
+    </div>
+  );
+} // ← FIN App
+
+
+// =============================
+//  CANVAS
+// =============================
+function Canvas({
+  nodes,
+  setNodes,
+  setUsedComponents,
+  isGridEnabled,
+  boundingContainerRef,
+  interactionMode,
+  setInteractionMode,
+  isDesigner,
+  showPermissionError,
+  selectedNodes,
+  setSelectedNodes,
+  onDirty,
+  onNodeAdded,
+  isReadOnly,
+  setModalMsg,
+  manualConnections,
+  setManualConnections,
+}) {
+  const isKeyboardNavigation = false;
+  const [draggedIdx, setDraggedIdx] = useState(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [nodeStart, setNodeStart] = useState([]);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const canvasRef = useRef(null);
+  const nodeElements = useRef({});
+  const [dragStartedOnNode, setDragStartedOnNode] = useState(false);
+  const [hoveredNodeIdx, setHoveredNodeIdx] = useState(null);
+
+  // On first mount, initialize default connections for Begin->Connection->End
+  useEffect(() => {
+    try {
+      if (manualConnections.length === 0 && nodes && nodes.length > 0) {
+        const hasBegin = nodes.some(
+          (n) => n.type === "start" || n.id === "begin",
+        );
+        const hasConn = nodes.some(
+          (n) => n.type === "connection" || n.id === "connection1",
+        );
+        const hasEnd = nodes.some((n) => n.type === "end" || n.id === "end");
+        if (hasBegin && hasConn && hasEnd) {
+          const begin = nodes.find(
+            (n) => n.type === "start" || n.id === "begin",
+          );
+          const conn = nodes.find(
+            (n) => n.type === "connection" || n.id === "connection1",
+          );
+          const end = nodes.find((n) => n.type === "end" || n.id === "end");
+          if (begin && conn && end) {
+            const p1 = choosePortsForPair(begin, conn);
+            const p2 = choosePortsForPair(conn, end);
+            setManualConnections([
+              {
+                from: begin.id,
+                to: conn.id,
+                fromPort: p1.fromPort,
+                toPort: p1.toPort,
+                id: `conn-init-${Date.now()}-1`,
+              },
+              {
+                from: conn.id,
+                to: end.id,
+                fromPort: p2.fromPort,
+                toPort: p2.toPort,
+                id: `conn-init-${Date.now()}-2`,
+              },
+            ]);
+          }
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    const errors = validateWorkflow(nodes, manualConnections);
+
+    if (errors.length > 0) {
+      setModalMsg("⚠️ Errores:\n\n" + errors.join("\n"));
+    }
+  }, [nodes, manualConnections]);
+
+  const [newConnection, setNewConnection] = useState(null);
+  const [errorToast, setErrorToast] = useState(null);
+
+  const GRID_SIZE = 20;
+  const snapToGrid = (value) => Math.round(value / GRID_SIZE) * GRID_SIZE;
+
+  const [isBlankDragging, setIsBlankDragging] = useState(false);
+
+  // Recompute connection ports whenever nodes move
+  useEffect(() => {
+    if (!manualConnections || manualConnections.length === 0) return;
+    setManualConnections((prev) => {
+      let changed = false;
+      const updated = prev.map((mc) => {
+        const fromNode = nodes.find((n) => n.id === mc.from);
+        const toNode = nodes.find((n) => n.id === mc.to);
+        if (!fromNode || !toNode) return mc;
+        const ports = choosePortsForPair(fromNode, toNode);
+        if (ports.fromPort !== mc.fromPort || ports.toPort !== mc.toPort) {
+          changed = true;
+          return { ...mc, fromPort: ports.fromPort, toPort: ports.toPort };
+        }
+        return mc;
+      });
+      return changed ? updated : prev;
+    });
+  }, [nodes]);
+
+  const handleWheel = (e) => {
+    if (e.ctrlKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const scaleAmount = 0.1;
+    let newZoom = zoom - e.deltaY * scaleAmount * 0.01;
+    newZoom = Math.max(0.2, Math.min(newZoom, 2.5));
+    setZoom(newZoom);
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const wheelHandler = (e) => handleWheel(e);
+    canvas.addEventListener("wheel", wheelHandler, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", wheelHandler);
+    };
+  }, [zoom]);
+
+  const handleCanvasMouseDown = (e) => {
+    if (
+      isReadOnly &&
+      (interactionMode === "connect" || interactionMode === "place-node")
+    ) {
+      setModalMsg("No se pueden agregar elementos en modo de solo lectura.");
+      setInteractionMode("select");
+      return;
+    }
+
+    if (!isDesigner && interactionMode !== "select") {
+      showPermissionError();
+      return;
+    }
+
+    if (interactionMode === "connect") {
+      if (e.button === 0) {
+        const canvasAreaEl = e.currentTarget;
+        const transformEl =
+          canvasAreaEl.querySelector(".canvas-transform") || canvasAreaEl;
+        const rectT = transformEl.getBoundingClientRect();
+        let xT = (e.clientX - rectT.left - pan.x) / zoom;
+        let yT = (e.clientY - rectT.top - pan.y) / zoom;
+        if (isGridEnabled) {
+          xT = snapToGrid(xT);
+          yT = snapToGrid(yT);
+        }
+
+        if (!isDesigner) {
+          showPermissionError();
+          return;
+        }
+
+        const existingConnNums = nodes
+          .filter((n) => n.type === "connection")
+          .map((n) => {
+            const m = (n.label || "").match(/Connection\s*(\d+)/i);
+            return m ? parseInt(m[1], 10) : 0;
+          });
+        const maxNum = existingConnNums.length
+          ? Math.max(...existingConnNums)
+          : 0;
+        const nextNum = maxNum + 1;
+
+        const newNode = {
+          label: `Connection ${nextNum}`,
+          x: xT,
+          y: yT,
+          type: "connection",
+          id: `connection-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          color: "red",
+        };
+        setNodes((prev) => [...prev, newNode]);
+        setInteractionMode("place-start-object");
+
+        return;
+      }
+    }
+
+    // ✅ PLACE START OBJECT
+    if (interactionMode === "place-start-object") {
+      if (e.button === 0) {
+        const canvasAreaEl = e.currentTarget;
+        const transformEl =
+          canvasAreaEl.querySelector(".canvas-transform") || canvasAreaEl;
+        const rectT = transformEl.getBoundingClientRect();
+
+        let xT = (e.clientX - rectT.left - pan.x) / zoom;
+        let yT = (e.clientY - rectT.top - pan.y) / zoom;
+
+        if (isGridEnabled) {
+          xT = snapToGrid(xT);
+          yT = snapToGrid(yT);
+        }
+
+        if (!isDesigner) {
+          showPermissionError();
+          return;
+        }
+
+        const newNode = {
+          label: "Start Object",
+          x: xT,
+          y: yT,
+          type: "startObject",
+          id: `start-${Date.now()}`,
+        };
+
+        setNodes((prev) => [...prev, newNode]);
+        setInteractionMode("select");
+        return;
+      }
+    }
+
+    // REQ-UI-002: Add new node with placeholder text
+    if (interactionMode === "place-node") {
+      if (e.button === 0) {
+        const canvasAreaEl = e.currentTarget;
+        const transformEl =
+          canvasAreaEl.querySelector(".canvas-transform") || canvasAreaEl;
+        const rectT = transformEl.getBoundingClientRect();
+
+        let xT = (e.clientX - rectT.left - pan.x) / zoom;
+        let yT = (e.clientY - rectT.top - pan.y) / zoom;
+
+        if (isGridEnabled) {
+          xT = snapToGrid(xT);
+          yT = snapToGrid(yT);
+        }
+
+        if (!isDesigner) {
+          showPermissionError();
+          return;
+        }
+
+        const newNode = {
+          label: null,
+          x: xT,
+          y: yT,
+          type: "Node",
+          id: `node-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        };
+
+        setNodes((prev) => [...prev, newNode]);
+        setInteractionMode("select");
+        return;
+      }
+    }
+
+    if (e.target.classList.contains("canvas-area")) {
+      if (e.button === 2) {
+        e.preventDefault();
+        setIsPanning(true);
+        setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+        document.body.style.cursor = "grab";
+      }
+      if (e.button === 0) {
+        setIsBlankDragging(true);
+        if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+          setSelectedNodes([]);
+        }
+      }
+    }
+  };
+
+  const handleTransformMouseDown = (e) => {
+    if (
+      e.target === e.currentTarget &&
+      e.button === 0 &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.shiftKey
+    ) {
+      setSelectedNodes([]);
+      setDraggedIdx(null);
+      setDragStartedOnNode(false);
+    }
+
+    if (e.target === e.currentTarget && e.button === 2) {
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      document.body.style.cursor = "grabbing";
+    }
+  };
+
+  const handleCanvasMouseMove = (e) => {
+    if (draggedIdx !== null && dragStartedOnNode && e.buttons === 1) {
+      return;
+    }
+    if (isPanning && e.buttons === 2) {
+      setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+    }
+    if (isBlankDragging && e.buttons === 1) {
+      setSelectedNodes([]);
+    }
+    if (newConnection && newConnection.from !== null) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left - pan.x) / zoom;
+      const y = (e.clientY - rect.top - pan.y) / zoom;
+      setNewConnection((prev) => ({ ...prev, to: { x, y } }));
+    }
+  };
+
+  const handleCanvasMouseUp = () => {
+    setIsPanning(false);
+    setDraggedIdx(null);
+    setIsBlankDragging(false);
+    document.body.style.cursor = "";
+    if (newConnection) {
+      setNewConnection(null);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+
+    if (isReadOnly) {
+      setModalMsg(
+        "Acción denegada: No se pueden agregar nuevos nodos en modo de solo lectura."
+      );
+      window._dragComponent = null;
+      return;
+    }
+
+    if (!isDesigner) {
+      showPermissionError();
+      window._dragComponent = null;
+      return;
+    }
+
+    const comp = window._dragComponent;
+
+    if (comp) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      let x = (e.clientX - rect.left - pan.x) / zoom;
+      let y = (e.clientY - rect.top - pan.y) / zoom;
+
+      if (isGridEnabled) {
+        x = snapToGrid(x);
+        y = snapToGrid(y);
+      }
+
+      setUsedComponents((used) => [...new Set([...used, comp.label])]);
+
+      const newNode = {
+        ...comp,
+        x,
+        y,
+        id: `instancia-${Date.now()}`,
+        type: comp.type || comp.label || "noop",
+        parameters: comp.parameters
+          ? JSON.parse(JSON.stringify(comp.parameters))
+          : undefined,
+      };
+
+      if (comp.procedurePhase) {
+        newNode.procedurePhase = comp.procedurePhase;
+      }
+      if (comp.operation) {
+        newNode.operation = comp.operation;
+      }
+
+      setNodes((prevNodes) => {
+        const newNodes = [...prevNodes, newNode];
+
+        const indexForNewNode = newNodes.length - 1;
+
+        if (typeof onNodeAdded === "function") {
+          const t = (newNode.type || "").toLowerCase();
+          const shouldOpen = !["begin", "end", "connection", "start"].includes(t);
+          if (shouldOpen) {
+            onNodeAdded(indexForNewNode, newNode);
+          }
+        }
+
+        if (onDirty) onDirty();
+        return newNodes;
+      });
+
+      window._dragComponent = null;
+    }
+  };
+
+  // Helper: compute a port's absolute position
+  const getPortPosition = (node, port) => {
+    const nodeEl = nodeElements.current[node.id];
+
+    const w = nodeEl ? nodeEl.clientWidth : 120;
+    const h = nodeEl ? nodeEl.clientHeight : 40;
+
+    const leftX = node.x || 0;
+    const topY = node.y || 0;
+    const rightX = leftX + w;
+    const bottomY = topY + h;
+    const centerX = leftX + w / 2;
+    const centerY = topY + h / 2;
+
+    switch (port) {
+      case "top":
+        return { x: centerX, y: topY };
+      case "right":
+        return { x: rightX, y: centerY };
+      case "bottom":
+        return { x: centerX, y: bottomY };
+      case "left":
+      default:
+        return { x: leftX, y: centerY };
+    }
+  };
+
+  // Decide which ports to use between two nodes based on relative position
+  const choosePortsForPair = (fromNode, toNode) => {
+    if (!fromNode || !toNode) return { fromPort: "right", toPort: "left" };
+    const fx = fromNode.x || 0;
+    const fy = fromNode.y || 0;
+    const tx = toNode.x || 0;
+    const ty = toNode.y || 0;
+    const dx = tx - fx;
+    const dy = ty - fy;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      return dx > 0
+        ? { fromPort: "right", toPort: "left" }
+        : { fromPort: "left", toPort: "right" };
+    }
+
+    return dy > 0
+      ? { fromPort: "bottom", toPort: "top" }
+      : { fromPort: "top", toPort: "bottom" };
+  };
+
+  // Toggle or start connection when interacting with a port
+  const handlePortClick = (nodeIdx, port, e) => {
+    e.stopPropagation();
+    const node = nodes[nodeIdx];
+    if (!node) return;
+
+    if (newConnection && newConnection.from !== null) {
+      if (newConnection.from === node.id && newConnection.fromPort === port) {
+        setNewConnection(null);
+        return;
+      }
+
+      setManualConnections((prev) => {
+        const alreadyExists = prev.some(
+          (c) =>
+            c.from === newConnection.from &&
+            c.to === node.id &&
+            c.fromPort === newConnection.fromPort &&
+            c.toPort === port
+        );
+
+        if (alreadyExists) {
+          setErrorToast("Esa conexión ya existe");
+          setTimeout(() => setErrorToast(null), 2000);
+          return prev;
+        }
+
+        const conn = {
+          from: newConnection.from,
+          to: node.id,
+          fromPort: newConnection.fromPort,
+          toPort: port,
+          id: `conn-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        };
+
+        return [...prev, conn];
+      });
+
+      setNewConnection(null);
+      return;
+    }
+
+    const existing = (manualConnections || []).find(
+      (c) =>
+        (c.from === node.id && c.fromPort === port) ||
+        (c.to === node.id && c.toPort === port)
+    );
+
+    if (existing) {
+      setManualConnections((prev) =>
+        prev.filter((x) => x.id !== existing.id)
+      );
+      return;
+    }
+
+    const fromPos = getPortPosition(node, port);
+    setNewConnection({
+      from: node.id,
+      fromPort: port,
+      to: { x: fromPos.x, y: fromPos.y },
+    });
+  };
+
+  const handleDelete = (idx) => {
+    if (isReadOnly) {
+      setModalMsg("Acción denegada: El flujo es de solo lectura.");
+      return;
+    }
+
+    if (!isDesigner) {
+      showPermissionError();
+      return;
+    }
+
+    const label = nodes[idx].label;
+    const newNodes = nodes.filter((_, i) => i !== idx);
+    setNodes(newNodes);
+
+    if (onDirty) onDirty();
+
+    setUsedComponents((used) =>
+      newNodes.some((n) => n.label === label)
+        ? used
+        : used.filter((u) => u !== label)
+    );
+  };
+
+  const [invalidConnection, setInvalidConnection] = useState(null);
+
+  const handleMouseUpOnNode = (toIdx, e) => {
+    e.stopPropagation();
+    if (
+      interactionMode === "connect" &&
+      newConnection &&
+      newConnection.from !== null
+    ) {
+      const fromNode = nodes.find((n) => n.id === newConnection.from);
+      const toNode = nodes[toIdx];
+
+      if (fromNode.type === "start" && toNode.type === "end") {
+        setErrorToast("No se puede conectar 'Begin' directamente a 'End'");
+        setInvalidConnection({
+          from: fromNode,
+          to: toNode,
+          timestamp: Date.now(),
+        });
+        setTimeout(() => setErrorToast(null), 3000);
+        setTimeout(() => setInvalidConnection(null), 1000);
+        setNewConnection(null);
+        setInteractionMode("select");
+        return;
+      }
+
+      const ports = choosePortsForPair(fromNode, toNode);
+
+    
+      const conn = {
+        from: fromNode.id,
+        to: toNode.id,
+        fromPort: ports.fromPort,
+        toPort: ports.toPort,
+        id: `conn-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      };
+
+      if (!conn.from || !conn.to) {
+        console.error("❌ Conexión inválida:", conn);
+        return;
+      }
+
+      setManualConnections((prev) => {
+        const alreadyExists = prev.some(
+          (c) =>
+            c.from === conn.from &&
+            c.to === conn.to &&
+            c.fromPort === conn.fromPort &&
+            c.toPort === conn.toPort
+        );
+
+        if (alreadyExists) {
+          console.warn("⚠️ Conexión duplicada ignorada:", conn);
+          return prev;
+        }
+
+        return [...prev, conn];
+      });
+
+      setNewConnection(null);
+      setInteractionMode("select");
+
+      return;
+    }
+  };
+
+  // Lógica centralizada de selección y arrastre múltiple
+  function handleNodeMouseDown(idx, e) {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+
+    if (!isDesigner) {
+      showPermissionError();
+      return;
+    }
+
+    if (interactionMode === "connect") {
+      const startNode = nodes[idx];
+      setNewConnection({
+        from: startNode.id,
+        to: { x: startNode.x, y: startNode.y },
+      });
+      return;
+    }
+
+    const isModifierPressed = e.ctrlKey || e.metaKey || e.shiftKey;
+    const isNodeSelected = selectedNodes.includes(idx);
+
+    let currentSelection = [...selectedNodes];
+
+    if (isModifierPressed) {
+      if (isNodeSelected) {
+        currentSelection = currentSelection.filter((i) => i !== idx);
+      } else {
+        currentSelection.push(idx);
+      }
+    } else {
+      if (!isNodeSelected) {
+        currentSelection = [idx];
+      }
+    }
+
+    setSelectedNodes(currentSelection);
+
+    if (isReadOnly) {
+      setModalMsg("No se pueden mover nodos en modo de solo lectura.");
+      return;
+    }
+
+    setDraggedIdx(idx);
+    setDragStartedOnNode(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setNodeStart(nodes.filter((_, i) => currentSelection.includes(i)));
+  }
+
+  useEffect(() => {
+    if (draggedIdx === null || !dragStartedOnNode) return;
+
+    if (onDirty) onDirty();
+
+    const handleGlobalMouseMove = (e) => {
+      if (e.buttons !== 1) return;
+      const dx = (e.clientX - dragStart.x) / zoom;
+      const dy = (e.clientY - dragStart.y) / zoom;
+
+      setNodes((currentNodes) => {
+        const newNodes = [...currentNodes];
+        selectedNodes.forEach((selIdx) => {
+          const baseNode = nodeStart.find((n) => n.id === newNodes[selIdx].id);
+          if (baseNode) {
+            let x = baseNode.x + dx;
+            let y = baseNode.y + dy;
+            if (isGridEnabled) {
+              const startNodeOriginal = nodes[selIdx];
+              x =
+                startNodeOriginal.x +
+                snapToGrid(baseNode.x + dx - startNodeOriginal.x);
+              y =
+                startNodeOriginal.y +
+                snapToGrid(baseNode.y + dy - startNodeOriginal.y);
+            }
+            newNodes[selIdx] = { ...newNodes[selIdx], x, y };
+          }
+        });
+        return newNodes;
+      });
+    };
+
+    const handleGlobalMouseUp = () => {
+      setDraggedIdx(null);
+      setDragStartedOnNode(false);
+      document.body.style.cursor = "";
+    };
+
+    document.addEventListener("mousemove", handleGlobalMouseMove);
+    document.addEventListener("mouseup", handleGlobalMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleGlobalMouseMove);
+      document.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [
+    draggedIdx,
+    dragStart,
+    nodeStart,
+    setNodes,
+    zoom,
+    isGridEnabled,
+    selectedNodes,
+    dragStartedOnNode,
+    nodes,
+  ]);
+
+  // Build a layered, zoom-aware grid
+  const gridStyle = (() => {
+    if (!isGridEnabled) return {};
+
+    const baseSizes = [160, 80, 40, 20, 10];
+
+    const bgImages = [];
+    const bgSizes = [];
+    const bgPositions = [];
+
+    for (let i = 0; i < baseSizes.length; i++) {
+      const base = baseSizes[i];
+
+      const step = Math.max(1, Math.round(base * zoom));
+
+      const isSmallest = i === baseSizes.length - 1;
+      if (step < 6 && !isSmallest) continue;
+
+      const opacity = i === 0 ? 0.14 : i === 1 ? 0.1 : i === 2 ? 0.07 : 0.045;
+      const color = `rgba(80,88,100,${opacity})`;
+
+      const horiz = `repeating-linear-gradient(0deg, transparent 0px, transparent ${Math.max(0, step - 1)}px, ${color} ${Math.max(0, step - 1)}px, ${color} ${step}px)`;
+      const vert = `repeating-linear-gradient(90deg, transparent 0px, transparent ${Math.max(0, step - 1)}px, ${color} ${Math.max(0, step - 1)}px, ${color} ${step}px)`;
+
+      bgImages.push(horiz, vert);
+      const sizePx = `${step}px ${step}px`;
+      bgSizes.push(sizePx, sizePx);
+
+      const mod = (v, m) => ((v % m) + m) % m;
+      const offsetX = pan.x;
+      const offsetY = pan.y;
+      const posX = mod(offsetX, step);
+      const posY = mod(offsetY, step);
+      bgPositions.push(`${posX}px ${posY}px`, `${posX}px ${posY}px`);
+    }
+
+    if (bgImages.length === 0) return {};
+
+    return {
+      backgroundImage: bgImages.join(", "),
+      backgroundSize: bgSizes.join(", "),
+      backgroundPosition: bgPositions.join(", "),
+    };
+  })();
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const preventContextMenu = (e) => e.preventDefault();
+    canvas.addEventListener("contextmenu", preventContextMenu);
+    return () => {
+      canvas.removeEventListener("contextmenu", preventContextMenu);
+    };
+  }, []);
+
+  // =============================
+  //  RETURN CANVAS
+  // =============================
+  return (
+    <div
+      ref={canvasRef}
+      className={`canvas-area ${interactionMode}-mode`}
+      onMouseDown={handleCanvasMouseDown}
+      onMouseMove={handleCanvasMouseMove}
+      onMouseUp={handleCanvasMouseUp}
+      onMouseLeave={handleCanvasMouseUp}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        ...gridStyle,
+      }}
+    >
+      {errorToast && <div className="error-toast">{errorToast}</div>}
+
+      <svg
+        width="3000"
+        height="2000"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          pointerEvents: "none",
+          zIndex: 0,
+          width: "100%",
+          height: "100%",
+        }}
+      >
+        <g
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: "0 0",
+          }}
+        >
+          {/* Manual connections */}
+          {manualConnections.map((mc) => {
+            const fromNode = nodes.find((n) => n.id === mc.from);
+            const toNode = nodes.find((n) => n.id === mc.to);
+            if (!fromNode || !toNode) return null;
+            const p1 = getPortPosition(fromNode, mc.fromPort);
+            const p2 = getPortPosition(toNode, mc.toPort);
+            return (
+              <line
+                key={mc.id}
+                x1={p1.x}
+                y1={p1.y}
+                x2={p2.x}
+                y2={p2.y}
+                stroke="#2c3e50"
+                strokeWidth={3}
+                opacity={0.95}
+              />
+            );
+          })}
+
+          {newConnection &&
+            newConnection.from !== null &&
+            (() => {
+              const fromNode = nodes.find((n) => n.id === newConnection.from);
+              if (!fromNode) return null;
+
+              const startPos = getPortPosition(
+                fromNode,
+                newConnection.fromPort,
+              );
+
+              return (
+                <line
+                  x1={startPos.x}
+                  y1={startPos.y}
+                  x2={newConnection.to.x}
+                  y2={newConnection.to.y}
+                  stroke="#e67e22"
+                  strokeWidth="2"
+                  strokeDasharray="5,5"
+                />
+              );
+            })()}
+
+          {invalidConnection && (
+            <BlinkingRedLine
+              from={invalidConnection.from}
+              to={invalidConnection.to}
+            />
+          )}
+        </g>
+      </svg>
+
+      <div
+        className="canvas-transform"
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+        }}
+        onMouseDown={handleTransformMouseDown}
+        onMouseMove={handleCanvasMouseMove}
+        onMouseUp={handleCanvasMouseUp}
+        onMouseLeave={handleCanvasMouseUp}
+      >
+        {nodes.map((node, idx) => (
+          <div
+            key={node.id || idx}
+            className={`canvas-node selecto-node${
+              draggedIdx === idx ? " grabbing" : " grab"
+            }${selectedNodes.includes(idx) ? " selected" : ""}`}
+            data-idx={idx}
+            ref={(el) => {
+              if (el) {
+                nodeElements.current[node.id] = el;
+              } else {
+                delete nodeElements.current[node.id];
+              }
+            }}
+            onMouseEnter={() => setHoveredNodeIdx(idx)}
+            onMouseLeave={() =>
+              setHoveredNodeIdx((h) => (h === idx ? null : h))
+            }
+            style={{
+              left: node.x,
+              top: node.y,
+              border: selectedNodes.includes(idx)
+                ? "3px solid transparent"
+                : "2px solid transparent",
+              boxShadow: "none",
+              zIndex: selectedNodes.includes(idx) ? 10 : 1,
+            }}
+            data-nodeid={node.id}
+            onMouseDown={(e) => handleNodeMouseDown(idx, e)}
+            onMouseUp={(e) => handleMouseUpOnNode(idx, e)}
+          >
+            {isReadOnly && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: -10,
+                  right: -10,
+                  fontSize: "16px",
+                  zIndex: 20,
+                  pointerEvents: "none",
+                }}
+              >
+                🔒
+              </div>
+            )}
+
+            {node.type === "start" || node.type === "end" ? (
+              <>
+                <svg
+                  width="40"
+                  height="30"
+                  viewBox="0 0 40 30"
+                  className="start-end-svg"
+                >
+                  <polygon
+                    points="5,5 35,5 20,25"
+                    fill="#222"
+                    stroke="#e67e22"
+                    strokeWidth="2"
+                  />
+                </svg>
+                <div className="start-end-label">
+                  {node.type === "start" ? "Begin" : "End"}
+                </div>
+              </>
+            ) : node.type === "connection" ? (
+              <div className="connection-node">
+                <svg
+                  width="40"
+                  height="20"
+                  viewBox="0 0 40 20"
+                  className="connection-svg"
+                >
+                  <rect
+                    x="8"
+                    y="8"
+                    width="24"
+                    height="4"
+                    fill={node.color || "#222"}
+                  />
+                  <rect
+                    x="8"
+                    y="14"
+                    width="24"
+                    height="4"
+                    fill={node.color || "#222"}
+                  />
+                  <rect
+                    x="8"
+                    y="2"
+                    width="24"
+                    height="4"
+                    fill={node.color || "#222"}
+                  />
+                </svg>
+                <div
+                  className="connection-label"
+                  style={{ color: node.color || "inherit" }}
+                >
+                  {node.label || "Connection"}
+                </div>
+              </div>
+            ) : node.type === "startObject" ? (
+              <>
+                <div className="start-object-node">
+                  <div className="start-object-label">
+                    {node.label || "Start Object"}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  className={`canvas-node-label ${
+                    !node.label ? "placeholder" : ""
+                  }`}
+                >
+                  {node.label || "Enter Text"}
+                </div>
+                <div className="canvas-node-desc">{node.desc}</div>
+              </>
+            )}
+
+            <button
+              className="canvas-node-delete-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(idx);
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title="Delete"
+            >
+              ×
+            </button>
+
+            {/* Port dots - visible on hover or when selected */}
+            {(hoveredNodeIdx === idx || selectedNodes.includes(idx)) && (
+              <>
+                <div
+                  className="canvas-node-port port-top"
+                  onClick={(e) => handlePortClick(idx, "top", e)}
+                  title="top port"
+                />
+                <div
+                  className="canvas-node-port port-right"
+                  onClick={(e) => handlePortClick(idx, "right", e)}
+                  title="right port"
+                />
+                <div
+                  className="canvas-node-port port-bottom"
+                  onClick={(e) => handlePortClick(idx, "bottom", e)}
+                  title="bottom port"
+                />
+                <div
+                  className="canvas-node-port port-left"
+                  onClick={(e) => handlePortClick(idx, "left", e)}
+                  title="left port"
+                />
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <Selecto
+        boundContainer={boundingContainerRef.current}
+        container={canvasRef}
+        selectableTargets={[".selecto-node"]}
+        hitRate={0}
+        selectByClick={false}
+        selectFromInside={false}
+        toggleContinueSelect={["shift", "ctrl", "meta"]}
+        onSelect={(e) => {
+          const selected = e.selected.map((el) =>
+            Number(el.getAttribute("data-idx")),
+          );
+          if (!isKeyboardNavigation) {
+            setSelectedNodes(selected);
+          }
+        }}
+        enabled={true}
+      />
+      <div className="canvas-zoom-controls">
+        <button onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>
+          -
+        </button>
+        <span>{Math.round(zoom * 100)}%</span>
+        <button onClick={() => setZoom((z) => Math.min(2.5, z + 0.1))}>
+          +
+        </button>
+      </div>
+    </div>
+  );
+} // ← FIN Canvas
+
+
+// =============================
+//  BlinkingRedLine
+// =============================
+function BlinkingRedLine({ from, to }) {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const interval = setInterval(() => setVisible((v) => !v), 150);
+    return () => clearInterval(interval);
+  }, []);
+  if (!from || !to) return null;
+  return visible ? (
+    <line
+      x1={from.x + 60}
+      y1={from.y + 20}
+      x2={to.x + 60}
+      y2={to.y + 20}
+      stroke="#ff2222"
+      strokeWidth="5"
+      strokeDasharray="10,6"
+      opacity={0.8}
+    />
+  ) : null;
+} 
+
+
+
+
+

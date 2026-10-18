@@ -1,0 +1,218 @@
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000000;
+}
+
+.modal-content {
+  background: white;
+  padding: 25px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 900px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.workflow-list {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+/* CABECERA - 4 COLUMNAS BIEN DEFINIDAS */
+.workflow-list-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.5fr;
+  gap: 15px;
+  padding: 12px 15px;
+  background-color: #f8f9fa;
+  font-weight: bold;
+  border-bottom: 1px solid #ddd;
+  color: #333;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.workflow-list-header span {
+  display: flex;
+  align-items: center;
+}
+
+/* ITEMS - 4 COLUMNAS BIEN DEFINIDAS */
+.workflow-list-item {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.5fr;
+  gap: 15px;
+  align-items: center;
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+  min-height: 60px;
+}
+
+.workflow-list-item:hover {
+  background-color: #f5f5f5;
+}
+
+.workflow-list-item:last-child {
+  border-bottom: none;
+}
+
+/* CADA ELEMENTO DENTRO DEL ITEM OCUPA SU CELDA */
+.workflow-list-item > span {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 20px;
+}
+
+.workflow-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.workflow-date {
+  color: #666;
+  font-size: 0.9em;
+}
+
+/* ESTILOS PARA LOS PILLS */
+.status-pill,
+.role-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border-radius: 12px;
+  color: white;
+  font-size: 0.75em;
+  font-weight: bold;
+  min-width: 80px;
+  max-width: 120px;
+  text-align: center;
+}
+
+.status-pill {
+  text-transform: capitalize;
+}
+
+.role-pill {
+  text-transform: uppercase;
+}
+
+/* Colores para roles */
+.role-designer {
+  background-color: #3498db !important;
+}
+
+.role-reviewer {
+  background-color: #e67e22 !important;
+}
+
+/* Colores para estados */
+.status-draft {
+  background-color: #6c757d;
+}
+.status-pending_review {
+  background-color: #ffc107;
+  color: #000;
+}
+.status-changes_requested {
+  background-color: #dc3545;
+}
+.status-approved {
+  background-color: #28a745;
+}
+.status-deployed {
+  background-color: #17a2b8;
+}
+
+/* ESTADOS DEL MODAL */
+.empty-list-message {
+  padding: 40px 20px;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-style: italic;
+}
+
+.error-message {
+  background: #ffe6e6;
+  color: #d63031;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  border-left: 4px solid #d63031;
+}
+
+/* BOTONES */
+.modal-buttons {
+  margin-top: 20px;
+  text-align: right;
+}
+
+.modal-buttons button {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.modal-buttons button:hover {
+  background: #545b62;
+}
+
+/* SCROLLBAR */
+.workflow-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.workflow-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 0 6px 6px 0;
+}
+
+.workflow-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.workflow-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.role-pill.role-deployer {
+  background-color: #6f42c1;
+  color: white;
+}

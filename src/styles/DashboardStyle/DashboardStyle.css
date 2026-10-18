@@ -1,0 +1,1045 @@
+/* Dashboard styles - cleaned and adjusted. Preserves canvas/node/grid visuals. */
+
+/* Dropdown disabled option */
+.dropdown-option.disabled {
+  color: #aaa;
+  cursor: not-allowed;
+  background-color: #f0f0f0;
+}
+
+/* Tree view */
+.tree-node {
+  position: relative;
+}
+
+.tree-label {
+  position: relative;
+  padding: 2px 4px;
+}
+
+/* 1. Contenedor de hijos */
+.tree-children {
+  margin-left: 16px; /* Sangría */
+  padding-left: 8px; /* Espacio para la línea horizontal */
+  position: relative; /* Para posicionar las líneas */
+}
+
+/* 2. Línea vertical para CADA nodo hijo */
+.tree-children > .tree-node::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -8px; /* Coincide con el padding-left del contenedor */
+  width: 1px;
+  height: 100%; /* La línea ocupa toda la altura del nodo por defecto */
+  background-color: #ccc;
+}
+
+/* 3. Línea horizontal */
+.tree-children > .tree-node > .tree-label::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 8px;
+  border-top: 1px solid #ccc;
+  transform: translateY(-50%);
+}
+
+/* La última rama no dibuja la línea completa vertical */
+.tree-children > .tree-node.last-child::before {
+  height: 50%; /* La línea solo llega hasta la mitad del nodo para mostrar que ahi acaba la relacion */
+  max-height: 0.8em;
+}
+
+/* Layout helpers */
+.topUp {
+  text-align: center;
+  width: 100%;
+  z-index: 9;
+}
+
+.topLeft {
+  text-align: left;
+  width: 270px;
+  min-width: 220px;
+  max-width: 340px;
+  border-right: 1px solid #ccc;
+  overflow-y: auto;
+  position: relative;
+  margin-top: 0;
+  top: 0;
+  height: 100%;
+  background: #fafbfc;
+  box-sizing: border-box;
+}
+
+.topRight {
+  flex: 1;
+  padding: 16px;
+  position: relative;
+  margin-top: 0px;
+  min-width: 0;
+  height: 100%;
+  background: #fff;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.topLeft,
+.topRight {
+  height: 100%; /* Ocupan el 100% de la altura del div que los contiene */
+}
+
+/* Menú superior */
+.menu-bar {
+  background: #222;
+  color: #fff;
+  padding: 10px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: sans-serif;
+  position: relative;
+  z-index: 10;
+}
+
+.menu-item {
+  position: relative;
+  margin-right: 20px;
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 5px 10px;
+}
+
+.dropdown {
+  position: absolute;
+  top: 35px;
+  left: 0;
+  background: #333;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  min-width: 140px;
+  z-index: 10;
+}
+
+.dropdown-option {
+  padding: 10px 18px;
+  cursor: pointer;
+  border-bottom: 1px solid #444;
+  background: #333;
+  transition: background 0.2s;
+}
+
+.dropdown-option:hover {
+  background: #444;
+}
+
+.main-content {
+  height: calc(100vh - 40px);
+  background: #fff;
+}
+
+/* Contenedor para el título y los botones de acción */
+.center-section {
+  display: flex;
+  align-items: center;
+  gap: 20px; /* Espacio entre el título y los botones */
+  flex-grow: 1; /* Permite que ocupe el espacio sobrante */
+  justify-content: center; /* Centra el contenido */
+}
+
+.workflow-title-container {
+  padding-left: 20px;
+}
+
+.workflow-title-container h2 {
+  margin: 0;
+  white-space: nowrap;
+  font-size: 1.1em;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+/* Contenedor para los botones contextuales */
+.contextual-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Estilos para los botones (opcional, para que se vean bien) */
+.contextual-actions button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  background-color: #f0f0f0;
+}
+
+.contextual-actions button.approve-btn {
+  background-color: #28a745;
+  color: white;
+  border-color: #28a745;
+}
+
+/* Contenedor para la información del usuario (email y botón) */
+.user-info-dashboard {
+  margin-left: auto; /* <-- Esto empuja todo a la derecha */
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.user-info-dashboard span {
+  font-size: 0.9em;
+}
+
+.logout-btn {
+  background-color: #c0392b;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.logout-btn:hover {
+  background-color: #e74c3c;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 16px 8px 280px;
+  background-color: #f4f4f4;
+  border-bottom: 1px solid #ccc;
+  margin-left: 0;
+  width: 100%;
+  box-sizing: border-box;
+  left: 0;
+  margin-top: 1px; /* Separación visual del canvas */
+}
+
+.toolbar button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 2px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  min-width: 38px;
+  min-height: 38px;
+  max-width: 60px;
+  max-height: 60px;
+  margin: 0 1px;
+  flex-shrink: 1;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.toolbar button img {
+  width: 18px;
+  height: 18px;
+  margin-bottom: 2px;
+}
+
+@media (max-width: 900px) {
+  .toolbar {
+    gap: 4px;
+    padding: 4px 2px 4px 2px;
+  }
+  .toolbar button {
+    min-width: 32px;
+    min-height: 32px;
+    max-width: 48px;
+    max-height: 48px;
+    font-size: 11px;
+  }
+  .toolbar button img {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+@media (max-width: 600px) {
+  .toolbar {
+    gap: 2px;
+    padding: 2px 1px 2px 1px;
+  }
+  .toolbar button {
+    min-width: 28px;
+    min-height: 28px;
+    max-width: 38px;
+    max-height: 38px;
+    font-size: 10px;
+  }
+  .toolbar button img {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* Barra persistente: fija sobre la parte superior del lienzo */
+.toolbar[role="toolbar"] {
+  position: sticky;
+  top: 0;
+  z-index: 9997;
+}
+
+/* Estilo para botones de la toolbar cuando están deshabilitados (visualmente atenuados) */
+.toolbar button[disabled],
+.toolbar button.disabled {
+  opacity: 0.45;
+  filter: grayscale(40%);
+  cursor: not-allowed;
+  pointer-events: none;
+  border-color: #ddd;
+}
+
+button:disabled {
+  background-color: #ccc;
+  color: #666;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.toolbar button:hover {
+  background-color: #eee;
+}
+
+/* Layout principal: treeview y canvas alineados y responsivos, bottom pegado */
+.App {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.App > .topUp + div {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 0%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  margin: 0;
+  z-index: 1;
+}
+
+/* Modal fondo */
+.create-node-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Modal caja */
+.create-node-modal {
+  background: #fff;
+  padding: 32px 28px 24px 28px;
+  border-radius: 12px;
+  min-width: 360px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  font-family: "Segoe UI", Arial, sans-serif;
+  position: relative;
+}
+
+.create-node-modal h2 {
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-size: 1.35em;
+  color: #2a2a2a;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.create-node-modal label {
+  display: block;
+  font-weight: 500;
+  color: #444;
+  margin-bottom: 6px;
+}
+
+.create-node-modal input,
+.create-node-modal textarea {
+  width: 100%;
+  padding: 7px 10px;
+  margin-bottom: 16px;
+  border: 1px solid #bbb;
+  border-radius: 5px;
+  font-size: 15px;
+  background: #fafafa;
+  resize: vertical;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.create-node-modal input:focus,
+.create-node-modal textarea:focus {
+  border-color: #0078d4;
+  outline: none;
+}
+
+.create-node-modal textarea {
+  min-height: 48px;
+  max-height: 120px;
+}
+
+.create-node-modal-buttons {
+  text-align: right;
+  margin-top: 10px;
+}
+
+.create-node-modal-buttons button {
+  background: #bbb;
+  color: #222;
+  border: none;
+  padding: 7px 18px;
+  margin-left: 8px;
+  border-radius: 5px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.create-node-modal-buttons button:last-child {
+  background: #0078d4;
+  color: #fff;
+}
+
+.create-node-modal-buttons button:hover {
+  background: #999;
+}
+
+.create-node-modal-buttons button:last-child:hover {
+  background: #005fa3;
+}
+
+/* Canvas & nodes (preserve visuals) */
+.canvas-node {
+  position: absolute;
+  background: #ffffff;
+  border: 1px solid #b0b0b0;
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  width: 100px; /* REQ-UI-002: Make it square */
+  height: 100px;
+  box-sizing: border-box;
+  font-weight: bold;
+  -webkit-user-select: none; /* Safari 3+, iOS 3+ */
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center; /* Center text inside */
+  transition:
+    box-shadow 0.2s,
+    border-color 0.2s;
+}
+
+.canvas-node.selected {
+  border-color: transparent; /* Asegura que el borde no reaparezca */
+  box-shadow: none;
+}
+
+.canvas-node.grabbing {
+  cursor: grabbing;
+  z-index: 100;
+}
+
+.canvas-node.grab {
+  cursor: grab;
+  z-index: 1;
+}
+
+.canvas-node-label {
+  font-weight: bold;
+  margin-bottom: 2px;
+  color: #222;
+  font-size: 15px;
+}
+
+/* REQ-UI-002: Style for node placeholder text */
+.canvas-node-label.placeholder {
+  color: #888;
+  font-style: italic;
+  font-weight: normal;
+}
+
+.canvas-node-desc {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+  text-align: center;
+}
+
+.start-end-svg {
+  margin-bottom: 2px;
+}
+
+.start-end-label {
+  color: #e67e22;
+  font-weight: bold;
+  font-size: 14px;
+  margin-top: 2px;
+  text-align: center;
+}
+
+.connection-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.connection-svg {
+  margin-bottom: 2px;
+}
+
+.connection-label {
+  color: #222;
+  font-weight: bold;
+  font-size: 14px;
+  margin-top: 2px;
+  text-align: center;
+}
+
+.canvas-node-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.canvas-node-port {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid #0078d4;
+  border-radius: 50%; /* Círculo perfecto */
+  cursor: crosshair;
+  z-index: 20;
+  box-sizing: border-box;
+}
+
+.canvas-area {
+  background: #fafbfc;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  min-height: 400px;
+  -webkit-user-select: none; /* Safari 3+, iOS 3+ */
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  overscroll-behavior: contain;
+  border: 1px dashed #bbb;
+  cursor: default;
+}
+
+.canvas-area.is-panning {
+  cursor: grabbing;
+}
+
+/* Watermark logo en el canvas */
+.canvas-area::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px; /* Ajusta según el tamaño deseado */
+  height: 400px;
+  background-image: url("../../assets/logo-background.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.2; /* Opacidad baja para marca de agua sutil */
+  pointer-events: none; /* No interfiere con interacciones */
+  z-index: 0;
+}
+
+/* Asegura que el contenido del canvas esté sobre la marca de agua */
+.canvas-transform {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3000px;
+  height: 2000px;
+  will-change: transform;
+  transform-origin: 0 0;
+  z-index: 1; /* Sobre la marca de agua */
+}
+
+.canvas-transform {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3000px;
+  height: 2000px;
+  will-change: transform;
+  transform-origin: 0 0;
+}
+
+.canvas-zoom-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: #fff;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px #eee;
+  z-index: 10;
+}
+
+.canvas-zoom-controls button {
+  background: #0078d4;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.canvas-zoom-controls button:hover {
+  background: #005fa3;
+}
+
+.canvas-node:hover {
+  filter: drop-shadow(0 0 4px rgba(230, 126, 34, 0.7));
+}
+
+/* Cursores por modo */
+.canvas-area.select-mode {
+  cursor: default;
+}
+
+.canvas-area.pan-mode {
+  cursor: grab;
+}
+
+.canvas-area.connect-mode {
+  cursor: crosshair;
+}
+
+.error-toast {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #e74c3c;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  z-index: 1001;
+  font-weight: bold;
+}
+
+/* Estilo opcional para cuadrícula activada: la lógica de background-position se maneja en JS */
+.canvas-area.grid-enabled {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 19px,
+      #ccc 19px,
+      #ccc 20px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 19px,
+      #ccc 19px,
+      #ccc 20px
+    );
+  background-size: 20px 20px;
+  background-position: 0 0;
+}
+
+/* Pequeñas mejoras de accesibilidad */
+.tree-label:focus {
+  outline: 2px solid rgba(0, 120, 212, 0.25);
+  border-radius: 4px;
+}
+
+/* Punto superior */
+.port-top {
+  top: 0;
+  left: 50%;
+  transform: translate(
+    -50%,
+    -50%
+  ); /* Se mueve 50% de su propio tamaño a la izquierda y arriba */
+}
+
+/* Punto derecho */
+.port-right {
+  top: 50%;
+  left: 100%; /* O right: 0; si se prefiere */
+  transform: translate(-50%, -50%);
+}
+
+/* Punto inferior */
+.port-bottom {
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Punto izquierdo */
+.port-left {
+  top: 50%;
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+
+/*Parameters style */
+.parameters-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.parameters-modal {
+  background-color: #f0f2f5;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  width: 90vw;
+  max-width: 1400px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: sans-serif;
+  margin-top: 130px;
+}
+
+.parameters-modal-header {
+  padding: 12px 20px;
+  background-color: #fff;
+  border-bottom: 1px solid #d9d9d9;
+}
+
+.parameters-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.parameters-modal-content {
+  flex-grow: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.parameters-left-pane {
+  width: 220px;
+  background-color: #fff;
+  border-right: 1px solid #d9d9d9;
+  padding: 10px 0;
+  overflow-y: auto;
+}
+
+.parameters-left-pane ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.parameters-left-pane li {
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.parameters-left-pane li:hover {
+  background-color: #e6f7ff;
+}
+
+.parameters-left-pane li.active {
+  background-color: #1890ff;
+  color: white;
+  font-weight: bold;
+}
+
+.parameters-right-pane {
+  flex-grow: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.parameters-section {
+  background-color: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  padding: 16px;
+}
+
+.parameters-section h4 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 15px;
+  position: relative;
+}
+
+.new-parameter-btn {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid #d9d9d9;
+  background-color: #fafafa;
+  cursor: pointer;
+}
+
+.parameters-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.parameters-table th,
+.parameters-table td {
+  border: 1px solid #e8e8e8;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.parameters-table thead {
+  background-color: #fafafa;
+  font-weight: 600;
+}
+
+.parameters-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.parameters-table tbody tr:hover {
+  background-color: #f5f5f5;
+}
+
+.parameters-table tbody tr.selected {
+  background-color: #e6f7ff;
+}
+
+.audit-table tbody tr {
+  cursor: default;
+}
+
+.attributes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+  font-size: 13px;
+}
+
+.attribute-item strong {
+  display: block;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.attributes-placeholder {
+  color: #999;
+  font-style: italic;
+}
+
+.parameters-modal-footer {
+  padding: 12px 20px;
+  background-color: #fff;
+  border-top: 1px solid #d9d9d9;
+  text-align: right;
+}
+
+.parameters-modal-footer button {
+  padding: 6px 15px;
+  border-radius: 4px;
+  border: 1px solid #d9d9d9;
+  background-color: #fff;
+  cursor: pointer;
+  margin-left: 8px;
+  font-size: 14px;
+}
+
+.parameters-modal-footer button.accept-btn {
+  background-color: #1890ff;
+  color: white;
+  border-color: #1890ff;
+}
+
+.properties-modal-backdrop {
+  position: fixed;
+  inset: 0; /* Equivalente a top: 0; left: 0; right: 0; bottom: 0; */
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.properties-modal {
+  background: #fff;
+  padding: 24px 28px;
+  border-radius: 10px;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  font-family: "Segoe UI", Arial, sans-serif;
+  animation: modal-fade-in 0.2s ease-out;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.properties-modal h2 {
+  margin-top: 0;
+  margin-bottom: 24px;
+  font-size: 1.25em;
+  color: #2a2a2a;
+  font-weight: 600;
+}
+
+.prop-item {
+  margin-bottom: 16px;
+}
+
+.prop-item label {
+  display: block;
+  font-weight: 500;
+  color: #444;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.prop-item input[type="text"],
+.prop-item textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+  background: #fdfdfd;
+  box-sizing: border-box;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.prop-item input:focus,
+.prop-item textarea:focus {
+  border-color: #0078d4;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+}
+
+.prop-item input:disabled {
+  background-color: #f0f0f0;
+  color: #777;
+}
+
+.properties-modal-buttons {
+  text-align: right;
+  margin-top: 24px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.properties-modal-buttons button {
+  padding: 8px 20px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.properties-modal-buttons button.save-btn {
+  background-color: #0078d4;
+  color: white;
+  border-color: #0078d4;
+}
+
+.properties-modal-buttons button:hover {
+  border-color: #999;
+  background-color: #e0e0e0;
+}
+
+.properties-modal-buttons button.save-btn:hover {
+  background-color: #005a9e;
+  border-color: #005a9e;
+}
+
+/* fin de estilos */
