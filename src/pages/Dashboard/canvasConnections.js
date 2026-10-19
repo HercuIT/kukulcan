@@ -1,7 +1,8 @@
-// Conexiones de un workflow abierto. Los guardados antes de WFPR-003 no tienen, así que se
-// regeneran las aristas por defecto Begin → Connection 1 → End, como hace el lienzo al montarse.
+// Conexiones de un workflow abierto. Los guardados antes de WFPR-003 no tienen (connections
+// null), así que se regeneran las aristas por defecto Begin → Connection 1 → End, como hace el
+// lienzo al montarse. Un arreglo guardado se respeta aunque esté vacío: el usuario borró las aristas.
 export function connectionsForLoadedWorkflow(content) {
-  if (content?.connections?.length) return content.connections;
+  if (Array.isArray(content?.connections)) return content.connections;
   const nodes = content?.nodes || [];
   const begin = nodes.find((n) => n.type === "start" || n.id === "begin");
   const conn = nodes.find(

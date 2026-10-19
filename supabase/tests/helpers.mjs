@@ -54,8 +54,23 @@ export async function createTestDb() {
     return id;
   }
 
+  // Rol y usuario actuales, para restaurarlos al salir: con un `reset role` a secas, una llamada
+  // anidada devolvería el resto de la llamada externa al superusuario y se saltaría el RLS.
+  async function currentIdentity() {
+    const { rows } = await q(
+      "select current_user as role, coalesce(current_setting('request.jwt.claim.sub', true), '') as sub",
+    );
+    return rows[0];
+  }
+
+  async function restoreIdentity({ role, sub }) {
+    await db.exec(`set role "${role.replace(/"/g, '""')}"`);
+    await q("select set_config('request.jwt.claim.sub', $1, false)", [sub]);
+  }
+
   // Ejecuta fn como el usuario dado (rol authenticated) o como anon (uid null).
   async function as(uid, fn) {
+    const previous = await currentIdentity();
     await db.exec(`set role ${uid ? "authenticated" : "anon"}`);
     await q("select set_config('request.jwt.claim.sub', $1, false)", [
       uid || "",
@@ -63,18 +78,19 @@ export async function createTestDb() {
     try {
       return await fn();
     } finally {
-      await db.exec("reset role");
-      await q("select set_config('request.jwt.claim.sub', '', false)");
+      await restoreIdentity(previous);
     }
   }
 
   // Ejecuta fn como service_role (lo que usan el servidor y los scripts de migración): sin auth.uid().
   async function asServiceRole(fn) {
+    const previous = await currentIdentity();
     await db.exec("set role service_role");
+    await q("select set_config('request.jwt.claim.sub', '', false)");
     try {
       return await fn();
     } finally {
-      await db.exec("reset role");
+      await restoreIdentity(previous);
     }
   }
 

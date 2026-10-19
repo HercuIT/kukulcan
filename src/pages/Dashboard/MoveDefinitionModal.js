@@ -37,12 +37,22 @@ export default function MoveDefinitionModal({
       .map((r) => ({ id: r.node.id, depth: r.depth, node: r.node }));
   }, [open, definition, tree]);
 
+  const canGoTop = definition?.kind === "user";
+
+  // Si Realtime quita el destino elegido de la lista, la selección vuelve a vacía (no se manda
+  // un id viejo que ya no se ve).
+  const stillOffered =
+    (target === TOP_LEVEL && canGoTop) || options.some((o) => o.id === target);
+  useEffect(() => {
+    if (target && !stillOffered) setTarget("");
+  }, [target, stillOffered]);
+  const selected = stillOffered ? target : "";
+
   if (!open || !definition) return null;
 
-  const canGoTop = definition.kind === "user";
   const confirm = () => {
-    if (!target) return;
-    onMove(target === TOP_LEVEL ? null : target);
+    if (!selected) return;
+    onMove(selected === TOP_LEVEL ? null : selected);
   };
 
   return (
@@ -53,10 +63,14 @@ export default function MoveDefinitionModal({
         <select
           id="move-definition-target"
           size={10}
-          value={target}
+          value={selected}
           onChange={(e) => setTarget(e.target.value)}
           style={{ width: "100%" }}
         >
+          {/* Sin esta opción el navegador marca la primera y no se puede elegir con un clic */}
+          <option value="" disabled>
+            {S.choose}
+          </option>
           {canGoTop && <option value={TOP_LEVEL}>{S.topLevel}</option>}
           {options.map((o) => (
             <option key={o.id} value={o.id}>
@@ -70,7 +84,7 @@ export default function MoveDefinitionModal({
         )}
         <div className="create-node-modal-buttons" style={{ marginTop: 16 }}>
           <button onClick={onClose}>{S.cancel}</button>
-          <button onClick={confirm} disabled={!target}>
+          <button onClick={confirm} disabled={!selected}>
             {S.move}
           </button>
         </div>

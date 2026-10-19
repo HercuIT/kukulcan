@@ -1,6 +1,7 @@
 import { supabase } from "./supabaseClient";
 import {
   cleanNodes,
+  dropDanglingConnections,
   profileToUser,
   rowToWorkflow,
   toAppError,
@@ -27,7 +28,7 @@ export async function createWorkflow({ name, nodes, connections = [] }) {
       id,
       name,
       nodes: cleanNodes(nodes),
-      connections: cleanNodes(connections),
+      connections: cleanNodes(dropDanglingConnections(connections, nodes)),
     }),
   );
   return id;
@@ -36,7 +37,9 @@ export async function createWorkflow({ name, nodes, connections = [] }) {
 // Guarda el contenido. El trigger sube la versión y sella fecha y autor.
 export async function saveWorkflow(id, { nodes, connections, name }) {
   const fields = { nodes: cleanNodes(nodes) };
-  if (connections !== undefined) fields.connections = cleanNodes(connections);
+  // Nunca se guarda una conexión hacia un nodo borrado.
+  if (connections !== undefined)
+    fields.connections = cleanNodes(dropDanglingConnections(connections, nodes));
   if (name !== undefined) fields.name = name;
   const rows = throwIfError(
     await supabase.from("workflows").update(fields).eq("id", id).select("id"),

@@ -56,7 +56,9 @@ export function rowToWorkflow(row) {
   return {
     id: row.id,
     name: row.name,
-    content: { nodes: row.nodes || [], connections: row.connections || [] },
+    // connections null = guardado antes de WFPR-003 (el editor regenera las aristas por defecto);
+    // [] = el usuario guardó sin conexiones. No se confunden.
+    content: { nodes: row.nodes || [], connections: row.connections ?? null },
     metadata: {
       status: row.status,
       version: row.version,
@@ -104,6 +106,12 @@ export function rowToDefinition(row) {
 }
 
 // Quita los valores undefined de cada nodo antes de guardarlo como jsonb.
+// Quita las conexiones que apuntan a un nodo que ya no está en `nodes`.
+export function dropDanglingConnections(connections = [], nodes = []) {
+  const ids = new Set(nodes.map((n) => n?.id));
+  return connections.filter((c) => c && ids.has(c.from) && ids.has(c.to));
+}
+
 export function cleanNodes(nodes = []) {
   return nodes.map((node) =>
     Object.fromEntries(

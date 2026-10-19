@@ -211,7 +211,7 @@ export const createDefinition = (parentId, fields) =>
   rpc("create_definition", { parent: parentId ?? null, fields });
 
 export const addPredefinedChild = (parentId, predefined) =>
-  rpc("add_predefined_child", { parent: parentId, predefined });
+  rpc("add_predefined_child", { parent: parentId ?? null, predefined });
 
 export const updateDefinition = (id, fields) =>
   rpc("update_definition", { def: id, fields });
@@ -232,10 +232,16 @@ export const deleteDefinition = (id, keepChildren = false) =>
  */
 export function subscribeToDefinitions(callback, onError = console.error) {
   let active = true;
-  const load = () =>
-    listDefinitions()
-      .then((defs) => active && callback(defs))
-      .catch((err) => active && onError(err));
+  // Varias recargas pueden estar en vuelo y responder desordenadas: solo cuenta la última pedida,
+  // para que una respuesta vieja no pise una más nueva.
+  let latest = 0;
+  const load = () => {
+    const seq = ++latest;
+    const current = () => active && seq === latest;
+    return listDefinitions()
+      .then((defs) => current() && callback(defs))
+      .catch((err) => current() && onError(err));
+  };
 
   const channel = supabase
     .channel("user-definitions")

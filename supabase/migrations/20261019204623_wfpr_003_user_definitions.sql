@@ -5,7 +5,10 @@
 -- Conexiones del lienzo
 -- =========================================================
 
-alter table public.workflows add column connections jsonb not null default '[]';
+-- null = workflow guardado antes de WFPR-003 (el editor le regenera las aristas por defecto);
+-- un arreglo, aunque esté vacío, es lo que el usuario guardó.
+alter table public.workflows add column connections jsonb
+  check (connections is null or jsonb_typeof(connections) = 'array');
 
 grant insert (connections) on public.workflows to authenticated;
 grant update (connections) on public.workflows to authenticated;
@@ -40,8 +43,8 @@ create table public.user_definitions (
   version        text not null default '1.0',
   description    text,
   abstract       text,
-  implementation jsonb not null default '{}',
-  parameters     jsonb not null default '[]',
+  implementation jsonb not null default '{}' check (jsonb_typeof(implementation) = 'object'),
+  parameters     jsonb not null default '[]' check (jsonb_typeof(parameters) = 'array'),
   predefined     jsonb,          -- kind = 'predefined': el elemento predefinido referenciado
   position       integer not null default 0,
   created_by     uuid default auth.uid() references public.profiles,
@@ -149,6 +152,19 @@ language sql security definer set search_path = '' as $$
    where d.id = o.id and d.position <> o.rn - 1;
 $$;
 
+-- parameters debe ser un arreglo e implementation un objeto: el panel los recorre así, y un valor
+-- malformado rompería el árbol compartido para todos los lectores.
+create function private.require_valid_fields(fields jsonb) returns void
+language plpgsql immutable set search_path = '' as $$
+begin
+  if fields ? 'parameters' and jsonb_typeof(fields -> 'parameters') <> 'array' then
+    raise exception 'parameters debe ser una lista.' using errcode = 'P0001', hint = 'invalid_fields';
+  end if;
+  if fields ? 'implementation' and jsonb_typeof(fields -> 'implementation') <> 'object' then
+    raise exception 'implementation debe ser un objeto.' using errcode = 'P0001', hint = 'invalid_fields';
+  end if;
+end $$;
+
 revoke all on schema private from public, anon, authenticated;
 
 create function public.create_definition(parent uuid, fields jsonb) returns uuid
@@ -157,6 +173,7 @@ declare new_id uuid;
 begin
   perform private.begin_definition_change();
   perform private.require_user_parent(parent);
+  perform private.require_valid_fields(fields);
   if nullif(btrim(fields ->> 'name'), '') is null then
     raise exception 'El nombre es obligatorio.' using errcode = 'P0001', hint = 'name_required';
   end if;
@@ -212,6 +229,7 @@ begin
     raise exception 'Las referencias predefinidas no se editan aquí.'
       using errcode = 'P0001', hint = 'invalid_parent';
   end if;
+  perform private.require_valid_fields(fields);
   if fields ? 'name' and nullif(btrim(fields ->> 'name'), '') is null then
     raise exception 'El nombre es obligatorio.' using errcode = 'P0001', hint = 'name_required';
   end if;

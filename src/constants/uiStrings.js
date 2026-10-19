@@ -151,6 +151,7 @@ export const UI_STRINGS = {
         predefinedNeedsParent:
           "Pre-defined definitions must stay inside a user definition.",
         nameRequired: "The name is required.",
+        invalidFields: "The definition's parameters or implementation are malformed.",
         noPermission: "You need the Designer role to change definitions.",
         generic: "The definitions couldn't be updated.",
       },
@@ -158,6 +159,7 @@ export const UI_STRINGS = {
     moveDefinitionModal: {
       title: (name) => `Move “${name}”`,
       newParent: "New parent",
+      choose: "Choose a destination…",
       topLevel: "Top level",
       noTargets: "There's nowhere else to move it.",
       cancel: "Cancel",
@@ -168,6 +170,8 @@ export const UI_STRINGS = {
       hasChildren: (count) =>
         `It directly contains ${count} definition${count === 1 ? "" : "s"}.`,
       keepChildren: "Keep children (move them up one level)",
+      cannotKeepPredefined:
+        "Its pre-defined children can't move to the top level, so they can only be deleted with it.",
       deleteAll: (count) =>
         `Delete with everything inside (${count} definitions)`,
       delete: "Delete",

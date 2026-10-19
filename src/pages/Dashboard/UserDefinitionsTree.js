@@ -30,6 +30,7 @@ export function definitionErrorText(err) {
     invalid_parent: S.errors.invalidParent,
     predefined_needs_parent: S.errors.predefinedNeedsParent,
     name_required: S.errors.nameRequired,
+    invalid_fields: S.errors.invalidFields,
   };
   if (err?.hint && byHint[err.hint]) return byHint[err.hint];
   if (err?.code === "permission-denied") return S.errors.noPermission;
@@ -99,17 +100,23 @@ export default function UserDefinitionsTree({
     return visibleRows(tree.roots, expanded);
   }, [tree, expanded, search]);
 
-  // Ejecuta un cambio, muestra su error si falla y recarga (por si Realtime no está activo).
+  // Ejecuta un cambio y muestra su error si falla. Después recarga (por si Realtime no está
+  // activo), pero un fallo al recargar no cuenta como fallo del cambio: ya está guardado, y
+  // reintentarlo daría "nombre duplicado".
   const run = useCallback(async (action) => {
     setMessage("");
     try {
       await action();
-      setDefinitions(await listDefinitions());
-      return true;
     } catch (err) {
       setMessage(definitionErrorText(err));
       return false;
     }
+    try {
+      setDefinitions(await listDefinitions());
+    } catch (err) {
+      setMessage(definitionErrorText(err));
+    }
+    return true;
   }, []);
 
   const toggle = (id) =>
@@ -281,7 +288,9 @@ export default function UserDefinitionsTree({
   const renderGroups = ({ node, depth }) => {
     const paramsKey = `${node.id}:params`;
     const paramsOpen = expanded.has(paramsKey);
-    const params = (node.parameters || []).filter((p) => p && p.name);
+    const params = (
+      Array.isArray(node.parameters) ? node.parameters : []
+    ).filter((p) => p && p.name);
     return (
       <div key={`${node.id}:groups`}>
         <div
@@ -476,6 +485,7 @@ export default function UserDefinitionsTree({
       <DeleteDefinitionModal
         open={Boolean(deleteTarget)}
         definition={deleteTarget}
+        tree={tree}
         onClose={() => setDeleteTarget(null)}
         onConfirm={async (keepChildren) => {
           const ok = await run(() =>

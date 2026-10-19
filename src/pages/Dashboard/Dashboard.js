@@ -10,6 +10,7 @@ import CheckoutModal from "./CheckoutModal";
 import VersionHistoryModal from "./VersionHistoryModal";
 import UserDefinitionsTree from "./UserDefinitionsTree";
 import { connectionsForLoadedWorkflow } from "./canvasConnections";
+import { dropDanglingConnections } from "../../backend/mappers";
 import { EquipmentNode } from "./equipmentData";
 import { MaterialsNode } from "./MaterialData";
 import { onSessionChange, signOut } from "../../backend/authApi";
@@ -994,14 +995,21 @@ function CreateNodeModal({
       setError("");
       setProgram(initial?.implementation?.program || "MainProgram");
       setRoutine(initial?.implementation?.routine || "SFC_Control_Routine");
+      // Al editar se cargan los parámetros tal cual (sin fila en blanco si no tiene ninguno). Los
+      // BOOL siguen siendo booleanos: String(false) es "false", que Boolean() convertiría en true.
       setParams(
-        initial?.parameters?.length
-          ? initial.parameters.map((p, i) => ({
-              id: Date.now() + i,
-              name: p.name ?? "",
-              dataType: p.dataType || "REAL",
-              defaultValue: String(p.defaultValue ?? ""),
-            }))
+        initial
+          ? (Array.isArray(initial.parameters) ? initial.parameters : []).map(
+              (p, i) => ({
+                id: Date.now() + i,
+                name: p?.name ?? "",
+                dataType: p?.dataType || "REAL",
+                defaultValue:
+                  p?.dataType === "BOOL"
+                    ? parseBool(p.defaultValue)
+                    : String(p?.defaultValue ?? ""),
+              }),
+            )
           : [{ id: Date.now(), name: "", dataType: "REAL", defaultValue: "" }],
       );
     }
@@ -1026,7 +1034,7 @@ function CreateNodeModal({
   const normalizeDefaultValue = (p) => {
     switch (p.dataType) {
       case "BOOL":
-        return Boolean(p.defaultValue);
+        return parseBool(p.defaultValue);
       case "INT":
         return Number.isFinite(parseInt(p.defaultValue, 10))
           ? parseInt(p.defaultValue, 10)
@@ -1062,7 +1070,10 @@ function CreateNodeModal({
   };
 
   const handleOk = () => {
-    if (!name.trim() || !version.trim() || !desc.trim() || !abstract.trim()) {
+    // Descripción y abstract se piden al crear; al editar pueden quedar vacíos (definiciones
+    // guardadas sin ellos, que la base permite).
+    const missingText = !initial && (!desc.trim() || !abstract.trim());
+    if (!name.trim() || !version.trim() || missingText) {
       setError(
         UI_STRINGS.dashboard.createNodeModal.errors.porFavorCompletaTodosLos,
       );
@@ -1255,7 +1266,7 @@ function CreateNodeModal({
                       >
                         <input
                           type="checkbox"
-                          checked={Boolean(p.defaultValue)}
+                          checked={parseBool(p.defaultValue)}
                           onChange={(e) =>
                             updateParam(p.id, "defaultValue", e.target.checked)
                           }
@@ -2287,6 +2298,10 @@ function MenuBar({
 //  HELPERS
 // =============================
 
+// Valor por defecto de un parámetro BOOL → booleano. Acepta el string "true"/"false" de datos viejos.
+export const parseBool = (value) =>
+  value === true || String(value).trim().toLowerCase() === "true";
+
 function getDefaultWorkflowNodes() {
   const baseX = 140;
   const startY = 100;
@@ -3064,7 +3079,10 @@ export default function App({ user, userRoles }) {
         onApprove={handleApprove}
         OnLogout={handleLogout}
         onNewWorkflow={() => {
-          setCanvasNodes(getDefaultWorkflowNodes());
+          const nodes = getDefaultWorkflowNodes();
+          setCanvasNodes(nodes);
+          // Las conexiones del workflow anterior no pasan al nuevo: solo las aristas por defecto.
+          setManualConnections(connectionsForLoadedWorkflow({ nodes }));
           setUsedComponents([]);
           setIsSessionReadOnly(false);
         }}
@@ -3285,8 +3303,12 @@ export default function App({ user, userRoles }) {
                   }
                   return;
                 }
-                setCanvasNodes((prev) =>
-                  prev.filter((_, i) => !selectedNodes.includes(i)),
+                const remaining = canvasNodes.filter(
+                  (_, i) => !selectedNodes.includes(i),
+                );
+                setCanvasNodes(remaining);
+                setManualConnections((prev) =>
+                  dropDanglingConnections(prev, remaining),
                 );
                 setSelectedNodes([]);
               } catch (err) {
@@ -4297,6 +4319,7 @@ function Canvas({
     const label = nodes[idx].label;
     const newNodes = nodes.filter((_, i) => i !== idx);
     setNodes(newNodes);
+    setManualConnections((prev) => dropDanglingConnections(prev, newNodes));
 
     if (onDirty) onDirty();
 

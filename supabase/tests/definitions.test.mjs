@@ -248,6 +248,60 @@ describe("user definitions: negative", () => {
     await rejectsWith(create(null, { name: "   " }), "P0001", "name_required");
   });
 
+  test("non-array parameters or non-object implementation are rejected on create and update", async () => {
+    for (const bad of [
+      { parameters: { name: "p" } },
+      { parameters: "p" },
+      { parameters: null },
+      { implementation: [] },
+    ]) {
+      await rejectsWith(
+        create(null, { name: unique("Bad"), ...bad }),
+        "P0001",
+        "invalid_fields",
+      );
+    }
+    const id = await create(null, { name: unique("Good"), parameters: [] });
+    await rejectsWith(
+      as(users.designer, () =>
+        q("select public.update_definition($1, $2)", [
+          id,
+          JSON.stringify({ parameters: 42 }),
+        ]),
+      ),
+      "P0001",
+      "invalid_fields",
+    );
+    const { rows } = await q(
+      "select parameters from public.user_definitions where id = $1",
+      [id],
+    );
+    assert.deepEqual(rows[0].parameters, []);
+  });
+
+  test("the table itself refuses malformed parameters (service role bypasses the RPCs)", async () => {
+    await rejectsWith(
+      db.asServiceRole(() =>
+        q(
+          "insert into public.user_definitions (name, parameters) values ('Raw', '{}')",
+        ),
+      ),
+      "23514",
+    );
+  });
+
+  test("workflows.connections must be an array when set", async () => {
+    await rejectsWith(
+      as(users.designer, () =>
+        q(
+          "insert into public.workflows (id, name, nodes, connections) values ($1, 'WF', '[]', '{}')",
+          [crypto.randomUUID()],
+        ),
+      ),
+      "23514",
+    );
+  });
+
   test("duplicate name and version among siblings is rejected, ignoring case and spaces", async () => {
     const parent = await create(null, { name: unique("Dup") });
     await create(parent, { name: "Mixer", version: "1.0" });
@@ -356,6 +410,54 @@ describe("user definitions: edge", () => {
     const child = await create(top, { name: unique("Promoted") });
     await remove(top, true);
     assert.equal((await row(child)).parent_id, null);
+  });
+
+  test("workflows saved before WFPR-003 keep null connections; a saved empty list stays empty", async () => {
+    const legacy = crypto.randomUUID();
+    const empty = crypto.randomUUID();
+    await as(users.designer, async () => {
+      await q(
+        "insert into public.workflows (id, name, nodes) values ($1, 'Legacy', '[]')",
+        [legacy],
+      );
+      await q(
+        "insert into public.workflows (id, name, nodes, connections) values ($1, 'Empty', '[]', '[]')",
+        [empty],
+      );
+    });
+    const { rows } = await q(
+      "select id, connections from public.workflows where id = any($1::uuid[]) order by name",
+      [[empty, legacy]],
+    );
+    assert.deepEqual(
+      rows.map((r) => [r.id, r.connections]),
+      [
+        [empty, []],
+        [legacy, null],
+      ],
+    );
+  });
+
+  test("nested as()/asServiceRole() calls restore the outer identity", async () => {
+    const whoami = async () =>
+      (await q("select current_user as role, auth.uid() as uid")).rows[0];
+    await as(users.designer, async () => {
+      await as(users.designer2, async () => {
+        assert.equal((await whoami()).uid, users.designer2);
+      });
+      assert.deepEqual(await whoami(), {
+        role: "authenticated",
+        uid: users.designer,
+      });
+      await db.asServiceRole(async () => {
+        assert.equal((await whoami()).role, "service_role");
+      });
+      assert.deepEqual(await whoami(), {
+        role: "authenticated",
+        uid: users.designer,
+      });
+    });
+    assert.equal((await whoami()).uid, null);
   });
 
   test("the table is published to Realtime", async () => {
