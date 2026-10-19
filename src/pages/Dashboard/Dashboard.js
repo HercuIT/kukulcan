@@ -8,6 +8,9 @@ import ShareWorkflowModal from "./ShareWorkflowModal";
 import UnsavedChangesModal from "./UnsavedChangesModal";
 import CheckoutModal from "./CheckoutModal";
 import VersionHistoryModal from "./VersionHistoryModal";
+import UserDefinitionsTree from "./UserDefinitionsTree";
+import { connectionsForLoadedWorkflow } from "./canvasConnections";
+import { dropDanglingConnections } from "../../backend/mappers";
 import { EquipmentNode } from "./equipmentData";
 import { MaterialsNode } from "./MaterialData";
 import { onSessionChange, signOut } from "../../backend/authApi";
@@ -22,6 +25,10 @@ import {
   saveWorkflow,
   subscribeToWorkflow,
 } from "../../backend/workflowsApi";
+import {
+  expandForCanvas,
+  predefinedKeyFor,
+} from "../../backend/definitionsApi";
 import ModalMessage from "../../components/ModalMessage";
 import Selecto from "react-selecto";
 import Logo from "../../assets/Logofinal.png";
@@ -960,7 +967,14 @@ function makeCompactIds(nodesInOrder) {
 }
 
 // Modal para el formulario "Create Node"
-function CreateNodeModal({ open, onClose, onOk }) {
+// initial: definición a editar (modo edición); parentPath: nombres de los ancestros al crear dentro.
+export function CreateNodeModal({
+  open,
+  onClose,
+  onOk,
+  initial = null,
+  parentPath = null,
+}) {
   const [name, setName] = React.useState("");
   const [version, setVersion] = React.useState("1.0");
   const [desc, setDesc] = React.useState("");
@@ -974,18 +988,32 @@ function CreateNodeModal({ open, onClose, onOk }) {
 
   React.useEffect(() => {
     if (open) {
-      setName("");
-      setVersion("1.0");
-      setDesc("");
-      setAbstract("");
+      setName(initial?.name ?? "");
+      setVersion(initial?.version ?? "1.0");
+      setDesc(initial?.description ?? "");
+      setAbstract(initial?.abstract ?? "");
       setError("");
-      setProgram("MainProgram");
-      setRoutine("SFC_Control_Routine");
-      setParams([
-        { id: Date.now(), name: "", dataType: "REAL", defaultValue: "" },
-      ]);
+      setProgram(initial?.implementation?.program || "MainProgram");
+      setRoutine(initial?.implementation?.routine || "SFC_Control_Routine");
+      // Al editar se cargan los parámetros tal cual (sin fila en blanco si no tiene ninguno). Los
+      // BOOL siguen siendo booleanos: String(false) es "false", que Boolean() convertiría en true.
+      setParams(
+        initial
+          ? (Array.isArray(initial.parameters) ? initial.parameters : []).map(
+              (p, i) => ({
+                id: Date.now() + i,
+                name: p?.name ?? "",
+                dataType: p?.dataType || "REAL",
+                defaultValue:
+                  p?.dataType === "BOOL"
+                    ? parseBool(p.defaultValue)
+                    : String(p?.defaultValue ?? ""),
+              }),
+            )
+          : [{ id: Date.now(), name: "", dataType: "REAL", defaultValue: "" }],
+      );
     }
-  }, [open]);
+  }, [open, initial]);
 
   const addParam = () =>
     setParams((l) => [
@@ -1006,7 +1034,7 @@ function CreateNodeModal({ open, onClose, onOk }) {
   const normalizeDefaultValue = (p) => {
     switch (p.dataType) {
       case "BOOL":
-        return Boolean(p.defaultValue);
+        return parseBool(p.defaultValue);
       case "INT":
         return Number.isFinite(parseInt(p.defaultValue, 10))
           ? parseInt(p.defaultValue, 10)
@@ -1023,26 +1051,29 @@ function CreateNodeModal({ open, onClose, onOk }) {
 
   const validateParams = () => {
     for (const p of params) {
-      if (!p.name || !p.dataType)
-        return `Parámetro inválido: completa Name y Data Type (${p.name || "sin nombre"}).`;
+      const E = UI_STRINGS.dashboard.createNodeModal.errors;
+      if (!p.name || !p.dataType) return E.invalidParameter(p.name);
       if (p.dataType === "BOOL") {
         if (p.defaultValue === undefined || p.defaultValue === null)
-          return `Default Value requerido para ${p.name}.`;
+          return E.defaultRequired(p.name);
       } else if (p.dataType === "INT") {
-        if (!/^-?\\d+$/.test(String(p.defaultValue)))
-          return `Default Value entero inválido en ${p.name}.`;
+        if (!/^-?\d+$/.test(String(p.defaultValue).trim()))
+          return E.invalidInt(p.name);
       } else if (p.dataType === "REAL") {
         if (isNaN(parseFloat(String(p.defaultValue))))
-          return `Default Value real inválido en ${p.name}.`;
+          return E.invalidReal(p.name);
       } else if (String(p.defaultValue).length === 0) {
-        return `Default Value requerido para ${p.name}.`;
+        return E.defaultRequired(p.name);
       }
     }
     return null;
   };
 
   const handleOk = () => {
-    if (!name.trim() || !version.trim() || !desc.trim() || !abstract.trim()) {
+    // Descripción y abstract se piden al crear; al editar pueden quedar vacíos (definiciones
+    // guardadas sin ellos, que la base permite).
+    const missingText = !initial && (!desc.trim() || !abstract.trim());
+    if (!name.trim() || !version.trim() || missingText) {
       setError(
         UI_STRINGS.dashboard.createNodeModal.errors.porFavorCompletaTodosLos,
       );
@@ -1079,7 +1110,18 @@ function CreateNodeModal({ open, onClose, onOk }) {
           paddingRight: "8px",
         }}
       >
-        <h2>{UI_STRINGS.dashboard.createNodeModal.createNode}</h2>
+        <h2>
+          {initial
+            ? UI_STRINGS.dashboard.createNodeModal.titleEdit(initial.name)
+            : UI_STRINGS.dashboard.createNodeModal.createNode}
+        </h2>
+        {parentPath?.length > 0 && (
+          <p style={{ marginTop: 0, color: "#555" }}>
+            {UI_STRINGS.dashboard.createNodeModal.insideOf(
+              parentPath.join(" \u203a "),
+            )}
+          </p>
+        )}
         <label>{UI_STRINGS.dashboard.createNodeModal.nodeDefinitionName}</label>
         <input
           value={name}
@@ -1224,7 +1266,7 @@ function CreateNodeModal({ open, onClose, onOk }) {
                       >
                         <input
                           type="checkbox"
-                          checked={Boolean(p.defaultValue)}
+                          checked={parseBool(p.defaultValue)}
                           onChange={(e) =>
                             updateParam(p.id, "defaultValue", e.target.checked)
                           }
@@ -1676,8 +1718,6 @@ function TreeViewExample({
     target: null,
   });
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [userCreatedNodes, setUserCreatedNodes] = useState([]);
   const [preDefinedNodes, setPreDefinedNodes] = useState([]);
   const [predefWizardOpen, setPredefWizardOpen] = useState(false);
 
@@ -1723,8 +1763,16 @@ function TreeViewExample({
       procedurePhase: node.procedurePhase || null,
       operation: node.operation || null,
     };
+    // Elementos de Pre-Defined Definitions: se pueden soltar dentro de una definición de usuario.
+    if (node.predefinedKey) {
+      dragData.kind = "predefined";
+      dragData.predefinedKey = node.predefinedKey;
+      dragData.type = node.label;
+    }
 
     e.dataTransfer.setData("application/json", JSON.stringify(dragData));
+    // El lienzo lee window._dragComponent al soltar.
+    setDragComponent?.(dragData);
   };
 
   let idx = 0;
@@ -1754,69 +1802,46 @@ function TreeViewExample({
     }
 
     if (isUserCreated) {
-      actualChildren = [
-        ...userCreatedNodes
-          .filter((n) => n && n.name)
-          .map((n) => {
-            const paramsChildren = Array.isArray(n.parameters)
-              ? n.parameters
-                  .filter((p) => p && typeof p === "object" && p.name)
-                  .map((p) => ({
-                    label: String(p.name),
-                    type: "parameter",
-                    desc: `Data Type: ${p?.dataType || "N/A"}`,
-                    abstract: `Default: ${String(p?.defaultValue ?? "")}`,
-                    onClick: () =>
-                      openParamDetails(p, `${n.name} v ${n.version}`),
-                  }))
-              : [];
-            return {
-              label: `${n.name} v ${n.version}`,
-              desc: n.desc,
-              abstract: n.abstract,
-              color: "green",
-              details: {
-                capacity: "NA",
-                lastMaintenance: null,
-                manufacturerModel: null,
-                status: "Unknown",
-              },
-              implementation: n.implementation,
-              isDraggable: true,
-              type: n.name,
-              children: [
-                { label: "Parameters", children: paramsChildren },
-                { label: "Equipment", children: [] },
-                { label: "Material", children: [] },
-                { label: "Personnel", children: [] },
-                { label: "Elements", children: [] },
-              ],
-            };
-          })
-          .filter(Boolean),
-        ...(Array.isArray(children)
-          ? children.filter((child) => child && child.label)
-          : []),
-      ];
+      return (
+        <UserDefinitionsTree
+          key={label}
+          label={label}
+          level={level}
+          isOpen={isOpen}
+          onToggle={() =>
+            setExpandedNodes((prev) => ({ ...prev, [label]: !prev[label] }))
+          }
+          isDesigner={isDesigner}
+          search={search}
+          setDragComponent={setDragComponent}
+          openParamDetails={openParamDetails}
+          renderCreateModal={(props) => <CreateNodeModal {...props} />}
+        />
+      );
     }
 
     if (label === "Pre-Defined Definitions" && children) {
       actualChildren = [
         ...children
           .filter((child) => child && child.label)
-          .map((child) => ({ ...child, color: "blue" })),
+          .map((child) => ({
+            ...child,
+            color: "blue",
+            predefinedKey: predefinedKeyFor(child),
+          })),
         // Nodos creados con el PredefinedNodeWizard
         ...preDefinedNodes.map((n) => ({
           label: `${n.procedurePhase} - ${n.operation}`,
           color: "blue",
           isDraggable: true,
+          procedurePhase: n.procedurePhase,
+          operation: n.operation,
+          predefinedKey: predefinedKeyFor(n),
         })),
       ];
     }
 
-    const childCount = isUserCreated
-      ? userCreatedNodes.length
-      : actualChildren.length;
+    const childCount = actualChildren.length;
     const displayLabel = childCount > 0 ? `${label} (${childCount})` : label;
     const hasChildren =
       Array.isArray(actualChildren) && actualChildren.length > 0;
@@ -1826,14 +1851,12 @@ function TreeViewExample({
         <div
           className="tree-node"
           onClick={
-            node?.label === "User Created Definitions"
-              ? undefined
-              : isEquipment && onEquipmentSelect
-                ? () => onEquipmentSelect(node)
-                : undefined
+            isEquipment && onEquipmentSelect
+              ? () => onEquipmentSelect(node)
+              : undefined
           }
           onContextMenu={
-            isUserCreated || PREDEFINED_PROCEDURE_LABELS.includes(label)
+            PREDEFINED_PROCEDURE_LABELS.includes(label)
               ? (e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -1841,15 +1864,17 @@ function TreeViewExample({
                     visible: true,
                     x: e.clientX,
                     y: e.clientY,
-                    target: isUserCreated ? "userCreated" : "preDefined",
+                    target: "preDefined",
                   });
                 }
               : undefined
           }
           draggable={isLeafNode || node.isDraggable}
           onDragStart={(e) => {
-            if (isLeafNode) handleDragStart(e, node);
+            // Antes solo arrastraban las hojas; una fila marcada isDraggable también arrastra.
+            if (isLeafNode || node.isDraggable) handleDragStart(e, node);
           }}
+          onDragEnd={() => setDragComponent?.(null)}
           style={{
             marginLeft: level * 10,
             cursor: "pointer",
@@ -1857,26 +1882,6 @@ function TreeViewExample({
           }}
         >
           <div style={{ display: "flex", alignItems: "center" }}>
-            {isUserCreated && userCreatedNodes.length > 0 && (
-              <span
-                style={{
-                  marginRight: 6,
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                  color: "#1677ff",
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!isDesigner)
-                    return alert(
-                      UI_STRINGS.dashboard.treeView.alerts.accionNoPermitida,
-                    );
-                  setModalOpen(true);
-                }}
-              >
-                +
-              </span>
-            )}
             {hasChildren && (
               <span
                 style={{ marginRight: 4, cursor: "pointer" }}
@@ -2025,6 +2030,7 @@ function TreeViewExample({
   const filterTree = (node) => {
     if (!node) return null;
     if (!search) return node;
+    if (node.label === "User Created Definitions") return node;
     const labelMatch = node.label.toLowerCase().includes(search.toLowerCase());
     const children = (node.children || []).map(filterTree).filter(Boolean);
     if (labelMatch) return { ...node, forceOpen: true };
@@ -2077,29 +2083,9 @@ function TreeViewExample({
         onNew={() => {
           if (!isDesigner) return;
 
-          if (contextMenu.target === "userCreated") {
-            setModalOpen(true);
-          } else {
-            setPredefWizardOpen(true);
-          }
+          setPredefWizardOpen(true);
 
           setContextMenu((c) => ({ ...c, visible: false }));
-        }}
-      />
-
-      <CreateNodeModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onOk={(newNode) => {
-          if (!isDesigner) return;
-          const enriched = {
-            ...newNode,
-            parameters: newNode.parameters || [],
-            label: `${newNode.name} v ${newNode.version}`,
-            isDraggable: true,
-          };
-          setUserCreatedNodes((prev) => [...prev, enriched]);
-          setModalOpen(false);
         }}
       />
 
@@ -2311,6 +2297,10 @@ function MenuBar({
 // =============================
 //  HELPERS
 // =============================
+
+// Valor por defecto de un parámetro BOOL → booleano. Acepta el string "true"/"false" de datos viejos.
+export const parseBool = (value) =>
+  value === true || String(value).trim().toLowerCase() === "true";
 
 function getDefaultWorkflowNodes() {
   const baseX = 140;
@@ -2871,7 +2861,10 @@ export default function App({ user, userRoles }) {
       }
 
       // El trigger de la base sube la versión y sella fecha y autor
-      await saveWorkflow(currentWorkflowId, { nodes: canvasNodes });
+      await saveWorkflow(currentWorkflowId, {
+        nodes: canvasNodes,
+        connections: manualConnections,
+      });
 
       console.log("✅ Workflow actualizado");
       setIsDirty(false);
@@ -2903,6 +2896,7 @@ export default function App({ user, userRoles }) {
       const newId = await createWorkflow({
         name: workflowName,
         nodes: canvasNodes,
+        connections: manualConnections,
       });
       console.log("✅ Workflow guardado con ID:", newId);
       setSaveModalOpen(false);
@@ -2930,6 +2924,9 @@ export default function App({ user, userRoles }) {
       const workflowData = await getWorkflow(workflowId);
       if (workflowData) {
         setCanvasNodes(workflowData.content.nodes || []);
+        setManualConnections(
+          connectionsForLoadedWorkflow(workflowData.content),
+        );
 
         setCurrentWorkflowId(workflowId);
         setIsDirty(false);
@@ -3082,7 +3079,10 @@ export default function App({ user, userRoles }) {
         onApprove={handleApprove}
         OnLogout={handleLogout}
         onNewWorkflow={() => {
-          setCanvasNodes(getDefaultWorkflowNodes());
+          const nodes = getDefaultWorkflowNodes();
+          setCanvasNodes(nodes);
+          // Las conexiones del workflow anterior no pasan al nuevo: solo las aristas por defecto.
+          setManualConnections(connectionsForLoadedWorkflow({ nodes }));
           setUsedComponents([]);
           setIsSessionReadOnly(false);
         }}
@@ -3303,8 +3303,12 @@ export default function App({ user, userRoles }) {
                   }
                   return;
                 }
-                setCanvasNodes((prev) =>
-                  prev.filter((_, i) => !selectedNodes.includes(i)),
+                const remaining = canvasNodes.filter(
+                  (_, i) => !selectedNodes.includes(i),
+                );
+                setCanvasNodes(remaining);
+                setManualConnections((prev) =>
+                  dropDanglingConnections(prev, remaining),
                 );
                 setSelectedNodes([]);
               } catch (err) {
@@ -4125,10 +4129,34 @@ function Canvas({
         y = snapToGrid(y);
       }
 
+      if (comp.kind === "userDefinition") {
+        // WFPR-003 (opción B): la definición y todos sus descendientes, conectados en cadena.
+        const stamp = Date.now();
+        const { nodes: added, connections } = expandForCanvas(comp.definition, {
+          x,
+          y,
+          basePath: comp.basePath || [],
+          makeId: (i) => `instancia-${stamp}-${i}`,
+        });
+        setUsedComponents((used) => [
+          ...new Set([...used, ...added.map((n) => n.label)]),
+        ]);
+        setNodes((prevNodes) => [...prevNodes, ...added]);
+        setManualConnections((prev) => [...prev, ...connections]);
+        if (added.length === 1 && typeof onNodeAdded === "function") {
+          onNodeAdded(nodes.length, added[0]);
+        }
+        if (onDirty) onDirty();
+        window._dragComponent = null;
+        return;
+      }
+
       setUsedComponents((used) => [...new Set([...used, comp.label])]);
 
+      // kind/predefinedKey solo sirven para soltar dentro del panel; no van al nodo.
+      const { kind, predefinedKey, ...dropped } = comp;
       const newNode = {
-        ...comp,
+        ...dropped,
         x,
         y,
         id: `instancia-${Date.now()}`,
@@ -4291,6 +4319,7 @@ function Canvas({
     const label = nodes[idx].label;
     const newNodes = nodes.filter((_, i) => i !== idx);
     setNodes(newNodes);
+    setManualConnections((prev) => dropDanglingConnections(prev, newNodes));
 
     if (onDirty) onDirty();
 

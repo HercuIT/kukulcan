@@ -26,6 +26,8 @@ export function toAppError(error, fallbackMessage = "Unexpected error") {
   const appError = new Error(error.message || fallbackMessage);
   appError.code =
     ERROR_CODES[error.code] || AUTH_ERROR_CODES[error.code] || error.code;
+  // El HINT de las RPC identifica la regla rota (p. ej. "cycle"); la UI lo traduce.
+  if (error.hint) appError.hint = error.hint;
   appError.cause = error;
   return appError;
 }
@@ -54,7 +56,9 @@ export function rowToWorkflow(row) {
   return {
     id: row.id,
     name: row.name,
-    content: { nodes: row.nodes || [] },
+    // connections null = guardado antes de WFPR-003 (el editor regenera las aristas por defecto);
+    // [] = el usuario guardó sin conexiones. No se confunden.
+    content: { nodes: row.nodes || [], connections: row.connections ?? null },
     metadata: {
       status: row.status,
       version: row.version,
@@ -84,7 +88,30 @@ export function profileToUser(row) {
   };
 }
 
+// Fila de user_definitions → la forma que usa el panel.
+export function rowToDefinition(row) {
+  return {
+    id: row.id,
+    parentId: row.parent_id ?? null,
+    kind: row.kind,
+    name: row.name,
+    version: row.version,
+    description: row.description ?? null,
+    abstract: row.abstract ?? null,
+    implementation: row.implementation || {},
+    parameters: row.parameters || [],
+    predefined: row.predefined ?? null,
+    position: row.position ?? 0,
+  };
+}
+
 // Quita los valores undefined de cada nodo antes de guardarlo como jsonb.
+// Quita las conexiones que apuntan a un nodo que ya no está en `nodes`.
+export function dropDanglingConnections(connections = [], nodes = []) {
+  const ids = new Set(nodes.map((n) => n?.id));
+  return connections.filter((c) => c && ids.has(c.from) && ids.has(c.to));
+}
+
 export function cleanNodes(nodes = []) {
   return nodes.map((node) =>
     Object.fromEntries(

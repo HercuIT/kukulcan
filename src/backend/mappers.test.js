@@ -1,5 +1,6 @@
 import {
   cleanNodes,
+  dropDanglingConnections,
   profileToUser,
   rowToWorkflow,
   toAppError,
@@ -135,5 +136,34 @@ describe("mappers", () => {
       ).toEqual([{ id: "a", y: 0, label: "", parent: null }]);
       expect(cleanNodes()).toEqual([]);
     });
+  });
+});
+
+describe("dropDanglingConnections", () => {
+  const nodes = [{ id: "a" }, { id: "b" }];
+
+  test("positive: keeps connections between existing nodes", () => {
+    const conns = [{ id: "c", from: "a", to: "b" }];
+    expect(dropDanglingConnections(conns, nodes)).toEqual(conns);
+  });
+
+  test("negative: drops connections from or to a missing node, and malformed entries", () => {
+    expect(
+      dropDanglingConnections(
+        [
+          { id: "1", from: "a", to: "gone" },
+          { id: "2", from: "gone", to: "b" },
+          null,
+          { id: "3" },
+        ],
+        nodes,
+      ),
+    ).toEqual([]);
+  });
+
+  test("edge: no nodes or no connections give an empty list", () => {
+    expect(dropDanglingConnections([{ from: "a", to: "b" }], [])).toEqual([]);
+    expect(dropDanglingConnections(undefined, nodes)).toEqual([]);
+    expect(dropDanglingConnections()).toEqual([]);
   });
 });

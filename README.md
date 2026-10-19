@@ -37,7 +37,7 @@ draft ──submit_for_review / assign_reviewer──▶ pending_review ──ap
   └──────── (edit) ◀── changes_requested ◀──request_changes──┘
 ```
 
-Clients can only edit a workflow's `name` and `nodes`, and only while they are one of its designers and it is in `draft` or `changes_requested`. Every other change goes through a `security definer` RPC that rechecks the rules: `submit_for_review`, `assign_reviewer`, `approve_workflow`, `request_changes`, `add_designer`, `remove_designer` and `checkout_workflow`. Only the assigned reviewer can approve or request changes, and only while they still have the `reviewer` role. Choosing "-- Unassigned --" clears the reviewer without changing the status. Errors use fixed codes (`28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong status), which `mappers.js` turns into the app's codes.
+Clients can only edit a workflow's `name`, `nodes` and `connections`, and only while they are one of its designers and it is in `draft` or `changes_requested`. Every other change goes through a `security definer` RPC that rechecks the rules: `submit_for_review`, `assign_reviewer`, `approve_workflow`, `request_changes`, `add_designer`, `remove_designer` and `checkout_workflow`. Only the assigned reviewer can approve or request changes, and only while they still have the `reviewer` role. Choosing "-- Unassigned --" clears the reviewer without changing the status. Errors use fixed codes (`28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong status), which `mappers.js` turns into the app's codes.
 
 ### Glossary
 
@@ -45,8 +45,8 @@ Clients can only edit a workflow's `name` and `nodes`, and only while they are o
 | --- | --- |
 | Workflow | A designed process: a row in `workflows`, whose `nodes` hold the canvas nodes. Its status moves `draft` → `pending_review` → `approved`, or from `pending_review` to `changes_requested` and back to editing (see "Workflow lifecycle") |
 | Node | One element on the canvas (`type`, `label`, position, and optionally `parameters` and `implementation`). Begin/Start and End are special node types |
-| Connection | A directed link `from` → `to` between two nodes. **Known limitation:** connections aren't saved with the workflow yet, so edges drawn by the user are lost when it's reopened |
-| Node definition | A reusable template placed on the canvas from the hierarchy panel. **Pre-defined** ones come from the built-in catalog; **user-created** ones come from the Create Node modal (name, version, implementation, parameters). **Known limitation:** user-created definitions can't be dragged onto the canvas yet, because their rows have child groups and the panel only starts a drag from leaf rows (fix specified in WFPR-003) |
+| Connection | A directed link `from` → `to` between two nodes, saved with the workflow in `workflows.connections` (a JSON array; `null` on workflows saved before WFPR-003, which reopen with the default Begin → Connection 1 → End edges). Connections to a deleted node are dropped on the canvas and never saved |
+| Node definition | A reusable template placed on the canvas from the hierarchy panel. **Pre-defined** ones come from the built-in catalog. **User-created** ones come from the Create Node modal (name, version, implementation, parameters), are shared by everyone through `user_definitions`, and can nest inside each other to any depth or contain references to pre-defined ones (WFPR-003). Dropping a user-created definition on the canvas places it and all its descendants as connected nodes |
 | ISA-88 levels | The procedural hierarchy definitions belong to, outermost first: Site Procedure, Area Procedure, Procedure, (Procedure) Unit Procedure, (Procedure) Operation, (Procedure) Phase |
 | Operation / Phase | The two lowest ISA-88 levels. **Intended rule:** a Phase (e.g. Add Ingredient) runs inside an Operation (e.g. Mixing). **Current catalog:** it's inverted: `PROCEDURE_PHASES` lists Mixing, Drying and Inspection as phases, and `OPERATIONS_BY_PHASE` lists Add Ingredient and the others as their operations. VCR-001 proposes flipping it |
 | Parameter | A named value on a node (`name`, `value` or `defaultValue`, units, data type). Deploy requires every non-Begin/End node to have at least one, and every `<Parameter>` to have a non-empty `name` and `value` (see "Ignition XML contract") |
@@ -305,13 +305,16 @@ src/
   backend/supabaseClient.js    Supabase client init
   backend/authApi.js           sign-in/up/out, session listener, roles
   backend/workflowsApi.js      workflows CRUD, Realtime subscription, RPC wrappers, compile
+  backend/definitionsApi.js    User Created Definitions tree: RPC wrappers, Realtime, tree helpers, expand-on-drop
   backend/mappers.js           row ↔ legacy shape, error codes
   constants/uiStrings.js       user-facing strings, grouped by page and component (UI_STRINGS); catalog data and
                                PLC identifiers stay in code (see CLAUDE.md)
   pages/
     Login/, Home/              login and landing pages
     Dashboard/Dashboard.js     the workflow designer: hierarchy tree, canvas, menu bar, node modals
-    Dashboard/*Modal.js        save / open / share / version history / checkout / unsaved-changes dialogs
+    Dashboard/*Modal.js        save / open / share / version history / checkout / unsaved-changes / move- and delete-definition dialogs
+    Dashboard/UserDefinitionsTree.js   the User Created Definitions branch of the hierarchy panel (WFPR-003)
+    Dashboard/canvasConnections.js     connections for a workflow being opened
     Dashboard/equipmentData.js, MaterialData.js   static catalog data
   components/                  shared UI (ModalMessage, EquipmentDetails)
   styles/                      CSS per page/modal
@@ -332,8 +335,11 @@ Features are specified before they're built, as Claude Docs, using the section t
 | --- | --- | --- |
 | Supabase migration (HTE-supabase-migration) | [Kukulcan: Firebase → Supabase Migration Spec](https://claude.ai/code/artifact/30984f03-013f-4dd7-a1ae-8fe059596380) | Implemented (PR #1) |
 | VCR-001 | [Version-Controlled Hierarchy Rules](https://claude.ai/code/artifact/b8a553aa-eeb5-4048-a173-d6b268216a3b) | Draft, partly written |
-| WFPR-003 | [Nested User Created Node Definitions](https://claude.ai/code/artifact/9753755e-5f4d-43bb-93af-e9e59d416800) | Draft, open questions pending |
+| WFPR-003 | [Nested User Created Node Definitions](https://claude.ai/code/artifact/9753755e-5f4d-43bb-93af-e9e59d416800) | Implemented (branch `feat/HTE-59`); test plan `docs/WFPR-003-testing.md` |
 | WFPR-004 | [Expandable Pre-Defined Definitions](https://claude.ai/code/artifact/cf5b6f1e-aa6f-400f-bc6f-f425c4349488) | Draft, depends on VCR-001; open questions pending |
+| Theme and logo (no ticket yet) | [Spec: Theme and logo](https://claude.ai/code/artifact/bbc1a1f8-71e3-4839-834b-d630c81cae85) | Draft, open questions pending |
+| HTE-107 | [HTE-107: Email confirmation and registration form](https://claude.ai/code/artifact/6b732d1e-e3b8-461c-8c72-2d61864a50d0) | Draft, open questions pending |
+| Compiled XML can't be deployed (no ticket yet) | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Draft, open questions pending |
 
 ## Contributing
 
