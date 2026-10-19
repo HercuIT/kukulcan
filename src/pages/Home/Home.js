@@ -74,6 +74,12 @@ function MenuBar() {
   );
 }
 
+// La verificación del servidor local (localhost:3001) está desactivada salvo que el build defina
+// REACT_APP_LOCAL_SERVER_CHECK=true: en el sitio desplegado no hay servidor local y la consulta
+// fallaba cada 3 segundos.
+export const isLocalServerCheckEnabled = () =>
+  process.env.REACT_APP_LOCAL_SERVER_CHECK === "true";
+
 export default function Home({ user, userRoles }) {
   const [loading, setLoading] = useState(true);
   const [serverOnline, setServerOnline] = useState(false);
@@ -86,6 +92,12 @@ export default function Home({ user, userRoles }) {
 
   // Reintenta la verificación del servidor cada 3 segundos si está caído
   useEffect(() => {
+    if (!isLocalServerCheckEnabled()) {
+      setServerOnline(true);
+      setLoading(!userRoles);
+      return undefined;
+    }
+
     let interval;
 
     const checkServer = async () => {
