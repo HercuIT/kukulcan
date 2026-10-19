@@ -30,7 +30,8 @@ const valueFor = (token, theme) => {
   return resolve(v);
 };
 
-const tokensOf = (family) => (family && Array.isArray(family.tokens) ? family.tokens : []);
+const tokensOf = (family) =>
+  family && Array.isArray(family.tokens) ? family.tokens : [];
 
 function declarations(tokens, theme) {
   return tokens

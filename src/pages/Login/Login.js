@@ -95,7 +95,7 @@ export default function Login() {
         <button
           onClick={handleDeveloperSkip}
           className="dev-skip-btn"
-          style={{ backgroundColor: "#17a2b8", marginTop: "10px" }}
+          style={{ backgroundColor: "var(--kk-brand-cyan)", marginTop: "10px" }}
         >
           {UI_STRINGS.login.saltarDev}
         </button>

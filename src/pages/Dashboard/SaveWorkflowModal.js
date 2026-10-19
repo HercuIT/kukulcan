@@ -30,7 +30,13 @@ export default function SaveWorkflowModal({ open, onClose, onSave }) {
     <div className="create-node-modal-backdrop">
       <div className="create-node-modal" style={{ maxWidth: "400px" }}>
         <h2>{UI_STRINGS.dashboard.saveWorkflowModal.guardarFlujoDeTrabajo}</h2>
-        <p style={{ marginTop: 0, marginBottom: "15px", color: "#555" }}>
+        <p
+          style={{
+            marginTop: 0,
+            marginBottom: "15px",
+            color: "var(--kk-ink-muted)",
+          }}
+        >
           {UI_STRINGS.dashboard.saveWorkflowModal.introduceUnNombreParaTu}
         </p>
         <label>
@@ -45,7 +51,13 @@ export default function SaveWorkflowModal({ open, onClose, onSave }) {
             style={{ width: "100%", boxSizing: "border-box", marginTop: "5px" }}
           />
         </label>
-        {error && <p style={{ color: "red", fontWeight: "bold" }}>{error}</p>}
+        {error && (
+          <p
+            style={{ color: "var(--kk-status-changes-fg)", fontWeight: "bold" }}
+          >
+            {error}
+          </p>
+        )}
         <div
           className="create-node-modal-buttons"
           style={{ marginTop: "20px" }}

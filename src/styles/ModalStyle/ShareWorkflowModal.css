@@ -22,14 +22,14 @@
 }
 
 .close-button:hover {
-  background: #f0f0f0;
+  background: var(--kk-raised);
   border-radius: 50%;
 }
 
 /* Tabs Navigation */
 .workflow-actions-tabs {
   display: flex;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--kk-border);
   margin-bottom: 20px;
 }
 
@@ -40,26 +40,26 @@
   cursor: pointer;
   border-bottom: 3px solid transparent;
   font-weight: 500;
-  color: #666;
+  color: var(--kk-ink-muted);
   transition: all 0.2s ease;
   flex: 1;
   text-align: center;
 }
 
 .tab-button.active {
-  color: #007bff;
-  border-bottom-color: #007bff;
+  color: var(--kk-cyan-text);
+  border-bottom-color: var(--kk-cyan-text);
 }
 
 .tab-button:hover:not(.active) {
-  color: #333;
-  background-color: #f8f9fa;
+  color: var(--kk-ink);
+  background-color: var(--kk-surface);
 }
 
 /* Section Styles */
 .share-section {
   margin-bottom: 25px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--kk-border);
   padding-top: 15px;
 }
 
@@ -67,11 +67,11 @@
   margin-top: 0;
   margin-bottom: 8px;
   font-size: 16px;
-  color: #333;
+  color: var(--kk-ink);
 }
 
 .section-description {
-  color: #666;
+  color: var(--kk-ink-muted);
   font-size: 14px;
   margin-bottom: 15px;
   line-height: 1.4;
@@ -88,7 +88,7 @@
 .user-pill {
   display: flex;
   align-items: center;
-  background-color: #e9ecef;
+  background-color: var(--kk-raised);
   border-radius: 16px;
   padding: 6px 12px;
   font-size: 0.9em;
@@ -101,8 +101,8 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  background: #007acc;
-  color: white;
+  background: var(--kk-brand-mint);
+  color: var(--kk-on-brand);
   border-radius: 50%;
   margin-right: 8px;
   font-size: 12px;
@@ -111,8 +111,8 @@
 }
 
 .remove-user-btn {
-  background: #adb5bd;
-  color: white;
+  background: var(--kk-status-changes-bg);
+  color: var(--kk-status-changes-fg);
   border: none;
   border-radius: 50%;
   width: 18px;
@@ -129,7 +129,7 @@
 }
 
 .remove-user-btn:hover {
-  background: #dc3545;
+  background: var(--kk-status-changes-fg);
 }
 
 /* Form Styles */
@@ -144,7 +144,7 @@
 .comments-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--kk-border);
   border-radius: 4px;
   font-size: 14px;
   font-family: inherit;
@@ -165,8 +165,8 @@
 .add-button,
 .done-button {
   padding: 10px 20px;
-  background: #007acc;
-  color: white;
+  background: var(--kk-brand-mint);
+  color: var(--kk-on-brand);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -176,12 +176,12 @@
 
 .add-button:hover:not(:disabled),
 .done-button:hover:not(:disabled) {
-  background: #005a9e;
+  background: var(--kk-brand-mint);
 }
 
 .add-button:disabled,
 .done-button:disabled {
-  background: #ccc;
+  background: var(--kk-border);
   cursor: not-allowed;
 }
 
@@ -193,10 +193,10 @@
 .current-reviewer {
   margin-top: 10px;
   padding: 12px;
-  background: #f8f9fa;
+  background: var(--kk-surface);
   border-radius: 4px;
   font-size: 14px;
-  border-left: 4px solid #007acc;
+  border-left: 4px solid var(--kk-cyan-text);
 }
 
 .review-actions {
@@ -208,33 +208,33 @@
 
 .action-card {
   padding: 20px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--kk-border);
   border-radius: 8px;
-  background: #f8f9fa;
+  background: var(--kk-surface);
   transition: transform 0.2s ease;
 }
 
 .action-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--kk-shadow-node);
 }
 
 .action-card h5 {
   margin: 0 0 8px 0;
-  color: #333;
+  color: var(--kk-ink);
   font-size: 16px;
 }
 
 .action-card p {
   margin: 0 0 15px 0;
-  color: #666;
+  color: var(--kk-ink-muted);
   font-size: 14px;
   line-height: 1.4;
 }
 
 .approve-action-btn {
-  background: #28a745;
-  color: white;
+  background: var(--kk-brand-mint);
+  color: var(--kk-on-brand);
   border: none;
   padding: 10px 16px;
   border-radius: 4px;
@@ -245,17 +245,17 @@
 }
 
 .approve-action-btn:hover:not(:disabled) {
-  background: #218838;
+  background: var(--kk-brand-mint);
 }
 
 .approve-action-btn:disabled {
-  background: #6c757d;
+  background: var(--kk-ink-muted);
   cursor: not-allowed;
 }
 
 .request-changes-action-btn {
-  background: #ffc107;
-  color: #000;
+  background: var(--kk-status-review-bg);
+  color: var(--kk-ink);
   border: none;
   padding: 10px 16px;
   border-radius: 4px;
@@ -266,23 +266,23 @@
 }
 
 .request-changes-action-btn:hover:not(:disabled) {
-  background: #e0a800;
+  background: var(--kk-status-review-bg);
 }
 
 .request-changes-action-btn:disabled {
-  background: #6c757d;
+  background: var(--kk-ink-muted);
   cursor: not-allowed;
-  color: #fff;
+  color: var(--kk-surface);
 }
 
 /* Status and Messages */
 .workflow-status-info {
-  background: #e9ecef;
+  background: var(--kk-raised);
   padding: 12px 15px;
   border-radius: 4px;
   margin: 15px 0;
   font-size: 14px;
-  border-left: 4px solid #6c757d;
+  border-left: 4px solid var(--kk-border-strong);
 }
 
 .workflow-status-info p {
@@ -290,22 +290,22 @@
 }
 
 .success-message {
-  background: #d4edda;
-  color: #155724;
+  background: var(--kk-mint-soft);
+  color: var(--kk-mint-text);
   padding: 12px;
   border-radius: 4px;
   margin: 15px 0;
-  border-left: 4px solid #28a745;
+  border-left: 4px solid var(--kk-mint-text);
 }
 
 .error-message {
-  color: #dc3545;
+  color: var(--kk-status-changes-fg);
   font-weight: bold;
   margin-top: 15px;
   padding: 10px;
-  background: #f8d7da;
+  background: var(--kk-status-changes-bg);
   border-radius: 4px;
-  border-left: 4px solid #dc3545;
+  border-left: 4px solid var(--kk-status-changes-fg);
 }
 
 .success-icon,
@@ -329,8 +329,8 @@
 }
 
 .review-btn {
-  background: #17a2b8;
-  color: white;
+  background: var(--kk-brand-cyan);
+  color: var(--kk-on-brand);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -340,12 +340,12 @@
 }
 
 .review-btn:hover {
-  background: #138496;
+  background: var(--kk-brand-mint);
 }
 
 .deploy-btn {
-  background: #28a745;
-  color: white;
+  background: var(--kk-brand-mint);
+  color: var(--kk-on-brand);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -355,7 +355,7 @@
 }
 
 .deploy-btn:hover {
-  background: #218838;
+  background: var(--kk-brand-mint);
 }
 
 /* Responsive Design */
@@ -371,14 +371,14 @@
 
   .tab-button {
     text-align: left;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--kk-border);
     border-left: 3px solid transparent;
     padding: 12px 15px;
   }
 
   .tab-button.active {
-    border-left-color: #007bff;
-    border-bottom-color: #ddd;
+    border-left-color: var(--kk-cyan-text);
+    border-bottom-color: var(--kk-border);
   }
 
   .review-actions {
@@ -439,7 +439,7 @@ button:focus,
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 2px solid #007acc;
+  outline: 2px solid var(--kk-cyan-text);
   outline-offset: 2px;
 }
 
@@ -449,15 +449,15 @@ textarea:focus {
 }
 
 .share-modal ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--kk-raised);
   border-radius: 3px;
 }
 
 .share-modal ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--kk-border);
   border-radius: 3px;
 }
 
 .share-modal ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: var(--kk-border);
 }

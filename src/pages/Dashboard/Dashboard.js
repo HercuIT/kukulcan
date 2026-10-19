@@ -235,7 +235,7 @@ function NodeParametersModal({
   const renderAttributes = () => {
     if (!selectedParam) {
       return (
-        <div style={{ color: "#6b7280" }}>
+        <div style={{ color: "var(--kk-ink-muted)" }}>
           {UI_STRINGS.dashboard.nodeParametersModal.selectAParameterToSee}
         </div>
       );
@@ -257,7 +257,7 @@ function NodeParametersModal({
     return (
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
+          <tr style={{ background: "var(--kk-raised)", textAlign: "left" }}>
             <th style={{ padding: 6, width: "30%" }}>
               {UI_STRINGS.dashboard.nodeParametersModal.attribute}
             </th>
@@ -446,9 +446,9 @@ function NodeParametersModal({
         style={{
           width: "1200px",
           height: "600px",
-          background: "#fff",
+          background: "var(--kk-surface)",
           borderRadius: 10,
-          boxShadow: "0 8px 30px rgba(0,0,0,.25)",
+          boxShadow: "var(--kk-shadow-overlay)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -464,7 +464,7 @@ function NodeParametersModal({
             justifyContent: "space-between",
             alignItems: "center",
             padding: "12px 20px",
-            borderBottom: "1px solid #e5e7eb",
+            borderBottom: "1px solid var(--kk-border)",
             cursor: "move",
           }}
           onMouseDown={(e) => {
@@ -506,7 +506,12 @@ function NodeParametersModal({
           }}
         >
           {/* Tabs izquierda */}
-          <div style={{ borderRight: "1px solid #e5e7eb", overflowY: "auto" }}>
+          <div
+            style={{
+              borderRight: "1px solid var(--kk-border)",
+              overflowY: "auto",
+            }}
+          >
             {TABS.map((tab) => (
               <div
                 key={tab}
@@ -518,8 +523,10 @@ function NodeParametersModal({
                 }}
                 style={{
                   padding: "12px 16px",
-                  background: activeTab === tab ? "#1677ff" : "transparent",
-                  color: activeTab === tab ? "#fff" : "#111827",
+                  background:
+                    activeTab === tab ? "var(--kk-brand-mint)" : "transparent",
+                  color:
+                    activeTab === tab ? "var(--kk-on-brand)" : "var(--kk-ink)",
                   cursor: "pointer",
                   userSelect: "none",
                 }}
@@ -549,8 +556,10 @@ function NodeParametersModal({
                 onClick={addParameter}
                 disabled={isReadOnly}
                 style={{
-                  background: isReadOnly ? "#ccc" : "#1677ff",
-                  color: "#fff",
+                  background: isReadOnly
+                    ? "var(--kk-border)"
+                    : "var(--kk-brand-mint)",
+                  color: "var(--kk-on-brand)",
                   border: "none",
                   borderRadius: 6,
                   padding: "6px 12px",
@@ -574,7 +583,12 @@ function NodeParametersModal({
                 {/* Tabla parámetros */}
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
+                    <tr
+                      style={{
+                        background: "var(--kk-raised)",
+                        textAlign: "left",
+                      }}
+                    >
                       <th style={{ padding: 6 }}>
                         {UI_STRINGS.dashboard.nodeParametersModal.name}
                       </th>
@@ -604,7 +618,7 @@ function NodeParametersModal({
                       <tr>
                         <td
                           colSpan={7}
-                          style={{ color: "#6b7280", padding: 10 }}
+                          style={{ color: "var(--kk-ink-muted)", padding: 10 }}
                         >
                           {
                             UI_STRINGS.dashboard.nodeParametersModal
@@ -620,24 +634,27 @@ function NodeParametersModal({
                             key={p.id}
                             onClick={() => setSelectedParamId(p.id)}
                             style={{
-                              background: selected ? "#eef2ff" : "transparent",
+                              background: selected
+                                ? "var(--kk-cyan-soft)"
+                                : "transparent",
                             }}
                             // --- AÑADIR ESTOS MANEJADORES ---
                             onDragOver={(e) => {
                               e.preventDefault(); // ¡Necesario para permitir el drop!
-                              e.currentTarget.style.background = "#d0f0d0"; // Feedback visual
+                              e.currentTarget.style.background =
+                                "var(--kk-mint-soft)"; // Feedback visual
                             }}
                             onDragEnter={(e) => e.preventDefault()}
                             onDragLeave={(e) => {
                               // Devolver el color original
                               e.currentTarget.style.background = selected
-                                ? "#eef2ff"
+                                ? "var(--kk-cyan-soft)"
                                 : "transparent";
                             }}
                             onDrop={(e) => {
                               e.preventDefault();
                               e.currentTarget.style.background = selected
-                                ? "#eef2ff"
+                                ? "var(--kk-cyan-soft)"
                                 : "transparent";
 
                               try {
@@ -766,7 +783,9 @@ function NodeParametersModal({
                                 style={{
                                   background: "transparent",
                                   border: "none",
-                                  color: isReadOnly ? "#aaa" : "#ef4444",
+                                  color: isReadOnly
+                                    ? "var(--kk-ink-muted)"
+                                    : "var(--kk-status-changes-fg)",
                                   fontWeight: 700,
                                   cursor: isReadOnly
                                     ? "not-allowed"
@@ -801,7 +820,7 @@ function NodeParametersModal({
                   </h4>
                   <div
                     style={{
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid var(--kk-border)",
                       borderRadius: 6,
                       padding: 10,
                       minHeight: 56,
@@ -821,7 +840,12 @@ function NodeParametersModal({
               </h4>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
-                  <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
+                  <tr
+                    style={{
+                      background: "var(--kk-raised)",
+                      textAlign: "left",
+                    }}
+                  >
                     <th style={{ padding: 6 }}>
                       {
                         UI_STRINGS.dashboard.nodeParametersModal
@@ -877,7 +901,7 @@ function NodeParametersModal({
         <div
           style={{
             padding: "10px 20px",
-            borderTop: "1px solid #e5e7eb",
+            borderTop: "1px solid var(--kk-border)",
             textAlign: "right",
           }}
         >
@@ -888,8 +912,10 @@ function NodeParametersModal({
             onClick={() => onAccept?.({ paramsByTab })}
             disabled={isReadOnly}
             style={{
-              background: isReadOnly ? "#ccc" : "#1677ff",
-              color: "#fff",
+              background: isReadOnly
+                ? "var(--kk-border)"
+                : "var(--kk-brand-mint)",
+              color: "var(--kk-on-brand)",
               border: "none",
               borderRadius: 6,
               padding: "8px 14px",
@@ -1109,7 +1135,7 @@ function CreateNodeModal({ open, onClose, onOk }) {
         <div
           style={{
             marginTop: 12,
-            borderTop: "1px solid #e5e7eb",
+            borderTop: "1px solid var(--kk-border)",
             paddingTop: 12,
           }}
         >
@@ -1134,7 +1160,7 @@ function CreateNodeModal({ open, onClose, onOk }) {
         <div
           style={{
             marginTop: 12,
-            borderTop: "1px solid #e5e7eb",
+            borderTop: "1px solid var(--kk-border)",
             paddingTop: 12,
           }}
         >
@@ -1151,8 +1177,8 @@ function CreateNodeModal({ open, onClose, onOk }) {
             <button
               onClick={addParam}
               style={{
-                background: "#1677ff",
-                color: "#fff",
+                background: "var(--kk-brand-mint)",
+                color: "var(--kk-on-brand)",
                 border: "none",
                 borderRadius: 6,
                 padding: "6px 10px",
@@ -1164,7 +1190,7 @@ function CreateNodeModal({ open, onClose, onOk }) {
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
+              <tr style={{ background: "var(--kk-raised)", textAlign: "left" }}>
                 <th style={{ padding: 6 }}>
                   {UI_STRINGS.dashboard.createNodeModal.name}
                 </th>
@@ -1180,7 +1206,10 @@ function CreateNodeModal({ open, onClose, onOk }) {
             <tbody>
               {params.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ padding: 8, color: "#6b7280" }}>
+                  <td
+                    colSpan={4}
+                    style={{ padding: 8, color: "var(--kk-ink-muted)" }}
+                  >
                     {
                       UI_STRINGS.dashboard.createNodeModal
                         .noParametersUseAddParameter
@@ -1280,7 +1309,7 @@ function CreateNodeModal({ open, onClose, onOk }) {
                       style={{
                         background: "transparent",
                         border: "none",
-                        color: "#ef4444",
+                        color: "var(--kk-status-changes-fg)",
                         fontWeight: 700,
                         cursor: "pointer",
                       }}
@@ -1294,7 +1323,13 @@ function CreateNodeModal({ open, onClose, onOk }) {
           </table>
         </div>
         {error && (
-          <div style={{ color: "red", marginBottom: 10, fontWeight: "bold" }}>
+          <div
+            style={{
+              color: "var(--kk-status-changes-fg)",
+              marginBottom: 10,
+              fontWeight: "bold",
+            }}
+          >
             {error}
           </div>
         )}
@@ -1320,9 +1355,9 @@ function ContextMenu({ x, y, visible, onNew }) {
         position: "fixed",
         top: y,
         left: x,
-        background: "#fff",
-        border: "1px solid #ccc",
-        boxShadow: "0 2px 8px #888",
+        background: "var(--kk-surface)",
+        border: "1px solid var(--kk-border)",
+        boxShadow: "var(--kk-shadow-node)",
         zIndex: 999,
         borderRadius: 4,
       }}
@@ -1552,8 +1587,8 @@ function TreeNode({
         style={{
           cursor: isDraggable ? "grab" : children ? "pointer" : "default",
           fontWeight: isUsed ? "bold" : children ? "bold" : "normal",
-          background: isUsed ? "#ffeeba" : "inherit",
-          color: color || (isUsed ? "#d35400" : "inherit"),
+          background: isUsed ? "var(--kk-status-review-bg)" : "inherit",
+          color: color || (isUsed ? "var(--kk-status-review-fg)" : "inherit"),
           borderRadius: "4px",
           padding: "2px 4px",
         }}
@@ -1609,8 +1644,8 @@ function TreeNode({
             position: "fixed",
             left: tooltipPos.x,
             top: tooltipPos.y,
-            background: "#fff",
-            border: "1px solid #bbb",
+            background: "var(--kk-surface)",
+            border: "1px solid var(--kk-border-strong)",
             padding: 8,
             zIndex: 9999,
           }}
@@ -1775,7 +1810,7 @@ function TreeViewExample({
               label: `${n.name} v ${n.version}`,
               desc: n.desc,
               abstract: n.abstract,
-              color: "green",
+              color: "var(--kk-mint-text)",
               details: {
                 capacity: "NA",
                 lastMaintenance: null,
@@ -1805,11 +1840,11 @@ function TreeViewExample({
       actualChildren = [
         ...children
           .filter((child) => child && child.label)
-          .map((child) => ({ ...child, color: "blue" })),
+          .map((child) => ({ ...child, color: "var(--kk-cyan-text)" })),
         // Nodos creados con el PredefinedNodeWizard
         ...preDefinedNodes.map((n) => ({
           label: `${n.procedurePhase} - ${n.operation}`,
-          color: "blue",
+          color: "var(--kk-cyan-text)",
           isDraggable: true,
         })),
       ];
@@ -1854,7 +1889,7 @@ function TreeViewExample({
           style={{
             marginLeft: level * 10,
             cursor: "pointer",
-            color: node.color || "black",
+            color: node.color || "var(--kk-ink)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center" }}>
@@ -1864,7 +1899,7 @@ function TreeViewExample({
                   marginRight: 6,
                   cursor: "pointer",
                   fontWeight: "bold",
-                  color: "#1677ff",
+                  color: "var(--kk-cyan-text)",
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1908,7 +1943,7 @@ function TreeViewExample({
                 if (node.desc || node.abstract || node.details) {
                   const tooltip = document.createElement("div");
                   tooltip.id = "tree-tooltip";
-                  tooltip.style.cssText = `position:fixed;left:${e.clientX + 12}px;top:${e.clientY + 12}px;background:#fff;border:1px solid #bbb;box-shadow:0 2px 8px rgba(0,0,0,0.15);padding:8px 12px;z-index:9999;font-size:13px;max-width:280px;border-radius:4px;pointer-events:none;`;
+                  tooltip.style.cssText = `position:fixed;left:${e.clientX + 12}px;top:${e.clientY + 12}px;background:var(--kk-surface);color:var(--kk-ink);border:1px solid var(--kk-border-strong);box-shadow:var(--kk-shadow-overlay);padding:8px 12px;z-index:9999;font-size:13px;max-width:280px;border-radius:4px;pointer-events:none;`;
                   tooltip.innerHTML = `
                     ${node.desc ? `<div><strong>Description:</strong> ${node.desc}</div>` : ""}
                     ${node.abstract ? `<div><strong>Abstract:</strong> ${node.abstract}</div>` : ""}
@@ -1933,8 +1968,14 @@ function TreeViewExample({
               }}
               style={{
                 cursor: hasChildren ? "pointer" : "default",
-                background: selectedTreeNode === label ? "#d0e8ff" : "inherit",
-                color: selectedTreeNode === label ? "#1677ff" : "inherit",
+                background:
+                  selectedTreeNode === label
+                    ? "var(--kk-cyan-soft)"
+                    : "inherit",
+                color:
+                  selectedTreeNode === label
+                    ? "var(--kk-cyan-text)"
+                    : "inherit",
                 borderRadius: "4px",
                 padding: "2px 4px",
               }}
@@ -2118,7 +2159,7 @@ function TreeViewExample({
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.30)",
+            background: "var(--kk-scrim)",
             zIndex: 10000,
             display: "flex",
             justifyContent: "center",
@@ -2128,9 +2169,9 @@ function TreeViewExample({
           <div
             style={{
               width: 420,
-              background: "#fff",
+              background: "var(--kk-surface)",
               borderRadius: 10,
-              boxShadow: "0 8px 30px rgba(0,0,0,.25)",
+              boxShadow: "var(--kk-shadow-overlay)",
             }}
           >
             <div
@@ -2139,7 +2180,7 @@ function TreeViewExample({
                 justifyContent: "space-between",
                 alignItems: "center",
                 padding: "12px 16px",
-                borderBottom: "1px solid #e5e7eb",
+                borderBottom: "1px solid var(--kk-border)",
               }}
             >
               <h3 style={{ margin: 0 }}>
@@ -2216,7 +2257,7 @@ const THEME_OPTIONS = {
   "System Theme": "system",
 };
 
-function MenuBar({
+export function MenuBar({
   user,
   workflow,
   onNewWorkflow,
@@ -2293,9 +2334,7 @@ function MenuBar({
                     <div
                       key={option}
                       className="dropdown-option"
-                      role={
-                        THEME_OPTIONS[option] ? "menuitemradio" : undefined
-                      }
+                      role={THEME_OPTIONS[option] ? "menuitemradio" : undefined}
                       aria-checked={
                         THEME_OPTIONS[option] ? isActive : undefined
                       }
@@ -3539,7 +3578,7 @@ export default function App({ user, userRoles }) {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background: "var(--kk-scrim)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -3550,11 +3589,11 @@ export default function App({ user, userRoles }) {
         >
           <div
             style={{
-              background: "#fff",
+              background: "var(--kk-surface)",
               padding: 20,
               borderRadius: 12,
               width: 360,
-              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+              boxShadow: "var(--kk-shadow-overlay)",
               textAlign: "center",
             }}
           >
@@ -3563,8 +3602,8 @@ export default function App({ user, userRoles }) {
                 width: 40,
                 height: 40,
                 margin: "0 auto 12px",
-                border: "4px solid #e5e7eb",
-                borderTop: "4px solid #2563eb",
+                border: "4px solid var(--kk-border)",
+                borderTop: "4px solid var(--kk-cyan-text)",
                 borderRadius: "50%",
                 animation: "spin 1s linear infinite",
               }}
@@ -3572,7 +3611,7 @@ export default function App({ user, userRoles }) {
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
               {UI_STRINGS.dashboard.page.compilacionEnCurso}
             </div>
-            <div style={{ color: "#6b7280" }}>
+            <div style={{ color: "var(--kk-ink-muted)" }}>
               {UI_STRINGS.dashboard.page.estamosValidandoYGenerandoEl}
             </div>
           </div>
@@ -3585,7 +3624,7 @@ export default function App({ user, userRoles }) {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.45)",
+            background: "var(--kk-scrim)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -3597,9 +3636,9 @@ export default function App({ user, userRoles }) {
           <div
             style={{
               width: 420,
-              background: "#fff",
+              background: "var(--kk-surface)",
               borderRadius: 12,
-              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+              boxShadow: "var(--kk-shadow-overlay)",
               padding: 20,
             }}
           >
@@ -3630,8 +3669,8 @@ export default function App({ user, userRoles }) {
                   padding: "10px 14px",
                   borderRadius: 8,
                   border: "none",
-                  background: "#2563eb",
-                  color: "#fff",
+                  background: "var(--kk-brand-mint)",
+                  color: "var(--kk-on-brand)",
                   cursor: "pointer",
                   fontWeight: 600,
                 }}
@@ -3651,9 +3690,9 @@ export default function App({ user, userRoles }) {
                 style={{
                   padding: "10px 14px",
                   borderRadius: 8,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  color: "#111827",
+                  border: "1px solid var(--kk-border)",
+                  background: "var(--kk-surface)",
+                  color: "var(--kk-ink)",
                   cursor: "pointer",
                   fontWeight: 600,
                 }}
@@ -3683,7 +3722,7 @@ export default function App({ user, userRoles }) {
           className="topLeft"
           style={{
             width: "270px",
-            borderRight: "1px solid #ccc",
+            borderRight: "1px solid var(--kk-border)",
             overflowY: "auto",
             position: "relative",
             marginTop: 0,
@@ -3988,7 +4027,7 @@ function Canvas({
           y: yT,
           type: "connection",
           id: `connection-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          color: "red",
+          color: "var(--kk-status-changes-fg)",
         };
         setNodes((prev) => [...prev, newNode]);
         setInteractionMode("place-start-object");
@@ -4733,7 +4772,9 @@ function Canvas({
                     strokeWidth="2"
                   />
                 </svg>
-                <div className={`start-end-label start-end-label--${node.type}`}>
+                <div
+                  className={`start-end-label start-end-label--${node.type}`}
+                >
                   {node.type === "start"
                     ? UI_STRINGS.dashboard.canvas.begin
                     : UI_STRINGS.dashboard.canvas.end}

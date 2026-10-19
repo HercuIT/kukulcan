@@ -198,7 +198,7 @@ export default function Home({ user, userRoles }) {
       <div className="custom-modal">
         <div className="custom-modal-content">
           <h3>The Node.js server is running correctly</h3>
-          <p style={{ color: "red" }}>
+          <p style={{ color: "var(--kk-status-changes-fg)" }}>
             But the Ignition server is unavailable.
             <br />
             Please check your Ignition settings or status.

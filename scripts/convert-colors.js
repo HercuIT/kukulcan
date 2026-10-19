@@ -46,7 +46,10 @@ function parseColor(lit) {
   }
   const m = s.match(/rgba?\(([^)]*)\)/);
   if (!m) return null;
-  const p = m[1].split(/[\s,/]+/).filter(Boolean).map(parseFloat);
+  const p = m[1]
+    .split(/[\s,/]+/)
+    .filter(Boolean)
+    .map(parseFloat);
   return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
 }
 
@@ -125,11 +128,13 @@ function mapColor(lit, prop, ctx) {
 
   const light = l >= 0.85;
   if (fam === "red") {
-    if (kind === "bg") return light ? v("status-changes-bg") : v("status-changes-fg");
+    if (kind === "bg")
+      return light ? v("status-changes-bg") : v("status-changes-fg");
     return v("status-changes-fg");
   }
   if (fam === "yellow") {
-    if (kind === "bg") return light ? v("status-review-bg") : v("status-review-bg");
+    if (kind === "bg")
+      return light ? v("status-review-bg") : v("status-review-bg");
     return v("status-review-fg");
   }
   if (fam === "green") {
@@ -143,8 +148,7 @@ function mapColor(lit, prop, ctx) {
 
 /** True when the rule paints a green/blue fill (→ brand-mint), so white text becomes on-brand. */
 function brandFill(ctx) {
-  const re =
-    /(background(?:-color)?|backgroundColor)\s*:\s*([^;\n}]+)/gi;
+  const re = /(background(?:-color)?|backgroundColor)\s*:\s*([^;\n}]+)/gi;
   let m;
   while ((m = re.exec(ctx))) {
     const val = m[2];
@@ -223,28 +227,31 @@ function convert(text, file) {
     // JS: every string literal that holds a color. The property is the nearest `prop:` /
     // `prop =` to its left on the same line, which also covers ternaries
     // (`background: on ? "#1677ff" : "#fff"`) and `el.style.background = "#d0f0d0"`.
-    const out = text.replace(/(["'])([^"'\n]*)\1/g, (whole, quote, value, offset) => {
-      if (inComment(offset)) return whole;
-      COLOR_RE.lastIndex = 0;
-      if (!COLOR_RE.test(value)) return whole;
-      COLOR_RE.lastIndex = 0;
-      const left = text.slice(lineStarts[lineAt(offset)], offset);
-      const props = [...left.matchAll(/([a-zA-Z]+)\s*(?::|=(?!=))\s*/g)];
-      if (!props.length) return whole;
-      const prop = props[props.length - 1][1];
-      const kind = kindOf(prop);
-      if (kind === "other") return whole;
-      const next =
-        kind === "shadow"
-          ? mapShadow(value)
-          : value.replace(
-              COLOR_RE,
-              (lit) => mapColor(lit, prop, ctxFor(offset)) || lit,
-            );
-      if (next === value) return whole;
-      changes.push({ line: lineAt(offset) + 1, prop, from: value, to: next });
-      return `${quote}${next}${quote}`;
-    });
+    const out = text.replace(
+      /(["'])([^"'\n]*)\1/g,
+      (whole, quote, value, offset) => {
+        if (inComment(offset)) return whole;
+        COLOR_RE.lastIndex = 0;
+        if (!COLOR_RE.test(value)) return whole;
+        COLOR_RE.lastIndex = 0;
+        const left = text.slice(lineStarts[lineAt(offset)], offset);
+        const props = [...left.matchAll(/([a-zA-Z]+)\s*(?::|=(?!=))\s*/g)];
+        if (!props.length) return whole;
+        const prop = props[props.length - 1][1];
+        const kind = kindOf(prop);
+        if (kind === "other") return whole;
+        const next =
+          kind === "shadow"
+            ? mapShadow(value)
+            : value.replace(
+                COLOR_RE,
+                (lit) => mapColor(lit, prop, ctxFor(offset)) || lit,
+              );
+        if (next === value) return whole;
+        changes.push({ line: lineAt(offset) + 1, prop, from: value, to: next });
+        return `${quote}${next}${quote}`;
+      },
+    );
     return { text: out, changes };
   }
 
