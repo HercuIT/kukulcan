@@ -1,7 +1,50 @@
 /* ===========================
  * compile-xml: validación y generación del XML
- * Portado sin cambios desde la Cloud Function compileXML (functions/index.js).
+ * Portado desde la Cloud Function compileXML (functions/index.js). Para un workflow válido con
+ * parámetros agrupados el XML es idéntico (ver supabase/tests/fixtures).
  * =========================== */
+
+// Límites para que una petición autenticada no pueda agotar memoria o CPU.
+export const LIMITS = {
+  maxBodyBytes: 5 * 1024 * 1024,
+  maxNodes: 5000,
+  maxConnections: 10000,
+};
+
+const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+const hasId = (id) =>
+  (typeof id === "string" && id.trim() !== "") ||
+  (typeof id === "number" && Number.isFinite(id));
+
+// Estructura mínima antes de leer id/type/from/to: objetos, ids presentes y sin repetir, tamaños.
+function validateStructure(wf) {
+  if (wf.nodes.length > LIMITS.maxNodes)
+    return [`Demasiados nodos (${wf.nodes.length}); el máximo es ${LIMITS.maxNodes}.`];
+  if (wf.connections.length > LIMITS.maxConnections)
+    return [
+      `Demasiadas conexiones (${wf.connections.length}); el máximo es ${LIMITS.maxConnections}.`,
+    ];
+
+  const errors = [];
+  const seen = new Set();
+  wf.nodes.forEach((n, i) => {
+    if (!isPlainObject(n)) {
+      errors.push(`El nodo #${i + 1} no es un objeto.`);
+      return;
+    }
+    if (!hasId(n.id)) {
+      errors.push(`El nodo #${i + 1} no tiene id.`);
+      return;
+    }
+    const key = String(n.id);
+    if (seen.has(key)) errors.push(`El id de nodo '${key}' está repetido.`);
+    seen.add(key);
+  });
+  wf.connections.forEach((c, i) => {
+    if (!isPlainObject(c)) errors.push(`La conexión #${i + 1} no es un objeto.`);
+  });
+  return errors;
+}
 
 /* --- Validador --- */
 export function validateWorkflow(wf) {
@@ -9,6 +52,8 @@ export function validateWorkflow(wf) {
   if (!wf || !Array.isArray(wf.nodes) || !Array.isArray(wf.connections)) {
     return { ok: false, errors: ['Se esperan "nodes[]" y "connections[]"'] };
   }
+  const structural = validateStructure(wf);
+  if (structural.length) return { ok: false, errors: structural };
   const nodesById = new Map(wf.nodes.map((n) => [n.id, n]));
   const inDeg = {},
     outDeg = {};
@@ -61,6 +106,10 @@ const TYPE_TO_XML = {
   start: "BeginElement",
   end: "EndElement",
 };
+// parameters llega como { grupo: [...] } (NodeParametersModal) o como arreglo plano de
+// { name, dataType, defaultValue } (nodos creados con CreateNodeModal).
+const paramGroups = (p) => (Array.isArray(p) ? [p] : Object.values(p));
+
 const mapTypeToXml = (t) =>
   TYPE_TO_XML[String(t || "").toLowerCase()] || t || "NodeDefinitionName";
 const esc = (s = "") =>
@@ -92,15 +141,15 @@ export function buildXml(wf) {
         const p = n.parameters;
         if (!p || typeof p !== "object") return [];
         const out = [];
-        for (const group of Object.values(p)) {
+        for (const group of paramGroups(p)) {
           if (Array.isArray(group)) {
             for (const x of group) {
               if (x && (x.name || x.value || x.units)) {
                 out.push({
                   name: x.name ?? "",
-                  value: x.value ?? "",
+                  value: x.value ?? x.defaultValue ?? "",
                   unit: x.units ?? x.unit ?? "",
-                  dataType: x.type ?? "",
+                  dataType: x.type ?? x.dataType ?? "",
                   defaultValue: x.defaultValue ?? "",
                 });
               }
@@ -160,7 +209,7 @@ ${paramsXml}${assigns}    </Node>`;
     (wf.nodes || []).forEach((node) => {
       const p = node.parameters;
       if (!p || typeof p !== "object") return;
-      for (const group of Object.values(p)) {
+      for (const group of paramGroups(p)) {
         if (Array.isArray(group)) {
           for (const par of group) {
             if (par && par.name && !seen.has(par.name)) {
@@ -220,6 +269,8 @@ ${connsXml}
   );
 
   const nodeIdToStepId = new Map();
+  // Búsqueda por id en O(1) (antes era un find por conexión: O(nodos × conexiones)).
+  const sfcNodeById = new Map(orderedForSfc.map((n) => [n.id, n]));
   const stepLines = [];
 
   orderedForSfc.forEach((n, idx) => {
@@ -242,8 +293,8 @@ ${connsXml}
     const fromStepId = nodeIdToStepId.get(c.from);
     const toStepId = nodeIdToStepId.get(c.to);
 
-    const fromNode = orderedForSfc.find((n) => n.id === c.from);
-    const toNode = orderedForSfc.find((n) => n.id === c.to);
+    const fromNode = sfcNodeById.get(c.from);
+    const toNode = sfcNodeById.get(c.to);
 
     const fromX = fromNode?.x ?? fromNode?.posX ?? 0;
     const fromY = fromNode?.y ?? fromNode?.posY ?? 0;
@@ -317,11 +368,54 @@ export function xmlFileName(wf) {
 }
 
 /**
+ * Lee el cuerpo de una Request como texto sin pasar de maxBytes. Devuelve null en cuanto se pasa
+ * (por Content-Length o mientras llega), sin cargar el resto en memoria.
+ */
+export async function readTextLimited(req, maxBytes = LIMITS.maxBodyBytes) {
+  const declared = Number(req.headers.get("Content-Length"));
+  if (Number.isFinite(declared) && declared > maxBytes) return null;
+  if (!req.body) return "";
+
+  const reader = req.body.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+/**
  * Compila el cuerpo de la petición. Devuelve el status HTTP y el cuerpo,
  * igual que el handler compileXML de Firebase.
  */
 export function compileRequest(body) {
   let wf = body;
+  if (
+    typeof wf === "string" &&
+    new TextEncoder().encode(wf).length > LIMITS.maxBodyBytes
+  ) {
+    return {
+      status: 413,
+      json: {
+        message: `El workflow supera el tamaño máximo (${LIMITS.maxBodyBytes} bytes).`,
+        errors: [],
+      },
+    };
+  }
   if (typeof wf === "string") {
     try {
       wf = JSON.parse(wf);

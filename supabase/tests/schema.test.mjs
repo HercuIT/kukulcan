@@ -64,6 +64,16 @@ async function as(uid, fn) {
   }
 }
 
+// Ejecuta fn como service_role (lo que usan el servidor y los scripts de migración): sin auth.uid().
+async function asServiceRole(fn) {
+  await db.exec("set role service_role");
+  try {
+    return await fn();
+  } finally {
+    await db.exec("reset role");
+  }
+}
+
 const q = (sql, params) => db.query(sql, params);
 
 async function rejectsWith(promise, code) {
@@ -367,12 +377,7 @@ describe("negative", () => {
       ),
       "P0002",
     );
-    await rejectsWith(
-      as(users.designer, () =>
-        q("select public.assign_reviewer($1, null)", [wf]),
-      ),
-      "P0001",
-    );
+
   });
 
   test("non-designers cannot manage collaborators or check out", async () => {
@@ -518,9 +523,11 @@ describe("edge", () => {
 
   test("service-role writes (data migration) keep their own timestamps", async () => {
     const wf = await newWorkflow(users.designer);
-    await q(
-      "update public.workflows set nodes = '[1]', last_modified_at = '2025-01-01T00:00:00Z', last_modified_by = $2 where id = $1",
-      [wf, users.designer2],
+    await asServiceRole(() =>
+      q(
+        "update public.workflows set nodes = '[1]', last_modified_at = '2025-01-01T00:00:00Z', last_modified_by = $2 where id = $1",
+        [wf, users.designer2],
+      ),
     );
     const { rows } = await q(
       "select version, last_modified_at, last_modified_by from public.workflows where id = $1",
@@ -566,12 +573,14 @@ describe("edge", () => {
 });
 
 describe("migrate_workflow (data migration RPC)", () => {
-  const migrate = (workflow, designers = [], history = []) =>
+  const callMigrate = (workflow, designers = [], history = []) =>
     q("select public.migrate_workflow($1::jsonb, $2::jsonb, $3::jsonb) as id", [
       JSON.stringify(workflow),
       JSON.stringify(designers),
       JSON.stringify(history),
     ]);
+  // Como en producción: migrate-data.js llama con la clave service role.
+  const migrate = (...args) => asServiceRole(() => callMigrate(...args));
   const legacy = (legacyId, extra = {}) => ({
     legacy_id: legacyId,
     name: "Migrado",
@@ -676,7 +685,7 @@ describe("migrate_workflow (data migration RPC)", () => {
 
   test("negative: clients cannot call it and legacy_id is required", async () => {
     await rejectsWith(
-      as(users.designer, () => migrate(legacy("fs-client"))),
+      as(users.designer, () => callMigrate(legacy("fs-client"))),
       "42501",
     );
     await rejectsWith(migrate(legacy(null)), "P0001");
@@ -697,5 +706,81 @@ describe("migrate_workflow (data migration RPC)", () => {
       [id],
     );
     assert.equal(rows[0].n, 0);
+  });
+});
+
+describe("review fixes", () => {
+  test("negative: clients cannot write checkout_description directly", async () => {
+    const wf = await newWorkflow(users.designer);
+    await rejectsWith(
+      as(users.designer, () =>
+        q("update public.workflows set checkout_description = 'x' where id = $1", [wf]),
+      ),
+      "42501",
+    );
+    await rejectsWith(
+      as(users.designer, () =>
+        q(
+          "insert into public.workflows (name, checkout_description) values ('x', 'y')",
+        ),
+      ),
+      "42501",
+    );
+  });
+
+  test("positive: checkout_workflow still sets checkout_description", async () => {
+    const wf = await newWorkflow(users.designer);
+    await as(users.designer, () =>
+      q("select public.checkout_workflow($1, 'por RPC')", [wf]),
+    );
+    const { rows } = await q(
+      "select checkout_description from public.workflows where id = $1",
+      [wf],
+    );
+    assert.equal(rows[0].checkout_description, "por RPC");
+  });
+
+  test("edge: assigning no reviewer clears it and keeps the editable status", async () => {
+    const wf = await newWorkflow(users.designer);
+    await as(users.designer, () =>
+      q("select public.submit_for_review($1, $2)", [wf, users.reviewer]),
+    );
+    await as(users.reviewer, () => q("select public.request_changes($1)", [wf]));
+    await as(users.designer, () =>
+      q("select public.assign_reviewer($1, $2)", [wf, users.reviewer]),
+    );
+    // De vuelta a changes_requested para poder desasignar.
+    await as(users.reviewer, () => q("select public.request_changes($1)", [wf]));
+    await as(users.designer, () =>
+      q("select public.assign_reviewer($1, null)", [wf]),
+    );
+    const { rows } = await q(
+      "select status, assigned_reviewer_id from public.workflows where id = $1",
+      [wf],
+    );
+    assert.deepEqual(rows[0], {
+      status: "changes_requested",
+      assigned_reviewer_id: null,
+    });
+  });
+
+  test("negative: a reviewer whose role was revoked can no longer approve or request changes", async () => {
+    const exReviewer = await createUser("exReviewer", "ex-reviewer@example.com", {
+      reviewer: true,
+    });
+    const wf = await newWorkflow(users.designer);
+    await as(users.designer, () =>
+      q("select public.submit_for_review($1, $2)", [wf, exReviewer]),
+    );
+    await q("update public.profiles set reviewer = false where id = $1", [exReviewer]);
+    await rejectsWith(
+      as(exReviewer, () => q("select public.approve_workflow($1)", [wf])),
+      "42501",
+    );
+    await rejectsWith(
+      as(exReviewer, () => q("select public.request_changes($1)", [wf])),
+      "42501",
+    );
+    assert.equal(await statusOf(wf), "pending_review");
   });
 });
