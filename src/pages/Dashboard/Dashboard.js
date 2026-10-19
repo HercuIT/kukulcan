@@ -4527,22 +4527,20 @@ function Canvas({
       const isSmallest = i === baseSizes.length - 1;
       if (step < 6 && !isSmallest) continue;
 
-      const opacity = i === 0 ? 0.14 : i === 1 ? 0.1 : i === 2 ? 0.07 : 0.045;
-      const color = `rgba(80,88,100,${opacity})`;
+      // Cuadrícula de puntos (HTE-111): cada nivel es un punto de 1px en canvas-dot, más tenue
+      // cuanto más fino es el nivel.
+      const strength = i === 0 ? 100 : i === 1 ? 80 : i === 2 ? 60 : 40;
+      const color = `color-mix(in srgb, var(--kk-canvas-dot) ${strength}%, transparent)`;
 
-      const horiz = `repeating-linear-gradient(0deg, transparent 0px, transparent ${Math.max(0, step - 1)}px, ${color} ${Math.max(0, step - 1)}px, ${color} ${step}px)`;
-      const vert = `repeating-linear-gradient(90deg, transparent 0px, transparent ${Math.max(0, step - 1)}px, ${color} ${Math.max(0, step - 1)}px, ${color} ${step}px)`;
-
-      bgImages.push(horiz, vert);
-      const sizePx = `${step}px ${step}px`;
-      bgSizes.push(sizePx, sizePx);
+      bgImages.push(`radial-gradient(circle, ${color} 1px, transparent 1.5px)`);
+      bgSizes.push(`${step}px ${step}px`);
 
       const mod = (v, m) => ((v % m) + m) % m;
       const offsetX = pan.x;
       const offsetY = pan.y;
       const posX = mod(offsetX, step);
       const posY = mod(offsetY, step);
-      bgPositions.push(`${posX}px ${posY}px`, `${posX}px ${posY}px`);
+      bgPositions.push(`${posX}px ${posY}px`);
     }
 
     if (bgImages.length === 0) return {};
@@ -4619,7 +4617,7 @@ function Canvas({
                 y1={p1.y}
                 x2={p2.x}
                 y2={p2.y}
-                stroke="#2c3e50"
+                style={{ stroke: "var(--kk-cyan-text)" }}
                 strokeWidth={3}
                 opacity={0.95}
               />
@@ -4643,7 +4641,7 @@ function Canvas({
                   y1={startPos.y}
                   x2={newConnection.to.x}
                   y2={newConnection.to.y}
-                  stroke="#e67e22"
+                  style={{ stroke: "var(--kk-cyan-text)" }}
                   strokeWidth="2"
                   strokeDasharray="5,5"
                 />
@@ -4725,12 +4723,17 @@ function Canvas({
                 >
                   <polygon
                     points="5,5 35,5 20,25"
-                    fill="#222"
-                    stroke="#e67e22"
+                    style={{
+                      fill:
+                        node.type === "start"
+                          ? "var(--kk-brand-mint)"
+                          : "var(--kk-brand-cyan)",
+                      stroke: "var(--kk-on-brand)",
+                    }}
                     strokeWidth="2"
                   />
                 </svg>
-                <div className="start-end-label">
+                <div className={`start-end-label start-end-label--${node.type}`}>
                   {node.type === "start"
                     ? UI_STRINGS.dashboard.canvas.begin
                     : UI_STRINGS.dashboard.canvas.end}
@@ -4749,21 +4752,21 @@ function Canvas({
                     y="8"
                     width="24"
                     height="4"
-                    fill={node.color || "#222"}
+                    style={{ fill: node.color || "var(--kk-ink)" }}
                   />
                   <rect
                     x="8"
                     y="14"
                     width="24"
                     height="4"
-                    fill={node.color || "#222"}
+                    style={{ fill: node.color || "var(--kk-ink)" }}
                   />
                   <rect
                     x="8"
                     y="2"
                     width="24"
                     height="4"
-                    fill={node.color || "#222"}
+                    style={{ fill: node.color || "var(--kk-ink)" }}
                   />
                 </svg>
                 <div
@@ -4882,7 +4885,7 @@ function BlinkingRedLine({ from, to }) {
       y1={from.y + 20}
       x2={to.x + 60}
       y2={to.y + 20}
-      stroke="#ff2222"
+      style={{ stroke: "var(--kk-status-changes-fg)" }}
       strokeWidth="5"
       strokeDasharray="10,6"
       opacity={0.8}
