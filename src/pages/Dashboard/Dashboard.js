@@ -10,28 +10,22 @@ import CheckoutModal from "./CheckoutModal";
 import VersionHistoryModal from "./VersionHistoryModal";
 import { EquipmentNode } from "./equipmentData";
 import { MaterialsNode } from "./MaterialData";
+import { onSessionChange, signOut } from "../../backend/authApi";
 import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  getDocs,
-  doc,
-  getDoc,
-  updateDoc,
-  onSnapshot,
-  query,
-  where,
-  arrayUnion,
-  Timestamp,
-} from "firebase/firestore";
-import { getFunctions, httpsCallable } from "firebase/functions";
-import { auth, db } from "../../backend/firebaseConfig";
-import { signOut } from "firebase/auth";
+  approveWorkflow,
+  checkoutWorkflow,
+  compileWorkflow,
+  createWorkflow,
+  getWorkflow,
+  listMyWorkflows,
+  listUsers,
+  saveWorkflow,
+  subscribeToWorkflow,
+} from "../../backend/workflowsApi";
 import ModalMessage from "../../components/ModalMessage";
 import Selecto from "react-selecto";
 import Logo from "../../assets/Logofinal.png";
-
-const COMPILE_URL = "https://compilexml-mg5wgcxqda-uc.a.run.app";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 // === Helpers para normalizar nodos y generar IDs cortos ===
 const NODE_DEFINITION_NAMES = new Set([
@@ -241,7 +235,7 @@ function NodeParametersModal({
     if (!selectedParam) {
       return (
         <div style={{ color: "#6b7280" }}>
-          Select a parameter to see its attributes.
+          {UI_STRINGS.dashboard.nodeParametersModal.selectAParameterToSee}
         </div>
       );
     }
@@ -263,14 +257,20 @@ function NodeParametersModal({
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
-            <th style={{ padding: 6, width: "30%" }}>Attribute</th>
-            <th style={{ padding: 6 }}>Value</th>
+            <th style={{ padding: 6, width: "30%" }}>
+              {UI_STRINGS.dashboard.nodeParametersModal.attribute}
+            </th>
+            <th style={{ padding: 6 }}>
+              {UI_STRINGS.dashboard.nodeParametersModal.value}
+            </th>
           </tr>
         </thead>
         <tbody>
           {/* Name */}
           <tr>
-            <td style={{ padding: 4, fontWeight: "bold" }}>Name</td>
+            <td style={{ padding: 4, fontWeight: "bold" }}>
+              {UI_STRINGS.dashboard.nodeParametersModal.name}
+            </td>
             <td style={{ padding: 4 }}>
               <input
                 value={name}
@@ -279,13 +279,17 @@ function NodeParametersModal({
                 }
                 style={{ width: "100%" }}
                 disabled={isReadOnly}
-                placeholder="Attribute name"
+                placeholder={
+                  UI_STRINGS.dashboard.nodeParametersModal.attributeName
+                }
               />
             </td>
           </tr>
           {/* Upper Limit */}
           <tr>
-            <td style={{ padding: 4, fontWeight: "bold" }}>Upper Limit</td>
+            <td style={{ padding: 4, fontWeight: "bold" }}>
+              {UI_STRINGS.dashboard.nodeParametersModal.upperLimit}
+            </td>
             <td style={{ padding: 4 }}>
               <input
                 type="number"
@@ -295,13 +299,17 @@ function NodeParametersModal({
                 }
                 style={{ width: "100%" }}
                 disabled={isReadOnly}
-                placeholder="e.g., 100.5"
+                placeholder={
+                  UI_STRINGS.dashboard.nodeParametersModal.upperLimitPlaceholder
+                }
               />
             </td>
           </tr>
           {/* Lower Limit */}
           <tr>
-            <td style={{ padding: 4, fontWeight: "bold" }}>Lower Limit</td>
+            <td style={{ padding: 4, fontWeight: "bold" }}>
+              {UI_STRINGS.dashboard.nodeParametersModal.lowerLimit}
+            </td>
             <td style={{ padding: 4 }}>
               <input
                 type="number"
@@ -311,14 +319,16 @@ function NodeParametersModal({
                 }
                 style={{ width: "100%" }}
                 disabled={isReadOnly}
-                placeholder="e.g., 90.0"
+                placeholder={
+                  UI_STRINGS.dashboard.nodeParametersModal.lowerLimitPlaceholder
+                }
               />
             </td>
           </tr>
           {/* Test Specification 1 */}
           <tr>
             <td style={{ padding: 4, fontWeight: "bold" }}>
-              Test Specification 1
+              {UI_STRINGS.dashboard.nodeParametersModal.testSpecification1}
             </td>
             <td style={{ padding: 4 }}>
               <input
@@ -328,13 +338,18 @@ function NodeParametersModal({
                 }
                 style={{ width: "100%" }}
                 disabled={isReadOnly}
-                placeholder="Test specification..."
+                placeholder={
+                  UI_STRINGS.dashboard.nodeParametersModal
+                    .testSpecificationPlaceholder
+                }
               />
             </td>
           </tr>
           {/* Qualified Limits */}
           <tr>
-            <td style={{ padding: 4, fontWeight: "bold" }}>Qualified Limits</td>
+            <td style={{ padding: 4, fontWeight: "bold" }}>
+              {UI_STRINGS.dashboard.nodeParametersModal.qualifiedLimits}
+            </td>
             <td style={{ padding: 4, display: "flex", gap: 8 }}>
               <input
                 value={qualifiedLimits.min}
@@ -348,7 +363,7 @@ function NodeParametersModal({
                 }
                 style={{ width: "50%" }}
                 disabled={isReadOnly}
-                placeholder="Min"
+                placeholder={UI_STRINGS.dashboard.nodeParametersModal.min}
               />
               <input
                 value={qualifiedLimits.max}
@@ -362,13 +377,15 @@ function NodeParametersModal({
                 }
                 style={{ width: "50%" }}
                 disabled={isReadOnly}
-                placeholder="Max"
+                placeholder={UI_STRINGS.dashboard.nodeParametersModal.max}
               />
             </td>
           </tr>
           {/* Hierarchy Scope */}
           <tr>
-            <td style={{ padding: 4, fontWeight: "bold" }}>Hierarchy Scope</td>
+            <td style={{ padding: 4, fontWeight: "bold" }}>
+              {UI_STRINGS.dashboard.nodeParametersModal.hierarchyScope}
+            </td>
             <td style={{ padding: 4 }}>
               <input
                 value={hierarchyScope}
@@ -377,14 +394,17 @@ function NodeParametersModal({
                 }
                 style={{ width: "100%" }}
                 disabled={isReadOnly}
-                placeholder="e.g., Site/Area/Line"
+                placeholder={
+                  UI_STRINGS.dashboard.nodeParametersModal
+                    .hierarchyScopePlaceholder
+                }
               />
             </td>
           </tr>
           {/* Expanded Description */}
           <tr>
             <td style={{ padding: 4, fontWeight: "bold" }}>
-              Expanded Description
+              {UI_STRINGS.dashboard.nodeParametersModal.expandedDescription}
             </td>
             <td style={{ padding: 4 }}>
               <textarea
@@ -394,7 +414,10 @@ function NodeParametersModal({
                 }
                 style={{ width: "100%", minHeight: "60px" }}
                 disabled={isReadOnly}
-                placeholder="Detailed description of the attribute..."
+                placeholder={
+                  UI_STRINGS.dashboard.nodeParametersModal
+                    .detailedDescriptionOfTheAttribute
+                }
               />
             </td>
           </tr>
@@ -455,7 +478,8 @@ function NodeParametersModal({
           }}
         >
           <h3 style={{ margin: 0 }}>
-            {nodeData?.label || "Node"} - Parameters
+            {nodeData?.label || UI_STRINGS.dashboard.nodeParametersModal.node}{" "}
+            {UI_STRINGS.dashboard.nodeParametersModal.parametersTitleSuffix}
           </h3>
           <button
             onClick={onClose}
@@ -516,8 +540,9 @@ function NodeParametersModal({
               }}
             >
               <h4 style={{ margin: 0 }}>
-                Parameters{" "}
-                {activeTab === "Add Vanilla Node" && "(Vanilla Node)"}
+                {UI_STRINGS.dashboard.nodeParametersModal.parameters}{" "}
+                {activeTab === "Add Vanilla Node" &&
+                  UI_STRINGS.dashboard.nodeParametersModal.vanillaNode}
               </h4>
               <button
                 onClick={addParameter}
@@ -531,7 +556,7 @@ function NodeParametersModal({
                   cursor: isReadOnly ? "not-allowed" : "pointer",
                 }}
               >
-                New Parameter
+                {UI_STRINGS.dashboard.nodeParametersModal.newParameter}
               </button>
             </div>
             <div
@@ -549,12 +574,27 @@ function NodeParametersModal({
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
-                      <th style={{ padding: 6 }}>Name</th>
-                      <th style={{ padding: 6 }}>Type</th>
-                      <th style={{ padding: 6 }}>Origin</th>
-                      <th style={{ padding: 6 }}>Short Description</th>
-                      <th style={{ padding: 6 }}>Value</th>
-                      <th style={{ padding: 6 }}>Eng. Units</th>
+                      <th style={{ padding: 6 }}>
+                        {UI_STRINGS.dashboard.nodeParametersModal.name}
+                      </th>
+                      <th style={{ padding: 6 }}>
+                        {UI_STRINGS.dashboard.nodeParametersModal.type}
+                      </th>
+                      <th style={{ padding: 6 }}>
+                        {UI_STRINGS.dashboard.nodeParametersModal.origin}
+                      </th>
+                      <th style={{ padding: 6 }}>
+                        {
+                          UI_STRINGS.dashboard.nodeParametersModal
+                            .shortDescription
+                        }
+                      </th>
+                      <th style={{ padding: 6 }}>
+                        {UI_STRINGS.dashboard.nodeParametersModal.value}
+                      </th>
+                      <th style={{ padding: 6 }}>
+                        {UI_STRINGS.dashboard.nodeParametersModal.engUnits}
+                      </th>
                       <th style={{ padding: 6, width: 30 }}>✖</th>
                     </tr>
                   </thead>
@@ -565,7 +605,10 @@ function NodeParametersModal({
                           colSpan={7}
                           style={{ color: "#6b7280", padding: 10 }}
                         >
-                          No parameters. Use “New Parameter”.
+                          {
+                            UI_STRINGS.dashboard.nodeParametersModal
+                              .noParametersUseNewParameter
+                          }
                         </td>
                       </tr>
                     ) : (
@@ -638,7 +681,9 @@ function NodeParametersModal({
                                 onChange={(e) =>
                                   updateField(p.id, "name", e.target.value)
                                 }
-                                placeholder="Name"
+                                placeholder={
+                                  UI_STRINGS.dashboard.nodeParametersModal.name
+                                }
                                 style={{ width: "100%" }}
                                 disabled={true}
                               />
@@ -649,7 +694,9 @@ function NodeParametersModal({
                                 onChange={(e) =>
                                   updateField(p.id, "type", e.target.value)
                                 }
-                                placeholder="Type"
+                                placeholder={
+                                  UI_STRINGS.dashboard.nodeParametersModal.type
+                                }
                                 style={{ width: "100%" }}
                                 disabled={isReadOnly}
                               />
@@ -660,7 +707,10 @@ function NodeParametersModal({
                                 onChange={(e) =>
                                   updateField(p.id, "origin", e.target.value)
                                 }
-                                placeholder="Origin"
+                                placeholder={
+                                  UI_STRINGS.dashboard.nodeParametersModal
+                                    .origin
+                                }
                                 style={{ width: "100%" }}
                                 disabled={true}
                               />
@@ -671,7 +721,10 @@ function NodeParametersModal({
                                 onChange={(e) =>
                                   updateField(p.id, "desc", e.target.value)
                                 }
-                                placeholder="Short description"
+                                placeholder={
+                                  UI_STRINGS.dashboard.nodeParametersModal
+                                    .shortDescriptionPlaceholder
+                                }
                                 style={{ width: "100%" }}
                                 disabled={isReadOnly}
                               />
@@ -682,7 +735,9 @@ function NodeParametersModal({
                                 onChange={(e) =>
                                   updateField(p.id, "value", e.target.value)
                                 }
-                                placeholder="Value"
+                                placeholder={
+                                  UI_STRINGS.dashboard.nodeParametersModal.value
+                                }
                                 style={{ width: "100%" }}
                                 disabled={isReadOnly}
                               />
@@ -693,7 +748,9 @@ function NodeParametersModal({
                                 onChange={(e) =>
                                   updateField(p.id, "units", e.target.value)
                                 }
-                                placeholder="Units"
+                                placeholder={
+                                  UI_STRINGS.dashboard.nodeParametersModal.units
+                                }
                                 style={{ width: "100%" }}
                                 disabled={isReadOnly}
                               />
@@ -714,7 +771,10 @@ function NodeParametersModal({
                                     ? "not-allowed"
                                     : "pointer",
                                 }}
-                                title="Delete"
+                                title={
+                                  UI_STRINGS.dashboard.nodeParametersModal
+                                    .delete
+                                }
                               >
                                 ×
                               </button>
@@ -732,7 +792,12 @@ function NodeParametersModal({
                 {/* (aprox 40%) */}
                 {/* Extended Attributes */}
                 <div style={{ marginTop: 0 }}>
-                  <h4 style={{ margin: "14px 0 6px" }}>Extended Attributes</h4>
+                  <h4 style={{ margin: "14px 0 6px" }}>
+                    {
+                      UI_STRINGS.dashboard.nodeParametersModal
+                        .extendedAttributes
+                    }
+                  </h4>
                   <div
                     style={{
                       border: "1px solid #e5e7eb",
@@ -750,24 +815,56 @@ function NodeParametersModal({
             {/* Fin Contenedor Flex Row */}
             {/* Audit Trail (fijo, ilustrativo) */}
             <div style={{ marginTop: 18 }}>
-              <h4 style={{ margin: "14px 0 6px" }}>Audit Trail</h4>
+              <h4 style={{ margin: "14px 0 6px" }}>
+                {UI_STRINGS.dashboard.nodeParametersModal.auditTrail}
+              </h4>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
-                    <th style={{ padding: 6 }}>Short Description</th>
-                    <th style={{ padding: 6 }}>Action</th>
-                    <th style={{ padding: 6 }}>User</th>
-                    <th style={{ padding: 6 }}>Version</th>
-                    <th style={{ padding: 6 }}>Timestamp</th>
+                    <th style={{ padding: 6 }}>
+                      {
+                        UI_STRINGS.dashboard.nodeParametersModal
+                          .shortDescription
+                      }
+                    </th>
+                    <th style={{ padding: 6 }}>
+                      {UI_STRINGS.dashboard.nodeParametersModal.action}
+                    </th>
+                    <th style={{ padding: 6 }}>
+                      {UI_STRINGS.dashboard.nodeParametersModal.user}
+                    </th>
+                    <th style={{ padding: 6 }}>
+                      {UI_STRINGS.dashboard.nodeParametersModal.version}
+                    </th>
+                    <th style={{ padding: 6 }}>
+                      {UI_STRINGS.dashboard.nodeParametersModal.timestamp}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td style={{ padding: 6 }}>Mixing Speed</td>
-                    <td style={{ padding: 6 }}>Update</td>
-                    <td style={{ padding: 6 }}>designer@example.com</td>
+                    <td style={{ padding: 6 }}>
+                      {
+                        UI_STRINGS.dashboard.nodeParametersModal
+                          .auditSampleDescription
+                      }
+                    </td>
+                    <td style={{ padding: 6 }}>
+                      {
+                        UI_STRINGS.dashboard.nodeParametersModal
+                          .auditSampleAction
+                      }
+                    </td>
+                    <td style={{ padding: 6 }}>
+                      {UI_STRINGS.dashboard.nodeParametersModal.auditSampleUser}
+                    </td>
                     <td style={{ padding: 6 }}>2.0</td>
-                    <td style={{ padding: 6 }}>03JUL25 1005 LTG</td>
+                    <td style={{ padding: 6 }}>
+                      {
+                        UI_STRINGS.dashboard.nodeParametersModal
+                          .auditSampleTimestamp
+                      }
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -784,7 +881,7 @@ function NodeParametersModal({
           }}
         >
           <button onClick={onClose} style={{ marginRight: 8 }}>
-            Cancel
+            {UI_STRINGS.dashboard.nodeParametersModal.cancel}
           </button>
           <button
             onClick={() => onAccept?.({ paramsByTab })}
@@ -798,7 +895,7 @@ function NodeParametersModal({
               cursor: isReadOnly ? "not-allowed" : "pointer",
             }}
           >
-            Accept
+            {UI_STRINGS.dashboard.nodeParametersModal.accept}
           </button>
         </div>
       </div>
@@ -946,7 +1043,9 @@ function CreateNodeModal({ open, onClose, onOk }) {
 
   const handleOk = () => {
     if (!name.trim() || !version.trim() || !desc.trim() || !abstract.trim()) {
-      setError("Por favor, completa todos los campos.");
+      setError(
+        UI_STRINGS.dashboard.createNodeModal.errors.porFavorCompletaTodosLos,
+      );
       return;
     }
     const err = validateParams();
@@ -980,30 +1079,30 @@ function CreateNodeModal({ open, onClose, onOk }) {
           paddingRight: "8px",
         }}
       >
-        <h2>Create Node</h2>
-        <label>Node Definition Name</label>
+        <h2>{UI_STRINGS.dashboard.createNodeModal.createNode}</h2>
+        <label>{UI_STRINGS.dashboard.createNodeModal.nodeDefinitionName}</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Enter node name"
+          placeholder={UI_STRINGS.dashboard.createNodeModal.enterNodeName}
         />
-        <label>Node Version</label>
+        <label>{UI_STRINGS.dashboard.createNodeModal.nodeVersion}</label>
         <input
           value={version}
           onChange={(e) => setVersion(e.target.value)}
-          placeholder="1.0"
+          placeholder={UI_STRINGS.dashboard.createNodeModal.versionPlaceholder}
         />
-        <label>Description</label>
+        <label>{UI_STRINGS.dashboard.createNodeModal.description}</label>
         <textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
-          placeholder="Describe the node"
+          placeholder={UI_STRINGS.dashboard.createNodeModal.describeTheNode}
         />
-        <label>Node Abstract</label>
+        <label>{UI_STRINGS.dashboard.createNodeModal.nodeAbstract}</label>
         <textarea
           value={abstract}
           onChange={(e) => setAbstract(e.target.value)}
-          placeholder="Abstract or summary"
+          placeholder={UI_STRINGS.dashboard.createNodeModal.abstractOrSummary}
         />
 
         <div
@@ -1013,16 +1112,18 @@ function CreateNodeModal({ open, onClose, onOk }) {
             paddingTop: 12,
           }}
         >
-          <h3 style={{ margin: "0 0 8px 0" }}>Implementation</h3>
+          <h3 style={{ margin: "0 0 8px 0" }}>
+            {UI_STRINGS.dashboard.createNodeModal.implementation}
+          </h3>
 
-          <label>Program</label>
+          <label>{UI_STRINGS.dashboard.createNodeModal.program}</label>
           <select value={program} onChange={(e) => setProgram(e.target.value)}>
             <option value="MainProgram">MainProgram</option>
             <option value="AuxProgram1">AuxProgram1</option>
             {/* puedes agregar más simulados si quieres */}
           </select>
 
-          <label>Routine</label>
+          <label>{UI_STRINGS.dashboard.createNodeModal.routine}</label>
           <select value={routine} onChange={(e) => setRoutine(e.target.value)}>
             <option value="SFC_Control_Routine">SFC_Control_Routine</option>
             <option value="Aux_SFC_Routine">Aux_SFC_Routine</option>
@@ -1036,7 +1137,9 @@ function CreateNodeModal({ open, onClose, onOk }) {
             paddingTop: 12,
           }}
         >
-          <h3 style={{ margin: "0 0 8px 0" }}>Custom Parameters</h3>
+          <h3 style={{ margin: "0 0 8px 0" }}>
+            {UI_STRINGS.dashboard.createNodeModal.customParameters}
+          </h3>
           <div
             style={{
               display: "flex",
@@ -1055,15 +1158,21 @@ function CreateNodeModal({ open, onClose, onOk }) {
                 cursor: "pointer",
               }}
             >
-              + Add Parameter
+              {UI_STRINGS.dashboard.createNodeModal.addParameter}
             </button>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
-                <th style={{ padding: 6 }}>Name</th>
-                <th style={{ padding: 6 }}>Data Type</th>
-                <th style={{ padding: 6 }}>Default Value</th>
+                <th style={{ padding: 6 }}>
+                  {UI_STRINGS.dashboard.createNodeModal.name}
+                </th>
+                <th style={{ padding: 6 }}>
+                  {UI_STRINGS.dashboard.createNodeModal.dataType}
+                </th>
+                <th style={{ padding: 6 }}>
+                  {UI_STRINGS.dashboard.createNodeModal.defaultValue}
+                </th>
                 <th style={{ width: 40 }} />
               </tr>
             </thead>
@@ -1071,7 +1180,10 @@ function CreateNodeModal({ open, onClose, onOk }) {
               {params.length === 0 && (
                 <tr>
                   <td colSpan={4} style={{ padding: 8, color: "#6b7280" }}>
-                    No parameters, use “+ Add Parameter”.
+                    {
+                      UI_STRINGS.dashboard.createNodeModal
+                        .noParametersUseAddParameter
+                    }
                   </td>
                 </tr>
               )}
@@ -1083,7 +1195,7 @@ function CreateNodeModal({ open, onClose, onOk }) {
                       onChange={(e) =>
                         updateParam(p.id, "name", e.target.value)
                       }
-                      placeholder="Name"
+                      placeholder={UI_STRINGS.dashboard.createNodeModal.name}
                       style={{ width: "100%" }}
                     />
                   </td>
@@ -1127,7 +1239,9 @@ function CreateNodeModal({ open, onClose, onOk }) {
                         onChange={(e) =>
                           updateParam(p.id, "defaultValue", e.target.value)
                         }
-                        placeholder="0"
+                        placeholder={
+                          UI_STRINGS.dashboard.createNodeModal.intPlaceholder
+                        }
                         style={{ width: "100%" }}
                       />
                     ) : p.dataType === "REAL" ? (
@@ -1138,7 +1252,9 @@ function CreateNodeModal({ open, onClose, onOk }) {
                         onChange={(e) =>
                           updateParam(p.id, "defaultValue", e.target.value)
                         }
-                        placeholder="0.0"
+                        placeholder={
+                          UI_STRINGS.dashboard.createNodeModal.realPlaceholder
+                        }
                         style={{ width: "100%" }}
                       />
                     ) : (
@@ -1148,14 +1264,17 @@ function CreateNodeModal({ open, onClose, onOk }) {
                         onChange={(e) =>
                           updateParam(p.id, "defaultValue", e.target.value)
                         }
-                        placeholder="Default value"
+                        placeholder={
+                          UI_STRINGS.dashboard.createNodeModal
+                            .defaultValuePlaceholder
+                        }
                         style={{ width: "100%" }}
                       />
                     )}
                   </td>
                   <td style={{ textAlign: "center" }}>
                     <button
-                      title="Delete"
+                      title={UI_STRINGS.dashboard.createNodeModal.delete}
                       onClick={() => removeParam(p.id)}
                       style={{
                         background: "transparent",
@@ -1179,8 +1298,12 @@ function CreateNodeModal({ open, onClose, onOk }) {
           </div>
         )}
         <div className="create-node-modal-buttons">
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={handleOk}>OK</button>
+          <button onClick={onClose}>
+            {UI_STRINGS.dashboard.createNodeModal.cancel}
+          </button>
+          <button onClick={handleOk}>
+            {UI_STRINGS.dashboard.createNodeModal.ok}
+          </button>
         </div>
       </div>
     </div>
@@ -1207,7 +1330,7 @@ function ContextMenu({ x, y, visible, onNew }) {
         style={{ padding: "8px 18px", cursor: "pointer", fontWeight: "bold" }}
         onClick={onNew}
       >
-        New
+        {UI_STRINGS.dashboard.contextMenu.new}
       </div>
     </div>
   );
@@ -1247,12 +1370,19 @@ function PredefinedNodeWizard({ open, onClose, onCreate }) {
   return (
     <div className="create-node-modal-backdrop">
       <div className="create-node-modal">
-        <h3>New Pre-defined Node Definition</h3>
+        <h3>
+          {
+            UI_STRINGS.dashboard.predefinedNodeWizard
+              .newPreDefinedNodeDefinition
+          }
+        </h3>
 
         <div style={{ marginBottom: 16 }}>
-          <h4>1. Procedure Phase</h4>
+          <h4>{UI_STRINGS.dashboard.predefinedNodeWizard.n1ProcedurePhase}</h4>
           <select value={phase} onChange={(e) => setPhase(e.target.value)}>
-            <option value="">Select a Phase...</option>
+            <option value="">
+              {UI_STRINGS.dashboard.predefinedNodeWizard.selectAPhase}
+            </option>
             {PROCEDURE_PHASES.map((p) => (
               <option key={p} value={p}>
                 {p}
@@ -1262,14 +1392,16 @@ function PredefinedNodeWizard({ open, onClose, onCreate }) {
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <h4>2. Operation</h4>
+          <h4>{UI_STRINGS.dashboard.predefinedNodeWizard.n2Operation}</h4>
           <select
             value={operation}
             onChange={(e) => setOperation(e.target.value)}
             disabled={!phase} // 🔒 no se puede elegir antes de Phase
           >
             <option value="">
-              {phase ? "Select an Operation..." : "Select a Phase first"}
+              {phase
+                ? UI_STRINGS.dashboard.predefinedNodeWizard.selectAnOperation
+                : UI_STRINGS.dashboard.predefinedNodeWizard.selectAPhaseFirst}
             </option>
             {operationsForPhase.map((op) => (
               <option key={op} value={op}>
@@ -1280,9 +1412,11 @@ function PredefinedNodeWizard({ open, onClose, onCreate }) {
         </div>
 
         <div className="create-node-modal-buttons">
-          <button onClick={onClose}>Cancel</button>
+          <button onClick={onClose}>
+            {UI_STRINGS.dashboard.predefinedNodeWizard.cancel}
+          </button>
           <button onClick={handleCreate} disabled={!canCreate}>
-            Create
+            {UI_STRINGS.dashboard.predefinedNodeWizard.create}
           </button>
         </div>
       </div>
@@ -1315,7 +1449,6 @@ function TreeNode({
   setExpandedNodes,
   setInteractionMode, // ✅ agregado
 }) {
-
   const open = expandedNodes?.[label] || false;
   const nodeRef = useRef(null);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -1363,45 +1496,41 @@ function TreeNode({
 
     if (e.key === "Enter") {
       if (children) {
-        setExpandedNodes(prev => ({
+        setExpandedNodes((prev) => ({
           ...prev,
-          [label]: !prev[label]
+          [label]: !prev[label],
         }));
       }
     }
 
-  
     // ↓ bajar
     if (e.key === "ArrowDown") {
       const next = findNextNode();
       if (next) next.focus();
     }
 
-  
     // ↑ subir
     if (e.key === "ArrowUp") {
       const prev = findPrevNode();
       if (prev) prev.focus();
     }
 
-  
     // → abrir nodo
     if (e.key === "ArrowRight") {
       if (children && !open) {
-        setExpandedNodes(prev => ({
+        setExpandedNodes((prev) => ({
           ...prev,
-          [label]: true
+          [label]: true,
         }));
       }
     }
 
-  
     // ← cerrar nodo
     if (e.key === "ArrowLeft") {
       if (children && open) {
-        setExpandedNodes(prev => ({
+        setExpandedNodes((prev) => ({
           ...prev,
-          [label]: false
+          [label]: false,
         }));
       }
     }
@@ -1410,8 +1539,7 @@ function TreeNode({
   // Determina si este nodo está usado
   const isUsed = usedComponents.includes(label);
 
-
- return (
+  return (
     <div
       className={`tree-node ${isLastChild ? "last-child" : ""}`}
       style={{ position: "relative" }}
@@ -1441,7 +1569,7 @@ function TreeNode({
         onClick={() => {
           if (label === "User Created Definitions") return;
           if (children && children.length > 0) {
-            setExpandedNodes(prev => ({ ...prev, [label]: !prev[label] }));
+            setExpandedNodes((prev) => ({ ...prev, [label]: !prev[label] }));
           } else if (onClick) {
             onClick();
           }
@@ -1475,17 +1603,23 @@ function TreeNode({
       </div>
 
       {showTooltip && (
-        <div style={{
-          position: "fixed",
-          left: tooltipPos.x,
-          top: tooltipPos.y,
-          background: "#fff",
-          border: "1px solid #bbb",
-          padding: 8,
-          zIndex: 9999
-        }}>
-          <div><strong>Description:</strong> {desc}</div>
-          <div><strong>Abstract:</strong> {abstract}</div>
+        <div
+          style={{
+            position: "fixed",
+            left: tooltipPos.x,
+            top: tooltipPos.y,
+            background: "#fff",
+            border: "1px solid #bbb",
+            padding: 8,
+            zIndex: 9999,
+          }}
+        >
+          <div>
+            <strong>{UI_STRINGS.dashboard.treeNode.description}</strong> {desc}
+          </div>
+          <div>
+            <strong>{UI_STRINGS.dashboard.treeNode.abstract}</strong> {abstract}
+          </div>
         </div>
       )}
 
@@ -1502,21 +1636,14 @@ function TreeNode({
               isDesigner,
               expandedNodes,
               setExpandedNodes,
-              setInteractionMode
-            })
+              setInteractionMode,
+            }),
           )}
         </div>
       )}
     </div>
   );
 }
-       
-
-
-
-
-
-
 
 const PREDEFINED_PROCEDURE_LABELS = [
   "Procedure Phase",
@@ -1629,17 +1756,18 @@ function TreeViewExample({
     if (isUserCreated) {
       actualChildren = [
         ...userCreatedNodes
-          .filter(n => n && n.name)
+          .filter((n) => n && n.name)
           .map((n) => {
             const paramsChildren = Array.isArray(n.parameters)
               ? n.parameters
-                  .filter(p => p && typeof p === "object" && p.name)
-                  .map(p => ({
+                  .filter((p) => p && typeof p === "object" && p.name)
+                  .map((p) => ({
                     label: String(p.name),
                     type: "parameter",
                     desc: `Data Type: ${p?.dataType || "N/A"}`,
                     abstract: `Default: ${String(p?.defaultValue ?? "")}`,
-                    onClick: () => openParamDetails(p, `${n.name} v ${n.version}`),
+                    onClick: () =>
+                      openParamDetails(p, `${n.name} v ${n.version}`),
                   }))
               : [];
             return {
@@ -1647,7 +1775,12 @@ function TreeViewExample({
               desc: n.desc,
               abstract: n.abstract,
               color: "green",
-              details: { capacity: "NA", lastMaintenance: null, manufacturerModel: null, status: "Unknown" },
+              details: {
+                capacity: "NA",
+                lastMaintenance: null,
+                manufacturerModel: null,
+                status: "Unknown",
+              },
               implementation: n.implementation,
               isDraggable: true,
               type: n.name,
@@ -1661,15 +1794,17 @@ function TreeViewExample({
             };
           })
           .filter(Boolean),
-        ...(Array.isArray(children) ? children.filter(child => child && child.label) : []),
+        ...(Array.isArray(children)
+          ? children.filter((child) => child && child.label)
+          : []),
       ];
     }
 
     if (label === "Pre-Defined Definitions" && children) {
       actualChildren = [
         ...children
-          .filter(child => child && child.label)
-          .map(child => ({ ...child, color: "blue" })),
+          .filter((child) => child && child.label)
+          .map((child) => ({ ...child, color: "blue" })),
         // Nodos creados con el PredefinedNodeWizard
         ...preDefinedNodes.map((n) => ({
           label: `${n.procedurePhase} - ${n.operation}`,
@@ -1679,9 +1814,12 @@ function TreeViewExample({
       ];
     }
 
-    const childCount = isUserCreated ? userCreatedNodes.length : actualChildren.length;
+    const childCount = isUserCreated
+      ? userCreatedNodes.length
+      : actualChildren.length;
     const displayLabel = childCount > 0 ? `${label} (${childCount})` : label;
-    const hasChildren = Array.isArray(actualChildren) && actualChildren.length > 0;
+    const hasChildren =
+      Array.isArray(actualChildren) && actualChildren.length > 0;
 
     return (
       <>
@@ -1691,8 +1829,8 @@ function TreeViewExample({
             node?.label === "User Created Definitions"
               ? undefined
               : isEquipment && onEquipmentSelect
-              ? () => onEquipmentSelect(node)
-              : undefined
+                ? () => onEquipmentSelect(node)
+                : undefined
           }
           onContextMenu={
             isUserCreated || PREDEFINED_PROCEDURE_LABELS.includes(label)
@@ -1709,16 +1847,30 @@ function TreeViewExample({
               : undefined
           }
           draggable={isLeafNode || node.isDraggable}
-          onDragStart={(e) => { if (isLeafNode) handleDragStart(e, node); }}
-          style={{ marginLeft: level * 10, cursor: "pointer", color: node.color || "black" }}
+          onDragStart={(e) => {
+            if (isLeafNode) handleDragStart(e, node);
+          }}
+          style={{
+            marginLeft: level * 10,
+            cursor: "pointer",
+            color: node.color || "black",
+          }}
         >
           <div style={{ display: "flex", alignItems: "center" }}>
             {isUserCreated && userCreatedNodes.length > 0 && (
               <span
-                style={{ marginRight: 6, cursor: "pointer", fontWeight: "bold", color: "#1677ff" }}
+                style={{
+                  marginRight: 6,
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  color: "#1677ff",
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isDesigner) return alert("Acción no permitida.");
+                  if (!isDesigner)
+                    return alert(
+                      UI_STRINGS.dashboard.treeView.alerts.accionNoPermitida,
+                    );
                   setModalOpen(true);
                 }}
               >
@@ -1730,7 +1882,10 @@ function TreeViewExample({
                 style={{ marginRight: 4, cursor: "pointer" }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setExpandedNodes(prev => ({ ...prev, [label]: !prev[label] }));
+                  setExpandedNodes((prev) => ({
+                    ...prev,
+                    [label]: !prev[label],
+                  }));
                 }}
               >
                 {isOpen ? "- " : "+ "}
@@ -1742,14 +1897,17 @@ function TreeViewExample({
                 e.stopPropagation();
                 setSelectedTreeNode(label);
                 if (hasChildren) {
-                  setExpandedNodes(prev => ({ ...prev, [label]: !prev[label] }));
+                  setExpandedNodes((prev) => ({
+                    ...prev,
+                    [label]: !prev[label],
+                  }));
                 }
               }}
               onMouseEnter={(e) => {
                 if (node.desc || node.abstract || node.details) {
                   const tooltip = document.createElement("div");
                   tooltip.id = "tree-tooltip";
-                  tooltip.style.cssText = `position:fixed;left:${e.clientX+12}px;top:${e.clientY+12}px;background:#fff;border:1px solid #bbb;box-shadow:0 2px 8px rgba(0,0,0,0.15);padding:8px 12px;z-index:9999;font-size:13px;max-width:280px;border-radius:4px;pointer-events:none;`;
+                  tooltip.style.cssText = `position:fixed;left:${e.clientX + 12}px;top:${e.clientY + 12}px;background:#fff;border:1px solid #bbb;box-shadow:0 2px 8px rgba(0,0,0,0.15);padding:8px 12px;z-index:9999;font-size:13px;max-width:280px;border-radius:4px;pointer-events:none;`;
                   tooltip.innerHTML = `
                     ${node.desc ? `<div><strong>Description:</strong> ${node.desc}</div>` : ""}
                     ${node.abstract ? `<div><strong>Abstract:</strong> ${node.abstract}</div>` : ""}
@@ -1763,7 +1921,10 @@ function TreeViewExample({
               }}
               onMouseMove={(e) => {
                 const tooltip = document.getElementById("tree-tooltip");
-                if (tooltip) { tooltip.style.left = `${e.clientX+12}px`; tooltip.style.top = `${e.clientY+12}px`; }
+                if (tooltip) {
+                  tooltip.style.left = `${e.clientX + 12}px`;
+                  tooltip.style.top = `${e.clientY + 12}px`;
+                }
               }}
               onMouseLeave={() => {
                 const tooltip = document.getElementById("tree-tooltip");
@@ -1780,7 +1941,8 @@ function TreeViewExample({
               {displayLabel}
             </div>
           </div>
-          {isOpen && Array.isArray(actualChildren) &&
+          {isOpen &&
+            Array.isArray(actualChildren) &&
             actualChildren.map((child, i) => renderTree(child, level + 1))}
         </div>
       </>
@@ -1823,8 +1985,16 @@ function TreeViewExample({
       {
         label: "Devices",
         children: [
-          { label: "Sensor de Temperatura", isDraggable: true, details: { tagPath: "/Linea1/Temp" } },
-          { label: "Sensor de Presión", isDraggable: true, details: { tagPath: "/Linea1/Presion" } },
+          {
+            label: "Sensor de Temperatura",
+            isDraggable: true,
+            details: { tagPath: "/Linea1/Temp" },
+          },
+          {
+            label: "Sensor de Presión",
+            isDraggable: true,
+            details: { tagPath: "/Linea1/Presion" },
+          },
         ],
       },
     ],
@@ -1867,12 +2037,11 @@ function TreeViewExample({
   // RETURN
   return (
     <div ref={treeContainerRef} className="tree-container">
-
       <input
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search"
+        placeholder={UI_STRINGS.dashboard.treeView.search}
       />
 
       <div style={{ marginBottom: "10px" }}>
@@ -1880,10 +2049,16 @@ function TreeViewExample({
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
         >
-          <option value="all">All</option>
-          <option value="workflows">Workflows</option>
-          <option value="equipment">Equipment</option>
-          <option value="materials">Materials</option>
+          <option value="all">{UI_STRINGS.dashboard.treeView.all}</option>
+          <option value="workflows">
+            {UI_STRINGS.dashboard.treeView.workflows}
+          </option>
+          <option value="equipment">
+            {UI_STRINGS.dashboard.treeView.equipment}
+          </option>
+          <option value="materials">
+            {UI_STRINGS.dashboard.treeView.materials}
+          </option>
         </select>
       </div>
 
@@ -1938,20 +2113,76 @@ function TreeViewExample({
       />
 
       {paramModal.open && (
-        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.30)",zIndex:10000,display:"flex",justifyContent:"center",alignItems:"center" }}>
-          <div style={{ width:420,background:"#fff",borderRadius:10,boxShadow:"0 8px 30px rgba(0,0,0,.25)" }}>
-            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid #e5e7eb" }}>
-              <h3 style={{ margin:0 }}>Parameter Properties</h3>
-              <button onClick={closeParamDetails} style={{ fontSize:22,background:"none",border:"none",cursor:"pointer" }}>×</button>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.30)",
+            zIndex: 10000,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 420,
+              background: "#fff",
+              borderRadius: 10,
+              boxShadow: "0 8px 30px rgba(0,0,0,.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "12px 16px",
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              <h3 style={{ margin: 0 }}>
+                {UI_STRINGS.dashboard.treeView.parameterProperties}
+              </h3>
+              <button
+                onClick={closeParamDetails}
+                style={{
+                  fontSize: 22,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
             </div>
-            <div style={{ padding:16 }}>
-              <p><strong>Node:</strong> {paramModal?.nodeLabel || "N/A"}</p>
-              <p><strong>Name:</strong> {paramModal?.param?.name || "N/A"}</p>
-              <p><strong>Data Type:</strong> {paramModal?.param?.dataType || "N/A"}</p>
-              <p><strong>Default Value:</strong>{" "}{paramModal?.param?.defaultValue !== undefined ? String(paramModal.param.defaultValue) : "N/A"}</p>
+            <div style={{ padding: 16 }}>
+              <p>
+                <strong>{UI_STRINGS.dashboard.treeView.node}</strong>{" "}
+                {paramModal?.nodeLabel ||
+                  UI_STRINGS.dashboard.treeView.notAvailable}
+              </p>
+              <p>
+                <strong>{UI_STRINGS.dashboard.treeView.name}</strong>{" "}
+                {paramModal?.param?.name ||
+                  UI_STRINGS.dashboard.treeView.notAvailable}
+              </p>
+              <p>
+                <strong>{UI_STRINGS.dashboard.treeView.dataType}</strong>{" "}
+                {paramModal?.param?.dataType ||
+                  UI_STRINGS.dashboard.treeView.notAvailable}
+              </p>
+              <p>
+                <strong>{UI_STRINGS.dashboard.treeView.defaultValue}</strong>{" "}
+                {paramModal?.param?.defaultValue !== undefined
+                  ? String(paramModal.param.defaultValue)
+                  : UI_STRINGS.dashboard.treeView.notAvailable}
+              </p>
             </div>
-            <div style={{ padding:10,textAlign:"right" }}>
-              <button onClick={closeParamDetails}>Close</button>
+            <div style={{ padding: 10, textAlign: "right" }}>
+              <button onClick={closeParamDetails}>
+                {UI_STRINGS.dashboard.treeView.close}
+              </button>
             </div>
           </div>
         </div>
@@ -1959,10 +2190,6 @@ function TreeViewExample({
     </div>
   );
 }
-
-
-
-
 
 //  MENU BAR
 
@@ -1996,7 +2223,7 @@ function MenuBar({
     setOpenMenu(null);
 
     if ((option === "Save" || option === "Save As") && !isDesigner) {
-      alert("Acción no permitida.");
+      alert(UI_STRINGS.dashboard.menuBar.alerts.accionNoPermitida);
       return;
     }
 
@@ -2009,7 +2236,7 @@ function MenuBar({
       return onVersionHistory?.();
     if (menu === "TMApp" && option === "Home") return navigate("/");
 
-    alert(`Seleccionaste: ${menu} > ${option}`);
+    alert(UI_STRINGS.dashboard.menuBar.alerts.seleccionaste(menu, option));
   };
 
   const isReviewer = workflow?.metadata?.assignedReviewerId === user?.uid;
@@ -2026,7 +2253,7 @@ function MenuBar({
     <nav className="menu-bar" ref={menuRef}>
       <img
         src={Logo}
-        alt="Logo"
+        alt={UI_STRINGS.dashboard.menuBar.logo}
         style={{ height: 40, marginRight: 16 }}
       />
 
@@ -2039,21 +2266,18 @@ function MenuBar({
               className="menu-btn"
               onClick={() => setOpenMenu(openMenu === menu ? null : menu)}
             >
-              {menu}
+              {UI_STRINGS.dashboard.menuBar.menuLabels[menu] ?? menu}
             </button>
 
             {openMenu === menu && (
-              <div
-                className="dropdown"
-                onMouseLeave={() => setOpenMenu(null)}
-              >
+              <div className="dropdown" onMouseLeave={() => setOpenMenu(null)}>
                 {options.map((option) => (
                   <div
                     key={option}
                     className="dropdown-option"
                     onClick={() => handleOptionClick(menu, option)}
                   >
-                    {option}
+                    {UI_STRINGS.dashboard.menuBar.menuLabels[option] ?? option}
                   </div>
                 ))}
               </div>
@@ -2063,19 +2287,26 @@ function MenuBar({
       })}
 
       <div className="center-section">
-        <h2>{workflow?.name || "New Workflow"}</h2>
-        {canShare && <button onClick={onShare}>Workflow Actions</button>}
-        {canReview && <button>Review Workflow</button>}
+        <h2>{workflow?.name || UI_STRINGS.dashboard.menuBar.newWorkflow}</h2>
+        {canShare && (
+          <button onClick={onShare}>
+            {UI_STRINGS.dashboard.menuBar.workflowActions}
+          </button>
+        )}
+        {canReview && (
+          <button>{UI_STRINGS.dashboard.menuBar.reviewWorkflow}</button>
+        )}
       </div>
 
       <div>
         <span>{user?.email}</span>
-        <button onClick={OnLogout}>LOGOUT</button>
+        <button onClick={OnLogout}>
+          {UI_STRINGS.dashboard.menuBar.logout}
+        </button>
       </div>
     </nav>
   );
 } // ← FIN MenuBar
-
 
 // =============================
 //  HELPERS
@@ -2111,7 +2342,7 @@ function buildCompileWorkflowFromCanvas(nodes, connections) {
   const nodeWithImpl = ordered.find(
     (n) =>
       n.implementation &&
-      (n.implementation.program || n.implementation.routine)
+      (n.implementation.program || n.implementation.routine),
   );
 
   const programName = nodeWithImpl?.implementation?.program || "MainProgram";
@@ -2186,16 +2417,19 @@ function validateWorkflow(nodes, connections) {
   const errors = [];
 
   if (!nodes.length) {
-    errors.push("El workflow está vacío.");
+    errors.push(UI_STRINGS.dashboard.validation.emptyWorkflow);
     return errors;
   }
 
   const startNodes = nodes.filter((n) => n.type === "start");
-  if (startNodes.length === 0) errors.push("Debe existir un nodo START.");
-  if (startNodes.length > 1) errors.push("Solo puede existir un nodo START.");
+  if (startNodes.length === 0)
+    errors.push(UI_STRINGS.dashboard.validation.missingStart);
+  if (startNodes.length > 1)
+    errors.push(UI_STRINGS.dashboard.validation.multipleStart);
 
   const endNodes = nodes.filter((n) => n.type === "end");
-  if (endNodes.length === 0) errors.push("Debe existir al menos un nodo END.");
+  if (endNodes.length === 0)
+    errors.push(UI_STRINGS.dashboard.validation.missingEnd);
 
   const map = {};
   nodes.forEach((n) => (map[n.id] = []));
@@ -2209,7 +2443,9 @@ function validateWorkflow(nodes, connections) {
     const hasIn = connections.some((c) => c.to === n.id);
 
     if (!hasOut && !hasIn) {
-      errors.push(`Nodo "${n.label || n.id}" está desconectado.`);
+      errors.push(
+        UI_STRINGS.dashboard.validation.disconnectedNode(n.label || n.id),
+      );
     }
   });
 
@@ -2226,15 +2462,15 @@ function validateWorkflow(nodes, connections) {
 
     nodes.forEach((n) => {
       if (!visited.has(n.id)) {
-        errors.push(`Nodo "${n.label || n.id}" no es alcanzable desde START.`);
+        errors.push(
+          UI_STRINGS.dashboard.validation.unreachableNode(n.label || n.id),
+        );
       }
     });
   }
 
   return errors;
-
 }
-
 
 export default function App({ user, userRoles }) {
   // Estado de si la sesión es de solo lectura
@@ -2290,7 +2526,8 @@ export default function App({ user, userRoles }) {
 
   const [isCheckoutModalOpen, setCheckoutModalOpen] = useState(false);
 
-  const [isVersionHistoryModalOpen, setVersionHistoryModalOpen] = useState(false);
+  const [isVersionHistoryModalOpen, setVersionHistoryModalOpen] =
+    useState(false);
 
   const [isLoadModalOpen, setLoadModalOpen] = useState(false);
 
@@ -2333,8 +2570,6 @@ export default function App({ user, userRoles }) {
   const [toolbarLeftPx, setToolbarLeftPx] = useState(null);
   const [toolbarTopPx, setToolbarTopPx] = useState(null);
 
-  const appId = "manufacturing-suite-v1";
-
   const navigate = useNavigate();
 
   const isDesigner = userRoles?.designer === true;
@@ -2353,10 +2588,10 @@ export default function App({ user, userRoles }) {
     !isDesigner || isWorkflowReadOnly || isSessionReadOnly;
 
   useEffect(() => {
-    // Detector de expiración de token Firebase
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    // Detector de expiración de la sesión de Supabase
+    const unsubscribe = onSessionChange((user) => {
       if (!user) {
-        console.log("Token de Firebase expirado o sesión cerrada");
+        console.log("Sesión de Supabase expirada o cerrada");
         handleLogoutRequest();
       }
     });
@@ -2369,7 +2604,7 @@ export default function App({ user, userRoles }) {
   }, [isDirty]);
 
   const performLogout = () => {
-    signOut(auth).then(() => navigate("/login"));
+    signOut().then(() => navigate("/login"));
   };
 
   const handleLogoutRequest = () => {
@@ -2450,7 +2685,7 @@ export default function App({ user, userRoles }) {
   }, [topRightRef.current]);
 
   const PERMISSION_ERROR_MSG =
-    "No tienes permisos para realizar esta acción. Se requiere el rol de 'Designer'.";
+    UI_STRINGS.dashboard.page.errors.designerRoleRequired;
 
   useEffect(() => {
     if (!currentWorkflowId) {
@@ -2458,11 +2693,9 @@ export default function App({ user, userRoles }) {
       return;
     }
 
-    const docRef = doc(db, "artifacts", appId, "workflows", currentWorkflowId);
-
-    const unsubscribe = onSnapshot(docRef, (doc) => {
-      if (doc.exists()) {
-        setCurrentWorkflow({ id: doc.id, ...doc.data() });
+    const unsubscribe = subscribeToWorkflow(currentWorkflowId, (workflow) => {
+      if (workflow) {
+        setCurrentWorkflow(workflow);
       } else {
         setCurrentWorkflow(null);
         setCurrentWorkflowId(null);
@@ -2476,14 +2709,7 @@ export default function App({ user, userRoles }) {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const rolesCollection = collection(db, "roles");
-        const querySnapshot = await getDocs(rolesCollection);
-
-        const usersList = querySnapshot.docs.map((doc) => ({
-          uid: doc.id,
-          email: doc.data().email || `Usuario ${doc.id.substring(0, 5)}`,
-          isReviewer: doc.data().reviewer === true,
-        }));
+        const usersList = await listUsers();
 
         setAllUsers(usersList);
 
@@ -2503,26 +2729,20 @@ export default function App({ user, userRoles }) {
 
   const handleApprove = async () => {
     if (!currentWorkflow) {
-      alert("No workflow selected.");
+      alert(UI_STRINGS.dashboard.page.alerts.noWorkflowSelected);
       return;
     }
 
     try {
-      const functions = getFunctions();
-      const approveWorkflowFn = httpsCallable(functions, "approveWorkflow");
+      await approveWorkflow(currentWorkflow.id);
 
-      const result = await approveWorkflowFn({
-        appId: "manufacturing-suite-v1",
-        workflowId: currentWorkflow.id,
-      });
-
-      alert(result.data.message);
+      alert(UI_STRINGS.dashboard.page.alerts.workflowApproved);
     } catch (error) {
       if (error.code === "unauthenticated") {
         handleLogoutRequest();
       } else {
         console.error("Error approving workflow:", error);
-        alert("Error: " + error.message);
+        alert(UI_STRINGS.dashboard.page.alerts.errorPrefix + error.message);
       }
     }
   };
@@ -2539,7 +2759,10 @@ export default function App({ user, userRoles }) {
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Error en servidor");
+    if (!res.ok)
+      throw new Error(
+        data.error || UI_STRINGS.dashboard.page.errors.errorEnServidor,
+      );
     return data;
   }
 
@@ -2554,29 +2777,11 @@ export default function App({ user, userRoles }) {
         );
       }
 
-      const resp = await fetch(COMPILE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(workflowToCompile),
-      });
-
-      if (!resp.ok) {
-        let data = {};
-        try {
-          data = await resp.json();
-        } catch {
-          data = { message: "Fallo de compilación", errors: [] };
-        }
-        const errs = Array.isArray(data.errors) ? data.errors : [];
-        const list = errs.length ? "\n- " + errs.join("\n- ") : "";
-        throw new Error(`${data.message || "Fallo de compilación"}${list}`);
-      }
-
-      return await resp.blob();
+      return await compileWorkflow(workflowToCompile);
     } catch (err) {
       throw new Error(
-        "Error de compilación: no se pudo conectar con el servicio en la nube.\n" +
-          "Detalle: " +
+        UI_STRINGS.dashboard.page.errors.compileConnectionError +
+          UI_STRINGS.dashboard.page.errors.detailPrefix +
           (err.message || err),
       );
     }
@@ -2586,17 +2791,12 @@ export default function App({ user, userRoles }) {
     const fetchWorkflows = async () => {
       if (!user) return;
       try {
-        const q = query(
-          collection(db, "artifacts", appId, "workflows"),
-          where("metadata.designerIds", "array-contains", user.uid),
+        const workflowsList = await listMyWorkflows("designer");
+        setSavedWorkflows(
+          workflowsList.filter((wf) =>
+            wf.metadata.designerIds.includes(user.uid),
+          ),
         );
-
-        const querySnapshot = await getDocs(q);
-        const workflowsList = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setSavedWorkflows(workflowsList);
       } catch (error) {
         console.error("Error al obtener los flujos de trabajo:", error);
       }
@@ -2605,7 +2805,7 @@ export default function App({ user, userRoles }) {
   }, [user]);
 
   const handleLogout = () => {
-    signOut(auth)
+    signOut()
       .then(() => {
         navigate("/login");
       })
@@ -2617,7 +2817,8 @@ export default function App({ user, userRoles }) {
       showPermissionError();
       return;
     }
-    if (canvasNodes.length === 0) return alert("The canvas is empty.");
+    if (canvasNodes.length === 0)
+      return alert(UI_STRINGS.dashboard.page.alerts.theCanvasIsEmpty);
 
     const allowedStatuses = ["draft", "changes_requested"];
     if (
@@ -2625,7 +2826,9 @@ export default function App({ user, userRoles }) {
       !allowedStatuses.includes(currentWorkflow?.metadata?.status)
     ) {
       alert(
-        `Cannot edit a workflow that is not in "draft" or "changes_requested" status. Current status: ${currentWorkflow?.metadata?.status}`,
+        UI_STRINGS.dashboard.page.alerts.cannotEditAWorkflowThat(
+          currentWorkflow?.metadata?.status,
+        ),
       );
       return;
     }
@@ -2642,54 +2845,33 @@ export default function App({ user, userRoles }) {
       showPermissionError();
       return;
     }
-    if (canvasNodes.length === 0) return alert("The canvas is empty.");
+    if (canvasNodes.length === 0)
+      return alert(UI_STRINGS.dashboard.page.alerts.theCanvasIsEmpty);
     setSaveModalOpen(true);
   };
 
   const executeUpdateWorkflow = async () => {
     if (!user || !currentWorkflowId) {
-      alert("Error: No se pudo verificar el usuario o el workflow.");
+      alert(UI_STRINGS.dashboard.page.alerts.userOrWorkflowNotVerified);
       return false;
     }
 
     setIsSaving(true);
 
-    const workflowDocRef = doc(
-      db,
-      "artifacts",
-      appId,
-      "workflows",
-      currentWorkflowId,
-    );
-
     try {
-      const docSnap = await getDoc(workflowDocRef);
-      const currentStatus = docSnap.data()?.metadata?.status;
+      const latest = await getWorkflow(currentWorkflowId);
+      const currentStatus = latest?.metadata?.status;
       const allowedStatuses = ["draft", "changes_requested"];
 
-      if (docSnap.exists() && !allowedStatuses.includes(currentStatus)) {
+      if (latest && !allowedStatuses.includes(currentStatus)) {
         alert(
-          `No se puede editar un workflow que no está en estado "draft" o "changes_requested". Estado actual: ${currentStatus}`,
+          UI_STRINGS.dashboard.page.alerts.noSePuedeEditarUn(currentStatus),
         );
         return false;
       }
 
-      const cleanedCanvasNodes = canvasNodes.map((node) => {
-        const cleanedNode = {};
-        for (const key in node) {
-          if (node[key] !== undefined) {
-            cleanedNode[key] = node[key];
-          }
-        }
-        return cleanedNode;
-      });
-
-      await updateDoc(workflowDocRef, {
-        "content.nodes": cleanedCanvasNodes,
-        "metadata.lastModifiedAt": serverTimestamp(),
-        "metadata.lastModifiedBy": user.uid,
-        "metadata.version": (docSnap.data().metadata.version || 1) + 1,
-      });
+      // El trigger de la base sube la versión y sella fecha y autor
+      await saveWorkflow(currentWorkflowId, { nodes: canvasNodes });
 
       console.log("✅ Workflow actualizado");
       setIsDirty(false);
@@ -2698,15 +2880,9 @@ export default function App({ user, userRoles }) {
       console.error("❌ Error actualizando workflow:", e);
 
       if (e.code === "permission-denied") {
-        alert(
-          "Error de permisos: No tienes permisos para actualizar este workflow.",
-        );
-      } else if (e.message.includes("Unsupported field value: undefined")) {
-        alert(
-          "Error: Hay valores inválidos en el workflow. Por favor intenta guardar nuevamente.",
-        );
+        alert(UI_STRINGS.dashboard.page.alerts.permissionDeniedUpdate);
       } else {
-        alert("Error al actualizar: " + e.message);
+        alert(UI_STRINGS.dashboard.page.alerts.errorAlActualizar + e.message);
       }
       return false;
     } finally {
@@ -2716,63 +2892,30 @@ export default function App({ user, userRoles }) {
 
   const executeSaveAsNew = async (workflowName) => {
     if (!user) {
-      alert(
-        "Error: No se pudo verificar el usuario. La sesión puede haber expirado.",
-      );
+      alert(UI_STRINGS.dashboard.page.alerts.userNotVerified);
       return;
     }
 
     setIsSaving(true);
 
-    const cleanedCanvasNodes = canvasNodes.map((node) => {
-      const cleanedNode = {};
-      for (const key in node) {
-        if (node[key] !== undefined) {
-          cleanedNode[key] = node[key];
-        }
-      }
-      return cleanedNode;
-    });
-
-    const workflowsCollection = collection(db, "artifacts", appId, "workflows");
-
-    const newWorkflowData = {
-      name: workflowName,
-      content: {
-        nodes: cleanedCanvasNodes,
-      },
-      metadata: {
-        status: "draft",
-        version: 1,
-        createdAt: serverTimestamp(),
-        createdBy: user.uid,
-        lastModifiedAt: serverTimestamp(),
-        lastModifiedBy: user.uid,
-        designerIds: [user.uid],
-        assignedReviewerId: null,
-        approvedBy: null,
-        deployedBy: null,
-      },
-    };
-
     try {
-      const docRef = await addDoc(workflowsCollection, newWorkflowData);
-      console.log("✅ Workflow guardado con ID:", docRef.id);
+      // Se crea en draft con el usuario como creador y primer diseñador (defaults y trigger)
+      const newId = await createWorkflow({
+        name: workflowName,
+        nodes: canvasNodes,
+      });
+      console.log("✅ Workflow guardado con ID:", newId);
       setSaveModalOpen(false);
-      setCurrentWorkflowId(docRef.id);
+      setCurrentWorkflowId(newId);
       setIsDirty(false);
       return true;
     } catch (e) {
       console.error("❌ Error guardando workflow:", e);
 
       if (e.code === "permission-denied") {
-        alert("Error de permisos: No tienes permisos para guardar workflows.");
-      } else if (e.message.includes("Unsupported field value: undefined")) {
-        alert(
-          "Error: Hay valores inválidos en el workflow. Por favor intenta guardar nuevamente.",
-        );
+        alert(UI_STRINGS.dashboard.page.alerts.permissionDeniedSave);
       } else {
-        alert("Error al guardar: " + e.message);
+        alert(UI_STRINGS.dashboard.page.alerts.errorAlGuardar + e.message);
       }
       return false;
     } finally {
@@ -2783,24 +2926,20 @@ export default function App({ user, userRoles }) {
   const handleLoadWorkflow = async (workflowId) => {
     if (!user) return;
 
-    const workflowDocRef = doc(db, "artifacts", appId, "workflows", workflowId);
-
     try {
-      const docSnap = await getDoc(workflowDocRef);
-      if (docSnap.exists()) {
-        const workflowData = docSnap.data();
-
+      const workflowData = await getWorkflow(workflowId);
+      if (workflowData) {
         setCanvasNodes(workflowData.content.nodes || []);
 
         setCurrentWorkflowId(workflowId);
         setIsDirty(false);
         setIsSessionReadOnly(true);
-        alert("Flujo de trabajo cargado. (Modo de solo lectura activado)");
+        alert(UI_STRINGS.dashboard.page.alerts.flujoDeTrabajoCargadoModo);
       } else {
-        alert("Error: No se pudo encontrar el flujo de trabajo.");
+        alert(UI_STRINGS.dashboard.page.alerts.workflowNotFound);
       }
     } catch (error) {
-      alert("Error al cargar el flujo de trabajo.");
+      alert(UI_STRINGS.dashboard.page.alerts.errorAlCargarElFlujo);
       console.error("Error al cargar:", error);
     }
     setLoadModalOpen(false);
@@ -2808,7 +2947,7 @@ export default function App({ user, userRoles }) {
 
   const workflowTitle = currentWorkflow
     ? currentWorkflow.name
-    : "New Workflow(Without save)";
+    : UI_STRINGS.dashboard.page.unsavedWorkflowTitle;
 
   const [isCompiling, setIsCompiling] = React.useState(false);
   const [modalMsg, setModalMsg] = useState(null);
@@ -2820,10 +2959,7 @@ export default function App({ user, userRoles }) {
 
       console.log("Connections:", manualConnections);
 
-      const wf = buildCompileWorkflowFromCanvas(
-        canvasNodes,
-        manualConnections
-      );
+      const wf = buildCompileWorkflowFromCanvas(canvasNodes, manualConnections);
 
       const connections = (manualConnections || []).map((c) => ({
         from: c.from,
@@ -2835,8 +2971,8 @@ export default function App({ user, userRoles }) {
 
       if (errors.length > 0) {
         setModalMsg(
-          "❌ Error de validación:\n\n" +
-            errors.map((e) => "• " + e).join("\n")
+          UI_STRINGS.dashboard.page.messages.errorDeValidacion +
+            errors.map((e) => "• " + e).join("\n"),
         );
         setIsCompiling(false);
         return;
@@ -2867,7 +3003,7 @@ export default function App({ user, userRoles }) {
         open: true,
         url,
         filename,
-        message: "Flujo válido y compilado. ¡Descargue su XML!",
+        message: UI_STRINGS.dashboard.page.compileSuccess,
       });
     } catch (err) {
       console.error(err);
@@ -2886,10 +3022,12 @@ export default function App({ user, userRoles }) {
       console.log("Flow ->", flow);
       const { plan } = await sendWorkflow(flow);
       console.log("✅ Plan simulado:", plan);
-      setModalMsg("Flujo enviado y simulado. Revisa consola del backend.");
+      setModalMsg(
+        UI_STRINGS.dashboard.page.messages.flujoEnviadoYSimuladoRevisa,
+      );
     } catch (err) {
       console.error(err);
-      setModalMsg("❌ Error: " + err.message);
+      setModalMsg(UI_STRINGS.dashboard.page.messages.errorPrefix + err.message);
     }
   }
 
@@ -2916,32 +3054,17 @@ export default function App({ user, userRoles }) {
     }
 
     try {
-      const workflowDocRef = doc(
-        db,
-        "artifacts",
-        appId,
-        "workflows",
-        currentWorkflowId,
-      );
-
-      await updateDoc(workflowDocRef, {
-        "metadata.checkoutDescription": description,
-        "metadata.lastModifiedAt": serverTimestamp(),
-        "metadata.lastModifiedBy": user.uid,
-        "metadata.history": arrayUnion({
-          description: description,
-          userId: user.uid,
-          timestamp: Timestamp.now(),
-        }),
-      });
+      await checkoutWorkflow(currentWorkflowId, description);
 
       setIsSessionReadOnly(false);
 
       setCheckoutModalOpen(false);
-      alert("Checkout successful. Edit mode enabled.");
+      alert(UI_STRINGS.dashboard.page.alerts.checkoutSuccessfulEditModeEnabled);
     } catch (error) {
       console.error("Error during checkout:", error);
-      alert("Error during checkout: " + error.message);
+      alert(
+        UI_STRINGS.dashboard.page.alerts.errorDuringCheckout + error.message,
+      );
     }
   };
 
@@ -2987,7 +3110,6 @@ export default function App({ user, userRoles }) {
           open={isShareModalOpen}
           onClose={() => setShareModalOpen(false)}
           workflow={currentWorkflow}
-          appId={appId}
           potentialReviewers={potentialReviewers}
           allUsers={allUsers}
           user={user}
@@ -2998,21 +3120,39 @@ export default function App({ user, userRoles }) {
         <div
           className="toolbar"
           role="toolbar"
-          aria-label="Canvas toolbar"
+          aria-label={UI_STRINGS.dashboard.page.canvasToolbar}
           ref={toolbarRef}
         >
           {/* Selection / Placement */}
-          <button onClick={() => setInteractionMode("select")} title="Select">
-            <img src="/ICONOSPNG/SELECT.png" alt="Select" /> Select
+          <button
+            onClick={() => setInteractionMode("select")}
+            title={UI_STRINGS.dashboard.page.select}
+          >
+            <img
+              src="/ICONOSPNG/SELECT.png"
+              alt={UI_STRINGS.dashboard.page.select}
+            />{" "}
+            {UI_STRINGS.dashboard.page.select}
           </button>
-          <button onClick={() => setInteractionMode("place-node")} title="Node">
-            <img src="/ICONOSPNG/NODE.png" alt="Node" /> Node
+          <button
+            onClick={() => setInteractionMode("place-node")}
+            title={UI_STRINGS.dashboard.page.node}
+          >
+            <img
+              src="/ICONOSPNG/NODE.png"
+              alt={UI_STRINGS.dashboard.page.node}
+            />{" "}
+            {UI_STRINGS.dashboard.page.node}
           </button>
           <button
             onClick={() => setInteractionMode("connect")}
-            title="Connection"
+            title={UI_STRINGS.dashboard.page.connection}
           >
-            <img src="/ICONOSPNG/CONNECTION.png" alt="Connection" /> Connection
+            <img
+              src="/ICONOSPNG/CONNECTION.png"
+              alt={UI_STRINGS.dashboard.page.connection}
+            />{" "}
+            {UI_STRINGS.dashboard.page.connection}
           </button>
 
           {/* Node organization */}
@@ -3030,14 +3170,19 @@ export default function App({ user, userRoles }) {
               } catch (err) {
                 console.error(err);
                 setModalMsg(
-                  "Error al mover nodo hacia abajo: " + (err.message || err),
+                  UI_STRINGS.dashboard.page.messages.moveNodeDownError +
+                    (err.message || err),
                 );
               }
             }}
             disabled={!isNodeBelowEnabled}
-            title="Node below"
+            title={UI_STRINGS.dashboard.page.nodeBelow}
           >
-            <img src="/ICONOSPNG/NODEBELOW.png" alt="Node below" /> Node below
+            <img
+              src="/ICONOSPNG/NODEBELOW.png"
+              alt={UI_STRINGS.dashboard.page.nodeBelow}
+            />{" "}
+            {UI_STRINGS.dashboard.page.nodeBelow}
           </button>
 
           <button
@@ -3054,63 +3199,94 @@ export default function App({ user, userRoles }) {
               } catch (err) {
                 console.error(err);
                 setModalMsg(
-                  "Error al mover nodo hacia arriba: " + (err.message || err),
+                  UI_STRINGS.dashboard.page.messages.moveNodeUpError +
+                    (err.message || err),
                 );
               }
             }}
             disabled={selectedNodes.length === 0}
-            title="Node above"
+            title={UI_STRINGS.dashboard.page.nodeAbove}
           >
-            <img src="/ICONOSPNG/NODEABOVE.png" alt="Node above" /> Node above
+            <img
+              src="/ICONOSPNG/NODEABOVE.png"
+              alt={UI_STRINGS.dashboard.page.nodeAbove}
+            />{" "}
+            {UI_STRINGS.dashboard.page.nodeAbove}
           </button>
 
           <button
             onClick={() => {
               try {
                 if (!isDesigner) return showPermissionError();
-                setModalMsg("Remove Link accion simulada");
+                setModalMsg(
+                  UI_STRINGS.dashboard.page.messages.removeLinkAccionSimulada,
+                );
               } catch (err) {
                 console.error(err);
-                setModalMsg("Error en Remove Link: " + (err.message || err));
+                setModalMsg(
+                  UI_STRINGS.dashboard.page.messages.errorEnRemoveLink +
+                    (err.message || err),
+                );
               }
             }}
             disabled={selectedNodes.length === 0}
-            title="Remove Link"
+            title={UI_STRINGS.dashboard.page.removeLink}
           >
-            <img src="/ICONOSPNG/REMOVELINK.png" alt="Remove Link" /> Remove
-            Link
+            <img
+              src="/ICONOSPNG/REMOVELINK.png"
+              alt={UI_STRINGS.dashboard.page.removeLink}
+            />{" "}
+            {UI_STRINGS.dashboard.page.removeLink}
           </button>
 
           <button
             disabled={isParallelDisabled}
-            title="Parallel"
+            title={UI_STRINGS.dashboard.page.parallel}
             onClick={() => {
               try {
                 if (!isDesigner) return showPermissionError();
-                setModalMsg("Parallel action (simulada)");
+                setModalMsg(
+                  UI_STRINGS.dashboard.page.messages.parallelActionSimulada,
+                );
               } catch (err) {
                 console.error(err);
-                setModalMsg("Error en Parallel: " + (err.message || err));
+                setModalMsg(
+                  UI_STRINGS.dashboard.page.messages.errorEnParallel +
+                    (err.message || err),
+                );
               }
             }}
           >
-            <img src="/ICONOSPNG/PARALEL.png" alt="Parallel" /> Parallel
+            <img
+              src="/ICONOSPNG/PARALEL.png"
+              alt={UI_STRINGS.dashboard.page.parallel}
+            />{" "}
+            {UI_STRINGS.dashboard.page.parallel}
           </button>
 
           <button
             disabled={isBranchDisabled}
-            title="Branch"
+            title={UI_STRINGS.dashboard.page.branch}
             onClick={() => {
               try {
                 if (!isDesigner) return showPermissionError();
-                setModalMsg("Branch action (simulada)");
+                setModalMsg(
+                  UI_STRINGS.dashboard.page.messages.branchActionSimulada,
+                );
               } catch (err) {
                 console.error(err);
-                setModalMsg("Error en Branch: " + (err.message || err));
+                setModalMsg(
+                  UI_STRINGS.dashboard.page.messages.errorEnBranch +
+                    (err.message || err),
+                );
               }
             }}
           >
-            <img src="/ICONOSPNG/BRANCH.png" alt="Branch" /> Branch
+            <img
+              src="/ICONOSPNG/BRANCH.png"
+              alt={UI_STRINGS.dashboard.page.branch}
+            />{" "}
+            {UI_STRINGS.dashboard.page.branch}
           </button>
 
           <button
@@ -3120,7 +3296,8 @@ export default function App({ user, userRoles }) {
                 if (isRemoveDisabled) {
                   if (anyProtectedSelected) {
                     setModalMsg(
-                      "No se pueden eliminar nodos Begin/Connection/End.",
+                      UI_STRINGS.dashboard.page.messages
+                        .noSePuedenEliminarNodos,
                     );
                     return;
                   }
@@ -3132,7 +3309,10 @@ export default function App({ user, userRoles }) {
                 setSelectedNodes([]);
               } catch (err) {
                 console.error(err);
-                setModalMsg("Error al eliminar nodos: " + (err.message || err));
+                setModalMsg(
+                  UI_STRINGS.dashboard.page.messages.errorAlEliminarNodos +
+                    (err.message || err),
+                );
               }
             }}
             disabled={isRemoveDisabled}
@@ -3143,28 +3323,58 @@ export default function App({ user, userRoles }) {
             }
             className={isRemoveDisabled ? "disabled" : ""}
           >
-            <img src="/ICONOSPNG/REMOVE.png" alt="Remove" /> Remove
+            <img
+              src="/ICONOSPNG/REMOVE.png"
+              alt={UI_STRINGS.dashboard.page.remove}
+            />{" "}
+            {UI_STRINGS.dashboard.page.remove}
           </button>
 
           <button
-            onClick={() => setModalMsg("Equipment view shortcut (simulada)")}
-            title="Equipment"
+            onClick={() =>
+              setModalMsg(
+                UI_STRINGS.dashboard.page.messages
+                  .equipmentViewShortcutSimulada,
+              )
+            }
+            title={UI_STRINGS.dashboard.page.equipment}
           >
-            <img src="/ICONOSPNG/EQUIPMENT.png" alt="Equipment" /> Equipment
+            <img
+              src="/ICONOSPNG/EQUIPMENT.png"
+              alt={UI_STRINGS.dashboard.page.equipment}
+            />{" "}
+            {UI_STRINGS.dashboard.page.equipment}
           </button>
 
           <button
-            onClick={() => setModalMsg("Material view shortcut (simulada)")}
-            title="Material"
+            onClick={() =>
+              setModalMsg(
+                UI_STRINGS.dashboard.page.messages.materialViewShortcutSimulada,
+              )
+            }
+            title={UI_STRINGS.dashboard.page.material}
           >
-            <img src="/ICONOSPNG/MATERIAL.png" alt="Material" /> Material
+            <img
+              src="/ICONOSPNG/MATERIAL.png"
+              alt={UI_STRINGS.dashboard.page.material}
+            />{" "}
+            {UI_STRINGS.dashboard.page.material}
           </button>
 
           <button
-            onClick={() => setModalMsg("Personnel view shortcut (simulada)")}
-            title="Personnel"
+            onClick={() =>
+              setModalMsg(
+                UI_STRINGS.dashboard.page.messages
+                  .personnelViewShortcutSimulada,
+              )
+            }
+            title={UI_STRINGS.dashboard.page.personnel}
           >
-            <img src="/ICONOSPNG/PERSONNEL.png" alt="Personnel" /> Personnel
+            <img
+              src="/ICONOSPNG/PERSONNEL.png"
+              alt={UI_STRINGS.dashboard.page.personnel}
+            />{" "}
+            {UI_STRINGS.dashboard.page.personnel}
           </button>
 
           <button
@@ -3180,14 +3390,20 @@ export default function App({ user, userRoles }) {
                 );
               } catch (err) {
                 console.error(err);
-                setModalMsg("Error en Below Parallel: " + (err.message || err));
+                setModalMsg(
+                  UI_STRINGS.dashboard.page.messages.errorEnBelowParallel +
+                    (err.message || err),
+                );
               }
             }}
             disabled={selectedNodes.length === 0}
-            title="Below Parallel"
+            title={UI_STRINGS.dashboard.page.belowParallel}
           >
-            <img src="/ICONOSPNG/BELOWPARALEL.png" alt="Below Parallel" /> Below
-            Parallel
+            <img
+              src="/ICONOSPNG/BELOWPARALEL.png"
+              alt={UI_STRINGS.dashboard.page.belowParallel}
+            />{" "}
+            {UI_STRINGS.dashboard.page.belowParallel}
           </button>
 
           <button
@@ -3203,14 +3419,20 @@ export default function App({ user, userRoles }) {
                 );
               } catch (err) {
                 console.error(err);
-                setModalMsg("Error en Above Parallel: " + (err.message || err));
+                setModalMsg(
+                  UI_STRINGS.dashboard.page.messages.errorEnAboveParallel +
+                    (err.message || err),
+                );
               }
             }}
             disabled={selectedNodes.length === 0}
-            title="Above Parallel"
+            title={UI_STRINGS.dashboard.page.aboveParallel}
           >
-            <img src="/ICONOSPNG/ABOVEPARALEL.png" alt="Above Parallel" /> Above
-            Parallel
+            <img
+              src="/ICONOSPNG/ABOVEPARALEL.png"
+              alt={UI_STRINGS.dashboard.page.aboveParallel}
+            />{" "}
+            {UI_STRINGS.dashboard.page.aboveParallel}
           </button>
 
           <button
@@ -3218,46 +3440,59 @@ export default function App({ user, userRoles }) {
               try {
                 if (selectedNodes.length !== 1)
                   return setModalMsg(
-                    "Seleccione un único nodo para ver parámetros.",
+                    UI_STRINGS.dashboard.page.messages
+                      .seleccioneUnUnicoNodoPara,
                   );
                 const idx = selectedNodes[0];
                 if (!canvasNodes || !canvasNodes[idx])
-                  return setModalMsg("Nodo seleccionado no encontrado.");
+                  return setModalMsg(
+                    UI_STRINGS.dashboard.page.messages
+                      .nodoSeleccionadoNoEncontrado,
+                  );
                 setSelectedEquipment(canvasNodes[idx]);
                 setParametersModalOpen(true);
               } catch (err) {
                 console.error(err);
                 setModalMsg(
-                  "Error al mostrar parámetros: " + (err.message || err),
+                  UI_STRINGS.dashboard.page.messages.errorAlMostrarParametros +
+                    (err.message || err),
                 );
               }
             }}
             disabled={selectedNodes.length === 0}
-            title="Node Parameters"
+            title={UI_STRINGS.dashboard.page.nodeParameters}
           >
-            <img src="/ICONOSPNG/PARAMETERS.png" alt="Parameters" /> Node
-            Parameters
+            <img
+              src="/ICONOSPNG/PARAMETERS.png"
+              alt={UI_STRINGS.dashboard.page.parameters}
+            />{" "}
+            {UI_STRINGS.dashboard.page.nodeParameters}
           </button>
 
-          <button onClick={toggleGrid} title="Grid">
-            <img src="/ICONOSPNG/GRID.png" alt="Grid" />{" "}
-            {isGridEnabled ? "Grid ON" : "Grid OFF"}
+          <button onClick={toggleGrid} title={UI_STRINGS.dashboard.page.grid}>
+            <img
+              src="/ICONOSPNG/GRID.png"
+              alt={UI_STRINGS.dashboard.page.grid}
+            />{" "}
+            {isGridEnabled
+              ? UI_STRINGS.dashboard.page.gridOn
+              : UI_STRINGS.dashboard.page.gridOff}
           </button>
           <button
             type="button"
             onClick={handleTestDiagram}
-            title="Test Diagram"
+            title={UI_STRINGS.dashboard.page.testDiagram}
           >
-            Test Diagram
+            {UI_STRINGS.dashboard.page.testDiagram}
           </button>
 
           <button
             type="button"
             onClick={handleCompileDiagram}
             style={{ marginLeft: 8 }}
-            title="Compile"
+            title={UI_STRINGS.dashboard.page.compile}
           >
-            Compile
+            {UI_STRINGS.dashboard.page.compile}
           </button>
         </div>
       </div>
@@ -3299,10 +3534,10 @@ export default function App({ user, userRoles }) {
               }}
             />
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
-              Compilación en curso…
+              {UI_STRINGS.dashboard.page.compilacionEnCurso}
             </div>
             <div style={{ color: "#6b7280" }}>
-              Estamos validando y generando el XML
+              {UI_STRINGS.dashboard.page.estamosValidandoYGenerandoEl}
             </div>
           </div>
           <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }`}</style>
@@ -3332,7 +3567,9 @@ export default function App({ user, userRoles }) {
               padding: 20,
             }}
           >
-            <h3 style={{ marginTop: 0, marginBottom: 8 }}>✅ Flujo válido</h3>
+            <h3 style={{ marginTop: 0, marginBottom: 8 }}>
+              {UI_STRINGS.dashboard.page.flujoValido}
+            </h3>
             <p style={{ whiteSpace: "pre-wrap", marginTop: 0 }}>
               {compileDialog.message}
             </p>
@@ -3363,7 +3600,7 @@ export default function App({ user, userRoles }) {
                   fontWeight: 600,
                 }}
               >
-                Descargar
+                {UI_STRINGS.dashboard.page.descargar}
               </button>
               <button
                 onClick={() => {
@@ -3385,7 +3622,7 @@ export default function App({ user, userRoles }) {
                   fontWeight: 600,
                 }}
               >
-                Cancelar
+                {UI_STRINGS.dashboard.page.cancelar}
               </button>
             </div>
           </div>
@@ -3394,7 +3631,7 @@ export default function App({ user, userRoles }) {
 
       {modalMsg && (
         <ModalMessage
-          title="Resultado"
+          title={UI_STRINGS.dashboard.page.resultado}
           message={modalMsg}
           onClose={() => setModalMsg(null)}
         />
@@ -3417,12 +3654,12 @@ export default function App({ user, userRoles }) {
           }}
         >
           <TreeViewExample
-  isDesigner={isDesigner}
-  usedComponents={usedComponents}
-  setDragComponent={(comp) => (window._dragComponent = comp)}
-  onEquipmentSelect={handleEquipmentSelect}
-  setInteractionMode={setInteractionMode} 
-/>
+            isDesigner={isDesigner}
+            usedComponents={usedComponents}
+            setDragComponent={(comp) => (window._dragComponent = comp)}
+            onEquipmentSelect={handleEquipmentSelect}
+            setInteractionMode={setInteractionMode}
+          />
         </div>
         <div
           ref={topRightRef}
@@ -3470,7 +3707,10 @@ export default function App({ user, userRoles }) {
               performLogout();
             } catch (error) {
               console.error("Error al guardar:", error);
-              alert("Error al guardar los cambios: " + error.message);
+              alert(
+                UI_STRINGS.dashboard.page.alerts.errorAlGuardarLosCambios +
+                  error.message,
+              );
             } finally {
               setIsSaving(false);
             }
@@ -3520,7 +3760,6 @@ export default function App({ user, userRoles }) {
     </div>
   );
 } // ← FIN App
-
 
 // =============================
 //  CANVAS
@@ -3607,7 +3846,9 @@ function Canvas({
     const errors = validateWorkflow(nodes, manualConnections);
 
     if (errors.length > 0) {
-      setModalMsg("⚠️ Errores:\n\n" + errors.join("\n"));
+      setModalMsg(
+        UI_STRINGS.dashboard.canvas.messages.errores + errors.join("\n"),
+      );
     }
   }, [nodes, manualConnections]);
 
@@ -3664,7 +3905,9 @@ function Canvas({
       isReadOnly &&
       (interactionMode === "connect" || interactionMode === "place-node")
     ) {
-      setModalMsg("No se pueden agregar elementos en modo de solo lectura.");
+      setModalMsg(
+        UI_STRINGS.dashboard.canvas.messages.noSePuedenAgregarElementos,
+      );
       setInteractionMode("select");
       return;
     }
@@ -3858,7 +4101,7 @@ function Canvas({
 
     if (isReadOnly) {
       setModalMsg(
-        "Acción denegada: No se pueden agregar nuevos nodos en modo de solo lectura."
+        UI_STRINGS.dashboard.canvas.messages.accionDenegadaNoSePueden,
       );
       window._dragComponent = null;
       return;
@@ -3909,7 +4152,9 @@ function Canvas({
 
         if (typeof onNodeAdded === "function") {
           const t = (newNode.type || "").toLowerCase();
-          const shouldOpen = !["begin", "end", "connection", "start"].includes(t);
+          const shouldOpen = !["begin", "end", "connection", "start"].includes(
+            t,
+          );
           if (shouldOpen) {
             onNodeAdded(indexForNewNode, newNode);
           }
@@ -3989,7 +4234,7 @@ function Canvas({
             c.from === newConnection.from &&
             c.to === node.id &&
             c.fromPort === newConnection.fromPort &&
-            c.toPort === port
+            c.toPort === port,
         );
 
         if (alreadyExists) {
@@ -4016,13 +4261,11 @@ function Canvas({
     const existing = (manualConnections || []).find(
       (c) =>
         (c.from === node.id && c.fromPort === port) ||
-        (c.to === node.id && c.toPort === port)
+        (c.to === node.id && c.toPort === port),
     );
 
     if (existing) {
-      setManualConnections((prev) =>
-        prev.filter((x) => x.id !== existing.id)
-      );
+      setManualConnections((prev) => prev.filter((x) => x.id !== existing.id));
       return;
     }
 
@@ -4036,7 +4279,7 @@ function Canvas({
 
   const handleDelete = (idx) => {
     if (isReadOnly) {
-      setModalMsg("Acción denegada: El flujo es de solo lectura.");
+      setModalMsg(UI_STRINGS.dashboard.canvas.messages.accionDenegadaElFlujoEs);
       return;
     }
 
@@ -4054,7 +4297,7 @@ function Canvas({
     setUsedComponents((used) =>
       newNodes.some((n) => n.label === label)
         ? used
-        : used.filter((u) => u !== label)
+        : used.filter((u) => u !== label),
     );
   };
 
@@ -4086,7 +4329,6 @@ function Canvas({
 
       const ports = choosePortsForPair(fromNode, toNode);
 
-    
       const conn = {
         from: fromNode.id,
         to: toNode.id,
@@ -4106,7 +4348,7 @@ function Canvas({
             c.from === conn.from &&
             c.to === conn.to &&
             c.fromPort === conn.fromPort &&
-            c.toPort === conn.toPort
+            c.toPort === conn.toPort,
         );
 
         if (alreadyExists) {
@@ -4163,7 +4405,7 @@ function Canvas({
     setSelectedNodes(currentSelection);
 
     if (isReadOnly) {
-      setModalMsg("No se pueden mover nodos en modo de solo lectura.");
+      setModalMsg(UI_STRINGS.dashboard.canvas.messages.noSePuedenMoverNodos);
       return;
     }
 
@@ -4453,7 +4695,9 @@ function Canvas({
                   />
                 </svg>
                 <div className="start-end-label">
-                  {node.type === "start" ? "Begin" : "End"}
+                  {node.type === "start"
+                    ? UI_STRINGS.dashboard.canvas.begin
+                    : UI_STRINGS.dashboard.canvas.end}
                 </div>
               </>
             ) : node.type === "connection" ? (
@@ -4490,14 +4734,14 @@ function Canvas({
                   className="connection-label"
                   style={{ color: node.color || "inherit" }}
                 >
-                  {node.label || "Connection"}
+                  {node.label || UI_STRINGS.dashboard.canvas.connection}
                 </div>
               </div>
             ) : node.type === "startObject" ? (
               <>
                 <div className="start-object-node">
                   <div className="start-object-label">
-                    {node.label || "Start Object"}
+                    {node.label || UI_STRINGS.dashboard.canvas.startObject}
                   </div>
                 </div>
               </>
@@ -4508,7 +4752,7 @@ function Canvas({
                     !node.label ? "placeholder" : ""
                   }`}
                 >
-                  {node.label || "Enter Text"}
+                  {node.label || UI_STRINGS.dashboard.canvas.enterText}
                 </div>
                 <div className="canvas-node-desc">{node.desc}</div>
               </>
@@ -4521,7 +4765,7 @@ function Canvas({
                 handleDelete(idx);
               }}
               onMouseDown={(e) => e.stopPropagation()}
-              title="Delete"
+              title={UI_STRINGS.dashboard.canvas.delete}
             >
               ×
             </button>
@@ -4532,22 +4776,22 @@ function Canvas({
                 <div
                   className="canvas-node-port port-top"
                   onClick={(e) => handlePortClick(idx, "top", e)}
-                  title="top port"
+                  title={UI_STRINGS.dashboard.canvas.topPort}
                 />
                 <div
                   className="canvas-node-port port-right"
                   onClick={(e) => handlePortClick(idx, "right", e)}
-                  title="right port"
+                  title={UI_STRINGS.dashboard.canvas.rightPort}
                 />
                 <div
                   className="canvas-node-port port-bottom"
                   onClick={(e) => handlePortClick(idx, "bottom", e)}
-                  title="bottom port"
+                  title={UI_STRINGS.dashboard.canvas.bottomPort}
                 />
                 <div
                   className="canvas-node-port port-left"
                   onClick={(e) => handlePortClick(idx, "left", e)}
-                  title="left port"
+                  title={UI_STRINGS.dashboard.canvas.leftPort}
                 />
               </>
             )}
@@ -4586,7 +4830,6 @@ function Canvas({
   );
 } // ← FIN Canvas
 
-
 // =============================
 //  BlinkingRedLine
 // =============================
@@ -4609,9 +4852,4 @@ function BlinkingRedLine({ from, to }) {
       opacity={0.8}
     />
   ) : null;
-} 
-
-
-
-
-
+}

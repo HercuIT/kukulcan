@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install dependencies
         run: npm install
@@ -31,3 +31,6 @@ jobs:
         run: npm test -- --watchAll=false
         env:
           CI: true
+
+      - name: Run Node tests (database, Edge Function, server, migration)
+        run: npm run test:node

@@ -1,6 +1,11 @@
 import ReactDOM from "react-dom";
+import { UI_STRINGS } from "../constants/uiStrings";
 
-export default function ModalMessage({ title = "Result", message, onClose }) {
+export default function ModalMessage({
+  title = UI_STRINGS.components.modalMessage.defaultTitle,
+  message,
+  onClose,
+}) {
   // Render al body para evitar que estilos del contenedor lo tapen
   return ReactDOM.createPortal(
     <div
@@ -50,7 +55,7 @@ export default function ModalMessage({ title = "Result", message, onClose }) {
               cursor: "pointer",
             }}
           >
-            Cancel
+            {UI_STRINGS.components.modalMessage.cancel}
           </button>
           <button
             onClick={onClose}
@@ -63,7 +68,7 @@ export default function ModalMessage({ title = "Result", message, onClose }) {
               cursor: "pointer",
             }}
           >
-            OK
+            {UI_STRINGS.components.modalMessage.ok}
           </button>
         </div>
       </div>

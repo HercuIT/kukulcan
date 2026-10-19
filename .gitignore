@@ -17,6 +17,7 @@
 .env.development.local
 .env.test.local
 .env.production.local
+.env
 
 npm-debug.log*
 yarn-debug.log*
@@ -28,3 +29,9 @@ yarn-error.log*
 server/.env
 server/serviceAccountKey.json
 server/node_modules/
+
+# Firebase → Supabase migration scripts: dependencies, exports and the UID map
+scripts/migration/node_modules/
+scripts/migration/out/
+/users.json
+/scripts/migration/users.json

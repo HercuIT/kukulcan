@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 export default function CheckoutModal({ open, onClose, onCheckout }) {
   const [description, setDescription] = useState("");
@@ -17,7 +18,7 @@ export default function CheckoutModal({ open, onClose, onCheckout }) {
 
   const handleCheckoutClick = () => {
     if (!description.trim()) {
-      alert("Description cannot be empty.");
+      alert(UI_STRINGS.dashboard.checkoutModal.alerts.descriptionCannotBeEmpty);
       return;
     }
     onCheckout(description);
@@ -26,16 +27,18 @@ export default function CheckoutModal({ open, onClose, onCheckout }) {
   return (
     <div className="create-node-modal-backdrop">
       <div className="create-node-modal" style={{ maxWidth: "400px" }}>
-        <h2>Checkout</h2>
+        <h2>{UI_STRINGS.dashboard.checkoutModal.checkout}</h2>
         <p style={{ marginTop: 0, marginBottom: "15px", color: "#555" }}>
-          Describe the changes you made.
+          {UI_STRINGS.dashboard.checkoutModal.describeTheChangesYouMade}
         </p>
         <label>
-          Description:
+          {UI_STRINGS.dashboard.checkoutModal.description}
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe your changes here..."
+            placeholder={
+              UI_STRINGS.dashboard.checkoutModal.describeYourChangesHere
+            }
             style={{
               width: "100%",
               boxSizing: "border-box",
@@ -50,8 +53,12 @@ export default function CheckoutModal({ open, onClose, onCheckout }) {
           className="create-node-modal-buttons"
           style={{ marginTop: "20px" }}
         >
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={handleCheckoutClick}>Checkout</button>
+          <button onClick={onClose}>
+            {UI_STRINGS.dashboard.checkoutModal.cancel}
+          </button>
+          <button onClick={handleCheckoutClick}>
+            {UI_STRINGS.dashboard.checkoutModal.checkout}
+          </button>
         </div>
       </div>
     </div>

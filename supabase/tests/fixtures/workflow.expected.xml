@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Controller Use="Context">
+  <DataTypes Use="Context" />
+  <Programs Use="Context">
+    <Program Use="Context" Name="P1">
+      <Tags Use="Context">
+        <Tag Name="Speed" TagType="Base" DataType="REAL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>
+        <Tag Name="Temp" TagType="Base" DataType="REAL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>
+      </Tags>
+      <SFCContent Routine="SFC_Control_Routine">
+
+      <SFCContent>
+
+  <Workflow id="W-9" name="Mezcla Ácida &lt;1&gt;" version="2">
+    <Nodes>
+    <Node id="b" type="BeginElement" name="Begin"/>
+    <Node id="n1" type="Procedure Phase" name="Mix &amp; Heat">
+      <Parameters>
+        <Parameter name="Speed" value="10" unit="rpm" dataType="REAL" defaultValue="1"/>
+        <Parameter name="Temp" value="" unit="rpm" dataType="REAL" defaultValue="1"/>
+      </Parameters>
+      <Equipment assignedId="EQ&quot;1"/>
+      <Material assignedId="M1"/>
+    </Node>
+    <Node id="n2" type="Operation" name="Operation">
+      <Parameters>
+        <Parameter name="Speed" value="3" unit="rpm" dataType="REAL" defaultValue="1"/>
+      </Parameters>
+      <Operation name="Op&apos;1"/>
+    </Node>
+    <Node id="e" type="EndElement" name="End"/>
+    </Nodes>
+    <Connections>
+    <Connection from="b" to="n1"/>
+    <Connection from="n1" to="n2"/>
+    <Connection from="n2" to="e"/>
+    </Connections>
+  </Workflow>
+        <Step ID="1" X="10" Y="0" />
+        <Step ID="2" X="5" Y="70" />
+        <Step ID="3" X="20" Y="50" />
+        <Step ID="4" X="10" Y="100" />
+        <Transition ID="5" X="15" Y="25">
+          <STContent>
+            Speed > Temp
+          </STContent>
+        </Transition>
+        <Transition ID="6" X="12.5" Y="60"></Transition>
+        <Transition ID="7" X="7.5" Y="85"></Transition>
+        <DirectedLink Source="1" Target="5" />
+        <DirectedLink Source="5" Target="3" />
+        <DirectedLink Source="3" Target="6" />
+        <DirectedLink Source="6" Target="2" />
+        <DirectedLink Source="2" Target="7" />
+        <DirectedLink Source="7" Target="4" />
+      </SFCContent>
+
+      </SFCContent>
+    </Program>
+  </Programs>
+</Controller>

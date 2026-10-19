@@ -3,6 +3,7 @@ const router = express.Router();
 const axios = require("axios");
 const { XMLParser } = require("fast-xml-parser");
 const logger = require("../logger");
+const { getRequestUserId } = require("../requestUser");
 const { v4: uuidv4 } = require("uuid");
 require("dotenv").config();
 
@@ -156,7 +157,7 @@ function validarWorkflow(xmlString) {
 
 router.post("/", async (req, res) => {
   const requestId = uuidv4();
-  const userId = req.user?.uid || "unknown";
+  const userId = await getRequestUserId(req);
   const method = req.method;
   const route = req.originalUrl;
   const timestamp = new Date().toISOString();
@@ -169,7 +170,9 @@ router.post("/", async (req, res) => {
     });
     const jsonObj = parser.parse(req.body);
     workflowId = jsonObj?.Workflow?.["@_id"] || "unknown";
-  } catch {}
+  } catch {
+    // XML inválido: la validación de abajo lo reporta.
+  }
 
   logger.info({
     requestId,

@@ -1,0 +1,19 @@
+{
+  "name": "kukulcan-migration",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One-off Firebase → Supabase migration scripts (users, data, verification).",
+  "scripts": {
+    "import-users": "node import-users.js",
+    "migrate-data": "node migrate-data.js",
+    "verify": "node verify.js",
+    "send-password-resets": "node send-password-resets.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "firebase-admin": "^13.4.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

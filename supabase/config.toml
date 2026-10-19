@@ -1,0 +1,17 @@
+# Supabase CLI config for Kukulcan. Full reference: https://supabase.com/docs/guides/local-development/cli/config
+project_id = "kukulcan"
+
+[api]
+schemas = ["public"]
+
+[auth]
+site_url = "http://localhost:3000"
+# Solo la página del enlace de recuperación (send-password-resets.js); el site_url ya está permitido.
+additional_redirect_urls = ["http://localhost:3000/set-password"]
+
+[auth.email]
+enable_confirmations = false
+
+[functions.compile-xml]
+# Solo usuarios autenticados pueden compilar (el endpoint de Firebase era público).
+verify_jwt = true

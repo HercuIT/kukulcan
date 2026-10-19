@@ -1,6 +1,6 @@
 # Stage 1: Build the application
 # We use a node image to install dependencies and build the app.
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -14,6 +14,12 @@ RUN npm install
 
 # Copy the rest of the application source code
 COPY . .
+
+# Supabase settings are compiled into the bundle, so pass them at build time:
+#   docker build --build-arg REACT_APP_SUPABASE_URL=... --build-arg REACT_APP_SUPABASE_PUBLISHABLE_KEY=... .
+ARG REACT_APP_SUPABASE_URL
+ARG REACT_APP_SUPABASE_PUBLISHABLE_KEY
+ENV REACT_APP_SUPABASE_URL=$REACT_APP_SUPABASE_URL     REACT_APP_SUPABASE_PUBLISHABLE_KEY=$REACT_APP_SUPABASE_PUBLISHABLE_KEY
 
 # Run the build command as defined in your package.json
 # This command will generate the production-ready static files

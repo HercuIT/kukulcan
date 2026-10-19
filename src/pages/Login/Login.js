@@ -1,13 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from "firebase/auth";
-// Importa 'setDoc' y 'doc' de Firestore y la instancia 'db'
-import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from "../../backend/firebaseConfig.js";
+import { signIn, signUp } from "../../backend/authApi";
 import "../../styles/LoginStyle/LoginStyle.css";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -18,38 +13,22 @@ export default function Login() {
   const handleRegister = async () => {
     setError("");
     if (!email || !password) {
-      setError("Por favor, completa ambos campos.");
+      setError(UI_STRINGS.login.errors.porFavorCompletaAmbosCampos);
       return;
     }
     try {
-      //Crea el usuario en Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      const user = userCredential.user;
+      // Crea el usuario en Supabase Auth; el trigger de la base crea su perfil sin roles
+      await signUp(email, password);
 
-      // Crea el documento de rol para el nuevo usuario
-      const rolesRef = doc(db, "roles", user.uid);
-      await setDoc(rolesRef, {
-        email: user.email,
-        designer: false,
-        deployer: false,
-        reviewer: false,
-      });
-
-      alert(
-        "¡Usuario registrado con éxito! Se te ha asignado un rol por defecto. Por favor, inicia sesión.",
-      );
+      alert(UI_STRINGS.login.alerts.usuarioRegistradoConExitoSe);
 
       setEmail("");
       setPassword("");
     } catch (err) {
-      if (err.code === "auth/email-already-in-use") {
-        setError("Este correo electrónico ya está en uso.");
+      if (err.code === "email-in-use") {
+        setError(UI_STRINGS.login.errors.esteCorreoElectronicoYaEsta);
       } else {
-        setError("Ocurrió un error al registrar el usuario.");
+        setError(UI_STRINGS.login.errors.ocurrioUnErrorAlRegistrar);
       }
       console.error("Error de registro:", err);
     }
@@ -58,29 +37,21 @@ export default function Login() {
   const handleLogin = async () => {
     setError("");
     if (!email || !password) {
-      setError("Por favor, completa ambos campos.");
+      setError(UI_STRINGS.login.errors.porFavorCompletaAmbosCampos);
       return;
     }
     try {
-      // 1. Inicia sesión con Firebase Auth (esto no ha cambiado)
-      await signInWithEmailAndPassword(auth, email, password);
+      // Inicia sesión con Supabase Auth; los roles se leen de profiles en App.js
+      await signIn(email, password);
 
-      // HEMOS ELIMINADO LA LLAMADA A 'fetch("http://localhost:3001/login")'
-      // Esto te permitirá iniciar sesión sin depender del backend local.
-      // ADVERTENCIA: Sin el backend, los Custom Claims no se establecerán,
-      // por lo que las reglas de seguridad de Firestore seguirán fallando
-      // hasta que implementes la Cloud Function para asignar roles.
-
-      // 3. Si todo es correcto, navega a la página principal
+      // Si todo es correcto, navega a la página principal
       navigate("/");
     } catch (err) {
       console.error("Error de inicio de sesión:", err);
-      if (err.code === "auth/invalid-credential") {
-        setError(
-          "Correo o contraseña incorrectos. Por favor, verifica tus datos.",
-        );
+      if (err.code === "invalid-credentials") {
+        setError(UI_STRINGS.login.errors.correoOContrasenaIncorrectosPor);
       } else {
-        setError("Ocurrió un error al intentar iniciar sesión.");
+        setError(UI_STRINGS.login.errors.ocurrioUnErrorAlIntentar);
       }
     }
   };
@@ -91,42 +62,40 @@ export default function Login() {
     const devEmail = "dev@test.com";
     const devPassword = "password123";
     try {
-      await signInWithEmailAndPassword(auth, devEmail, devPassword);
+      await signIn(devEmail, devPassword);
       navigate("/");
     } catch (err) {
       console.error("Error en login de desarrollador:", err);
-      setError(
-        "La cuenta de desarrollador no está configurada o hubo un error.",
-      );
+      setError(UI_STRINGS.login.errors.laCuentaDeDesarrolladorNo);
     }
   };
 
   return (
     <div className="login-container">
       <div className="login-box">
-        <h2>Iniciar Sesión</h2>
+        <h2>{UI_STRINGS.login.iniciarSesion}</h2>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Correo electrónico"
+          placeholder={UI_STRINGS.login.correoElectronico}
         />
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Contraseña"
+          placeholder={UI_STRINGS.login.contrasena}
         />
-        <button onClick={handleLogin}>Iniciar Sesión</button>
+        <button onClick={handleLogin}>{UI_STRINGS.login.iniciarSesion}</button>
         <button onClick={handleRegister} className="register-btn">
-          Registrar
+          {UI_STRINGS.login.registrar}
         </button>
         <button
           onClick={handleDeveloperSkip}
           className="dev-skip-btn"
           style={{ backgroundColor: "#17a2b8", marginTop: "10px" }}
         >
-          Saltar (Dev)
+          {UI_STRINGS.login.saltarDev}
         </button>
         {error && <p className="error-message">{error}</p>}
       </div>

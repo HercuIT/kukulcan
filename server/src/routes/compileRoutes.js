@@ -107,7 +107,7 @@ function toXml(workflow) {
     .join("\n");
 
   const connsXml = workflow.connections
-    .map((c, idx) => {
+    .map((c) => {
       const from = shortId(
         "node",
         workflow.nodes.findIndex((n) => n.id === c.from),

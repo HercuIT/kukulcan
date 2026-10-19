@@ -1,18 +1,12 @@
 import React from "react";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 export default function VersionHistoryModal({ open, onClose, history }) {
   if (!open) return null;
 
-  // Helper to format timestamp
-  const formatDate = (timestamp) => {
-    if (!timestamp) return "N/A";
-    // Handle Firestore Timestamp
-    if (timestamp.seconds) {
-      return new Date(timestamp.seconds * 1000).toLocaleString();
-    }
-    // Handle JS Date or string
-    return new Date(timestamp).toLocaleString();
-  };
+  // Helper to format the ISO timestamp from Postgres
+  const formatDate = (timestamp) =>
+    timestamp ? new Date(timestamp).toLocaleString() : "N/A";
 
   return (
     <div className="create-node-modal-backdrop">
@@ -20,7 +14,7 @@ export default function VersionHistoryModal({ open, onClose, history }) {
         className="create-node-modal"
         style={{ maxWidth: "600px", width: "90%" }}
       >
-        <h2>Version History</h2>
+        <h2>{UI_STRINGS.dashboard.versionHistoryModal.versionHistory}</h2>
         <div
           style={{
             maxHeight: "400px",
@@ -32,7 +26,7 @@ export default function VersionHistoryModal({ open, onClose, history }) {
         >
           {!history || history.length === 0 ? (
             <p style={{ padding: "20px", textAlign: "center", color: "#666" }}>
-              No history available.
+              {UI_STRINGS.dashboard.versionHistoryModal.noHistoryAvailable}
             </p>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -47,7 +41,7 @@ export default function VersionHistoryModal({ open, onClose, history }) {
                       borderBottom: "1px solid #ddd",
                     }}
                   >
-                    Description
+                    {UI_STRINGS.dashboard.versionHistoryModal.description}
                   </th>
                   <th
                     style={{
@@ -56,7 +50,7 @@ export default function VersionHistoryModal({ open, onClose, history }) {
                       borderBottom: "1px solid #ddd",
                     }}
                   >
-                    User (UID)
+                    {UI_STRINGS.dashboard.versionHistoryModal.userUid}
                   </th>
                   <th
                     style={{
@@ -65,7 +59,7 @@ export default function VersionHistoryModal({ open, onClose, history }) {
                       borderBottom: "1px solid #ddd",
                     }}
                   >
-                    Timestamp
+                    {UI_STRINGS.dashboard.versionHistoryModal.timestamp}
                   </th>
                 </tr>
               </thead>
@@ -89,7 +83,7 @@ export default function VersionHistoryModal({ open, onClose, history }) {
                         color: "#555",
                       }}
                     >
-                      {formatDate(entry.timestamp)}
+                      {formatDate(entry.created_at)}
                     </td>
                   </tr>
                 ))}
@@ -101,7 +95,9 @@ export default function VersionHistoryModal({ open, onClose, history }) {
           className="create-node-modal-buttons"
           style={{ marginTop: "20px", justifyContent: "flex-end" }}
         >
-          <button onClick={onClose}>Close</button>
+          <button onClick={onClose}>
+            {UI_STRINGS.dashboard.versionHistoryModal.close}
+          </button>
         </div>
       </div>
     </div>
