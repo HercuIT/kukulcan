@@ -106,11 +106,23 @@ The project is `xiidwepvvjcqyhywmdrn`. Merges to `main` that touch `supabase/` d
 
 | Secret | Value |
 | --- | --- |
-| `SUPABASE_ACCESS_TOKEN` | A Supabase personal access token (Account → Access Tokens) from an account with access to the project |
+| `SUPABASE_ACCESS_TOKEN` | A **scoped** Supabase personal access token limited to this project (see below), not an account-wide one |
 | `SUPABASE_DB_PASSWORD` | The project's database password |
 | `SUPABASE_PROJECT_ID` | The project ref, `xiidwepvvjcqyhywmdrn` |
 
-The workflow doesn't touch Auth settings: Site URL and redirect URLs are set in the dashboard. Don't run `supabase config push`, which would overwrite them with the local values in `supabase/config.toml`.
+Create the token at Supabase → Account → **Access Tokens**: choose **Resources** → selected projects → only `xiidwepvvjcqyhywmdrn`, an **expiry** (at most one year; rotate the secret before it expires), and only these **permissions** ([what each covers](https://supabase.com/docs/guides/platform/personal-access-tokens)):
+
+| Permission | Level | Used by |
+| --- | --- | --- |
+| Project Settings | Read | `supabase link` |
+| API Keys, API Key Secrets | Read | `supabase link` |
+| Database | Read-write | `supabase db push` (creates its temporary login role) |
+| Migrations | Read-write | `supabase db push` (migration history) |
+| Edge Functions | Read-write | `supabase functions deploy compile-xml` |
+
+If a step fails with a permission error, the message names the missing permission: create a new token with it added (scoped tokens can't be edited). Don't use the token from the browser `supabase login`, which is account-wide.
+
+The job only runs for `main`, including manual runs, and its actions are pinned to commit SHAs. The workflow doesn't touch Auth settings: Site URL and redirect URLs are set in the dashboard. Don't run `supabase config push`, which would overwrite them with the local values in `supabase/config.toml`.
 
 ### Firebase → Supabase data migration
 
