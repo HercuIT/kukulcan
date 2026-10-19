@@ -23,6 +23,12 @@ export default function App() {
       const isLatest = () => change === latestChange;
       try {
         if (currentUser) {
+          // onSessionChange solo avisa cuando cambia el usuario: es el inicio o un cambio de cuenta.
+          // La cuenta anterior se oculta ya (pantalla de carga) para que no siga usable con sus
+          // permisos mientras llegan los roles de la nueva.
+          setUser(null);
+          setUserRoles(null);
+          setLoading(true);
           const roles = await getMyRoles(currentUser.uid);
           if (!isLatest()) return;
           setUser(currentUser);

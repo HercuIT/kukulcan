@@ -1,6 +1,7 @@
 import { render, screen, act } from "@testing-library/react";
 import { getMyRoles, onSessionChange } from "./backend/authApi";
 import App from "./App";
+import { UI_STRINGS } from "./constants/uiStrings";
 
 jest.mock("./backend/authApi", () => ({
   onSessionChange: jest.fn(),
@@ -187,6 +188,30 @@ describe("App", () => {
 
       expect(screen.getByTestId("home")).toHaveTextContent(
         'Home user-b {"deployer":true}',
+      );
+    });
+
+    test("switching accounts hides the previous account until the new roles arrive", async () => {
+      getMyRoles.mockResolvedValueOnce({ designer: true });
+      await renderAt("/", USER);
+      expect(screen.getByTestId("home")).toHaveTextContent("Home user-1");
+
+      let resolveRoles;
+      getMyRoles.mockImplementationOnce(
+        () => new Promise((resolve) => (resolveRoles = resolve)),
+      );
+      await act(async () => {
+        authCallback({ uid: "user-2", email: "other@example.com" });
+      });
+
+      expect(screen.getByText(UI_STRINGS.app.loading)).toBeInTheDocument();
+      expect(screen.queryByTestId("home")).not.toBeInTheDocument();
+
+      await act(async () => {
+        resolveRoles({ reviewer: true });
+      });
+      expect(screen.getByTestId("home")).toHaveTextContent(
+        'Home user-2 {"reviewer":true}',
       );
     });
 
