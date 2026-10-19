@@ -50,21 +50,59 @@ export function buildDefinitionTree(definitions = []) {
 
 /**
  * Filas visibles del panel en orden (pre-orden), entrando solo en los nodos expandidos.
- * Devuelve [{ node, depth }] con depth 0 para los de nivel superior.
+ * Devuelve [{ type, node, depth }] con depth 0 para los de nivel superior:
+ * - type "definition": la fila de una definición;
+ * - type "groups": después de los hijos de una definición de usuario expandida, el lugar de
+ *   sus grupos (Parameters, Equipment, …).
+ * keepIds (opcional): solo esas definiciones (p. ej. coincidencias de búsqueda y sus ancestros).
  */
-export function flattenVisible(roots = [], expandedIds = new Set()) {
+export function visibleRows(
+  roots = [],
+  expandedIds = new Set(),
+  keepIds = null,
+) {
   const out = [];
-  const stack = [...roots].reverse().map((node) => ({ node, depth: 0 }));
+  const stack = [...roots]
+    .reverse()
+    .map((node) => ({ type: "definition", node, depth: 0 }));
   while (stack.length) {
-    const { node, depth } = stack.pop();
-    out.push({ node, depth });
-    if (expandedIds.has(node.id)) {
-      for (let i = node.children.length - 1; i >= 0; i--) {
-        stack.push({ node: node.children[i], depth: depth + 1 });
-      }
+    const entry = stack.pop();
+    if (entry.type === "groups") {
+      out.push(entry);
+      continue;
+    }
+    const { node, depth } = entry;
+    if (keepIds && !keepIds.has(node.id)) continue;
+    out.push(entry);
+    if (!expandedIds.has(node.id)) continue;
+    if (node.kind === "user") {
+      stack.push({ type: "groups", node, depth: depth + 1 });
+    }
+    for (let i = node.children.length - 1; i >= 0; i--) {
+      stack.push({
+        type: "definition",
+        node: node.children[i],
+        depth: depth + 1,
+      });
     }
   }
   return out;
+}
+
+// Ids de las definiciones cuyo nombre contiene `text` y de todos sus ancestros (para la búsqueda).
+export function searchKeepIds(byId, text) {
+  const needle = text.trim().toLowerCase();
+  const keep = new Set();
+  if (!needle) return keep;
+  for (const node of byId.values()) {
+    if (!node.name.toLowerCase().includes(needle)) continue;
+    let current = node;
+    while (current && !keep.has(current.id)) {
+      keep.add(current.id);
+      current = current.parentId ? byId.get(current.parentId) : null;
+    }
+  }
+  return keep;
 }
 
 // Todos los nodos de un subárbol en pre-orden, con su profundidad relativa (0 = la raíz dada).

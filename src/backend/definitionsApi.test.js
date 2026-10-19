@@ -5,7 +5,8 @@ import {
   createDefinition,
   deleteDefinition,
   expandForCanvas,
-  flattenVisible,
+  searchKeepIds,
+  visibleRows,
   listDefinitions,
   moveDefinition,
   pathOf,
@@ -66,7 +67,7 @@ describe("definitionsApi", () => {
       expect(byId.get("a").children.map((n) => n.id)).toEqual(["a1", "a2"]);
     });
 
-    test("flattenVisible enters only expanded nodes, with depth", () => {
+    test("visibleRows enters only expanded nodes and puts groups after the children", () => {
       const { roots } = buildDefinitionTree([
         def("a", null, "A"),
         def("a1", "a", "A1"),
@@ -74,10 +75,32 @@ describe("definitionsApi", () => {
         def("b", null, "B", 1),
       ]);
       expect(
-        flattenVisible(roots, new Set(["a"])).map(
-          ({ node, depth }) => `${node.id}:${depth}`,
+        visibleRows(roots, new Set(["a"])).map(
+          ({ type, node, depth }) => `${type}:${node.id}:${depth}`,
         ),
-      ).toEqual(["a:0", "a1:1", "b:0"]);
+      ).toEqual([
+        "definition:a:0",
+        "definition:a1:1",
+        "groups:a:1",
+        "definition:b:0",
+      ]);
+    });
+
+    test("searchKeepIds keeps matches and their ancestors", () => {
+      const { roots, byId } = buildDefinitionTree([
+        def("l", null, "Line 1"),
+        def("m", "l", "Mixer A"),
+        def("d", "m", "Dosing"),
+        def("o", null, "Other"),
+      ]);
+      const keep = searchKeepIds(byId, " dos ");
+      expect([...keep].sort()).toEqual(["d", "l", "m"]);
+      expect(
+        visibleRows(roots, keep, keep)
+          .filter((r) => r.type === "definition")
+          .map((r) => r.node.id),
+      ).toEqual(["l", "m", "d"]);
+      expect(searchKeepIds(byId, "  ").size).toBe(0);
     });
 
     test("pathOf, subtreeIds and predefinedKeyFor", () => {
@@ -243,7 +266,9 @@ describe("definitionsApi", () => {
       const rows = chain(1000);
       const { roots, byId } = buildDefinitionTree(rows);
       const all = new Set(rows.map((r) => r.id));
-      expect(flattenVisible(roots, all)).toHaveLength(1000);
+      expect(
+        visibleRows(roots, all).filter((r) => r.type === "definition"),
+      ).toHaveLength(1000);
       expect(pathOf(byId, "d999")).toHaveLength(1000);
       const { nodes, connections } = expandForCanvas(roots[0], {
         makeId: (i) => `n${i}`,
@@ -257,7 +282,7 @@ describe("definitionsApi", () => {
 
     test("empty input gives an empty tree", () => {
       expect(buildDefinitionTree([]).roots).toEqual([]);
-      expect(flattenVisible([], new Set())).toEqual([]);
+      expect(visibleRows([], new Set())).toEqual([]);
     });
 
     test("subscribeToDefinitions loads, reloads on change and stops on unsubscribe", async () => {

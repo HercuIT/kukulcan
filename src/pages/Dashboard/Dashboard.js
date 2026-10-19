@@ -960,7 +960,14 @@ function makeCompactIds(nodesInOrder) {
 }
 
 // Modal para el formulario "Create Node"
-function CreateNodeModal({ open, onClose, onOk }) {
+// initial: definición a editar (modo edición); parentPath: nombres de los ancestros al crear dentro.
+function CreateNodeModal({
+  open,
+  onClose,
+  onOk,
+  initial = null,
+  parentPath = null,
+}) {
   const [name, setName] = React.useState("");
   const [version, setVersion] = React.useState("1.0");
   const [desc, setDesc] = React.useState("");
@@ -974,18 +981,25 @@ function CreateNodeModal({ open, onClose, onOk }) {
 
   React.useEffect(() => {
     if (open) {
-      setName("");
-      setVersion("1.0");
-      setDesc("");
-      setAbstract("");
+      setName(initial?.name ?? "");
+      setVersion(initial?.version ?? "1.0");
+      setDesc(initial?.description ?? "");
+      setAbstract(initial?.abstract ?? "");
       setError("");
-      setProgram("MainProgram");
-      setRoutine("SFC_Control_Routine");
-      setParams([
-        { id: Date.now(), name: "", dataType: "REAL", defaultValue: "" },
-      ]);
+      setProgram(initial?.implementation?.program || "MainProgram");
+      setRoutine(initial?.implementation?.routine || "SFC_Control_Routine");
+      setParams(
+        initial?.parameters?.length
+          ? initial.parameters.map((p, i) => ({
+              id: Date.now() + i,
+              name: p.name ?? "",
+              dataType: p.dataType || "REAL",
+              defaultValue: String(p.defaultValue ?? ""),
+            }))
+          : [{ id: Date.now(), name: "", dataType: "REAL", defaultValue: "" }],
+      );
     }
-  }, [open]);
+  }, [open, initial]);
 
   const addParam = () =>
     setParams((l) => [
@@ -1023,19 +1037,19 @@ function CreateNodeModal({ open, onClose, onOk }) {
 
   const validateParams = () => {
     for (const p of params) {
-      if (!p.name || !p.dataType)
-        return `Parámetro inválido: completa Name y Data Type (${p.name || "sin nombre"}).`;
+      const E = UI_STRINGS.dashboard.createNodeModal.errors;
+      if (!p.name || !p.dataType) return E.invalidParameter(p.name);
       if (p.dataType === "BOOL") {
         if (p.defaultValue === undefined || p.defaultValue === null)
-          return `Default Value requerido para ${p.name}.`;
+          return E.defaultRequired(p.name);
       } else if (p.dataType === "INT") {
-        if (!/^-?\\d+$/.test(String(p.defaultValue)))
-          return `Default Value entero inválido en ${p.name}.`;
+        if (!/^-?\d+$/.test(String(p.defaultValue).trim()))
+          return E.invalidInt(p.name);
       } else if (p.dataType === "REAL") {
         if (isNaN(parseFloat(String(p.defaultValue))))
-          return `Default Value real inválido en ${p.name}.`;
+          return E.invalidReal(p.name);
       } else if (String(p.defaultValue).length === 0) {
-        return `Default Value requerido para ${p.name}.`;
+        return E.defaultRequired(p.name);
       }
     }
     return null;
@@ -1079,7 +1093,18 @@ function CreateNodeModal({ open, onClose, onOk }) {
           paddingRight: "8px",
         }}
       >
-        <h2>{UI_STRINGS.dashboard.createNodeModal.createNode}</h2>
+        <h2>
+          {initial
+            ? UI_STRINGS.dashboard.createNodeModal.titleEdit(initial.name)
+            : UI_STRINGS.dashboard.createNodeModal.createNode}
+        </h2>
+        {parentPath?.length > 0 && (
+          <p style={{ marginTop: 0, color: "#555" }}>
+            {UI_STRINGS.dashboard.createNodeModal.insideOf(
+              parentPath.join(" \u203a "),
+            )}
+          </p>
+        )}
         <label>{UI_STRINGS.dashboard.createNodeModal.nodeDefinitionName}</label>
         <input
           value={name}
