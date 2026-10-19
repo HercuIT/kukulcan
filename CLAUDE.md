@@ -51,6 +51,9 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
 What specs and features in the designer have to work with (all in `src/pages/Dashboard/Dashboard.js` unless noted):
 
 - **Hierarchy panel** (`TreeViewExample` → `renderTree`): roots in this order: Workflows (→ Node Definitions → User Created Definitions and Pre-Defined Definitions; Nodes), Equipment (`equipmentData.js`), Assets, Data Layer, Work Instructions, Materials (`MaterialData.js`), Scheduler. Rows have no ids: logic compares labels (`label === "User Created Definitions"`) and keys expand state by label.
+- **Equipment hierarchy:**
+  - The target structure for the Equipment root is in `README.md` → "Equipment and Assets hierarchy": Enterprise → Site → Area → Work Center → Equipment Module → Sequencer → Route / Control Loops → Control Module → Device / Field IO. It has a Definitions (classes) branch and an Instances branch, levels can be skipped, and some types nest inside themselves.
+  - Specs that touch equipment use those level names and the containment table there. The table is a reading of the spreadsheet: confirm it before enforcing it.
 - **Definitions:**
   - The ISA-88 levels are `NODE_DEFINITION_NAMES`, duplicated as `PREDEFINED_PROCEDURE_LABELS`: Procedure Phase, Procedure Operation, Procedure Unit Procedure, Procedure, Area Procedure, Site Procedure.
   - The predefined catalog is `PROCEDURE_PHASES` plus `OPERATIONS_BY_PHASE`, picked in `PredefinedNodeWizard`.
@@ -134,5 +137,6 @@ Both the Supabase migration and later specs follow the same pattern. A new table
   | Neither compiler's output passes the deploy validator as-is: `compile-xml` wraps `<Workflow>` in `<Controller>`, and `/api/compile` emits nodes without `<Parameters>` | `compiler.mjs`, `compileRoutes.js`, `deployWorkflowRoutes.js` |
   | `/api/compile` (`compileRoutes.js`) doesn't read flat parameter arrays; `compile-xml` does | `server/src/routes/compileRoutes.js` |
   | `/api/deploy-workflow` doesn't require a signed-in deployer (follow-up from PR #1) | `deployWorkflowRoutes.js` |
+  | The Equipment tree is sample data (*Enterprise Node* → four machines) that doesn't follow the documented Equipment hierarchy; Assets has no structure at all | `equipmentData.js`, `assetsNode` in `Dashboard.js` |
 
 - RLS gotchas: a client `insert … returning` on `workflows` fails because the read policy depends on `workflow_designers`, which the trigger fills after the insert. `createWorkflow` generates the id client-side and inserts without `returning`. An update that RLS filters out returns zero rows instead of an error, so `saveWorkflow` checks the row count.

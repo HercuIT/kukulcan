@@ -54,6 +54,82 @@ Clients can only edit a workflow's `name` and `nodes`, and only while they are o
 | Roles | Flags in `profiles`: **designer** (creates and edits workflows), **reviewer** (approves or requests changes when assigned), **deployer** (sees approved workflows to deploy). VCR-001 proposes **rule_admin** |
 | Ignition | The Inductive Automation gateway that receives the compiled XML through its `recibirXML` webdev endpoint |
 
+### Equipment and Assets hierarchy
+
+The target structure for the **Equipment** root of the hierarchy panel, from the business's *Equipment and Assets Hierarchy* spreadsheet. Every element is user-defined, and each exists twice under the enterprise instance:
+- **Site Definitions:** the classes, e.g. *Site 1 Class*.
+- **Sites:** the instances built from them, e.g. *Site 1 Instance*.
+
+The two branches have the same shape. The spreadsheet's outline, with "User Defined" dropped and examples shortened:
+
+```
+Equipment
+└── Enterprise
+    └── Enterprise instance (e.g. Enterprise 1)
+        ├── Site Definitions                                  ← classes ("… Class")
+        │   └── Site Definition (e.g. Site 1 Class)
+        │       └── Area Definition (Area 1 Class)
+        │           ├── Work Center Definition (Work Center 1 Class)
+        │           │   └── Equipment Module 1
+        │           │       └── Sequencer 1
+        │           │           ├── Route 1
+        │           │           │   └── Control Module 1
+        │           │           │       ├── Device 1
+        │           │           │       └── Field IO 1
+        │           │           ├── Control Loops (Control Loop 1)
+        │           │           │   └── Control Module 1
+        │           │           │       ├── Device 1
+        │           │           │       └── Field IO 1
+        │           │           └── Control Module 2
+        │           │               ├── Device 2
+        │           │               ├── Field IO 2
+        │           │               └── Control Module 3
+        │           │                   ├── Device 3
+        │           │                   └── Field IO 3
+        │           ├── Equipment Module 1
+        │           ├── Sequencer 1
+        │           ├── Route 1
+        │           ├── Control Module 1
+        │           └── Control Loops
+        │               ├── Equipment Module 1
+        │               ├── Sequencer 1
+        │               ├── Route 1
+        │               ├── Control Module 1
+        │               └── Control Loops
+        │                   ├── Equipment Module 2
+        │                   ├── Sequencer 1
+        │                   ├── Route 1
+        │                   ├── Control Module 1
+        │                   └── Control Loops
+        │                       ├── Sequencer 2
+        │                       ├── Route 1
+        │                       ├── Control Module 1
+        │                       └── Control Loops
+        └── Sites                                             ← instances ("… Instance")
+            └── Site 1 → Area 1 → Work Center 1 → …           same shape as Site Definitions
+```
+
+**Containment rules.** This is our reading of the spreadsheet, to be confirmed. The blocks at the bottom of the tree (Equipment Module, Sequencer, Route, Control Module, Control Loops, each repeated one level deeper) list the types each level may contain directly. They aren't Equipment Modules nested inside Control Loops. Read that way, it matches the main chain above them:
+
+| Level (Definition or Instance) | May contain |
+| --- | --- |
+| Enterprise instance | Site Definitions, Sites |
+| Site | Area |
+| Area | Work Center, Equipment Module, Sequencer, Route, Control Module, Control Loops |
+| Work Center | Equipment Module, Sequencer, Route, Control Module, Control Loops |
+| Equipment Module | Equipment Module, Sequencer, Route, Control Module, Control Loops |
+| Sequencer | Sequencer, Route, Control Module, Control Loops |
+| Route | Control Module |
+| Control Loops | Control Module |
+| Control Module | Device, Field IO, Control Module |
+| Device, Field IO | Nothing (leaves) |
+
+Levels may be skipped: an Area can hold a Control Module directly, without a Work Center, Equipment Module or Sequencer between them. Equipment Module, Sequencer and Control Module can nest inside their own type.
+
+**Not covered yet:**
+- **Assets:** the spreadsheet only details Equipment; the Assets root (Assets Definitions / Assets Instances) has no structure yet.
+- **The app's Equipment tree:** today it's sample data in `src/pages/Dashboard/equipmentData.js` (*Enterprise Node* → four machines) and doesn't follow this hierarchy.
+
 ## Getting started
 
 ### Prerequisites
