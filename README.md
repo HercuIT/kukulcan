@@ -272,8 +272,19 @@ Claude Code asks you to approve project servers the first time you run `claude` 
 | `npm run lint` | Run ESLint |
 | `npm run format` / `npm run format-check` | Run Prettier (write / check) |
 | `npm run lint:css` / `npm run lint:html` | Run Stylelint / HTMLHint on `public/` |
+| `npm run theme` | Regenerate `src/styles/theme.css` from `src/styles/tokens.json` (see "Theme") |
 
 CI (`.github/workflows/code_check.yaml`) runs `npm run lint`, `npm run format-check`, the Jest unit tests (`npm test`) and `npm run test:node` on every pull request to `main`.
+
+## Theme
+
+The app uses the Kukulcan design system ([design system artifact](https://claude.ai/artifact/HtfdxXknT5ywmgbgJZTrt4)), with a light and a dark theme.
+
+- **Tokens:** `src/styles/tokens.json` is an exact copy of the design system's tokens. `npm run theme` (`scripts/build-theme.js`) generates `src/styles/theme.css` from it: `--kk-*` custom properties (colors and shadows per theme, spacing, radii, font families) and `.kk-text-<style>` classes. Don't edit `theme.css` by hand; `src/styles/theme.test.js` fails if it differs from the generator's output, or if `ink`/`ink-muted` or the status colors drop below 4.5:1 contrast.
+- **No color literals:** every color in `src/` is a `var(--kk-…)`. `src/styles/noHardcodedColors.test.js` fails on any hex, `rgb()`/`hsl()` or named color outside `theme.css` and `tokens.json`. Backdrops use `--kk-scrim` (in `src/index.css`). SVG colors go in `style` (`style={{ stroke: "var(--kk-cyan-text)" }}`), because presentation attributes don't resolve `var()`.
+- **Switching:** View → Light theme / Dark theme / Use system theme. `src/theme/ThemeContext.js` (`ThemeProvider`, `useTheme()`) sets `data-theme` on `<html>` and saves the choice per browser in `localStorage` key `kukulcan.theme` (no key = follow the OS, live). An inline script in `public/index.html` applies the same choice before React loads, so the page doesn't flash the wrong theme.
+- **Logo:** `src/components/Logo/Logo.js` renders the lockup (`size="sm"` in menu bars, `"lg"` on Login, Set Password and Home; `to` makes it a link). Brand files live in `public/brand/` (`kukulcan-mark.svg`, `-mark-ink`, `-mark-white`, `-favicon`); `favicon.ico`, `logo192.png` and `logo512.png` are rendered from them.
+- **Fonts:** loaded from Google Fonts in `public/index.html`; use `var(--kk-font-sans | display | mono)`.
 
 ## Deployment
 
@@ -313,8 +324,10 @@ src/
     Dashboard/Dashboard.js     the workflow designer: hierarchy tree, canvas, menu bar, node modals
     Dashboard/*Modal.js        save / open / share / version history / checkout / unsaved-changes dialogs
     Dashboard/equipmentData.js, MaterialData.js   static catalog data
-  components/                  shared UI (ModalMessage, EquipmentDetails)
-  styles/                      CSS per page/modal
+  components/                  shared UI (ModalMessage, EquipmentDetails, Logo)
+  theme/ThemeContext.js        light/dark/system theme (ThemeProvider, useTheme)
+  styles/                      CSS per page/modal; tokens.json + generated theme.css (see "Theme")
+public/brand/                  Kukulcan logo SVGs
 public/ICONOSPNG/              toolbar icons
 supabase/migrations/           schema, RLS, triggers and RPC functions
 supabase/functions/compile-xml Edge Function (compiler.mjs holds the XML logic)
@@ -334,6 +347,7 @@ Features are specified before they're built, as Claude Docs, using the section t
 | VCR-001 | [Version-Controlled Hierarchy Rules](https://claude.ai/code/artifact/b8a553aa-eeb5-4048-a173-d6b268216a3b) | Draft, partly written |
 | WFPR-003 | [Nested User Created Node Definitions](https://claude.ai/code/artifact/9753755e-5f4d-43bb-93af-e9e59d416800) | Draft, open questions pending |
 | WFPR-004 | [Expandable Pre-Defined Definitions](https://claude.ai/code/artifact/cf5b6f1e-aa6f-400f-bc6f-f425c4349488) | Draft, depends on VCR-001; open questions pending |
+| HTE-111 | [Theme and logo](https://claude.ai/artifact/QBjCX8DDS4ux2hgeTFKJ2x) | Implemented on `feat/HTE-111` |
 
 ## Contributing
 
