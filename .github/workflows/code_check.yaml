@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+# Only checks out and tests the code; the GITHUB_TOKEN needs nothing more than read access.
+permissions:
+  contents: read
+
 jobs:
   lint-and-format:
     name: Lint & Format

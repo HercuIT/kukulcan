@@ -35,3 +35,7 @@ scripts/migration/node_modules/
 scripts/migration/out/
 /users.json
 /scripts/migration/users.json
+
+# Supabase CLI local state (project link, branches)
+supabase/.temp/
+supabase/.branches/

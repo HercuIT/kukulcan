@@ -102,6 +102,28 @@ supabase functions deploy compile-xml     # JWT verification stays on (supabase/
 
 Every schema change ships as a new file in `supabase/migrations/`. `npm run test:node` runs the migrations against an in-memory Postgres (PGlite) and checks the RLS and RPC rules, so you can test them without Docker.
 
+The project is `xiidwepvvjcqyhywmdrn`. Merges to `main` that touch `supabase/` deploy automatically: `.github/workflows/deploy_supabase.yaml` runs `supabase db push` and `supabase functions deploy compile-xml` (it can also be run by hand from the Actions tab). It needs three repository secrets (GitHub → Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+| --- | --- |
+| `SUPABASE_ACCESS_TOKEN` | A **scoped** Supabase personal access token limited to this project (see below), not an account-wide one |
+| `SUPABASE_DB_PASSWORD` | The project's database password |
+| `SUPABASE_PROJECT_ID` | The project ref, `xiidwepvvjcqyhywmdrn` |
+
+Create the token at Supabase → Account → **Access Tokens**: choose **Resources** → selected projects → only `xiidwepvvjcqyhywmdrn`, an **expiry** (at most one year; rotate the secret before it expires), and only these **permissions** ([what each covers](https://supabase.com/docs/guides/platform/personal-access-tokens)):
+
+| Permission | Level | Used by |
+| --- | --- | --- |
+| Project Settings | Read | `supabase link` |
+| API Keys, API Key Secrets | Read | `supabase link` |
+| Database | Read-write | `supabase db push` (creates its temporary login role) |
+| Migrations | Read-write | `supabase db push` (migration history) |
+| Edge Functions | Read-write | `supabase functions deploy compile-xml` |
+
+If a step fails with a permission error, the message names the missing permission: create a new token with it added (scoped tokens can't be edited). Don't use the token from the browser `supabase login`, which is account-wide.
+
+The job only runs for `main`, including manual runs, and its actions are pinned to commit SHAs. The workflow doesn't touch Auth settings: Site URL and redirect URLs are set in the dashboard. Don't run `supabase config push`, which would overwrite them with the local values in `supabase/config.toml`.
+
 ### Firebase → Supabase data migration
 
 One-off scripts in `scripts/migration/`, with their own `package.json`. Run every command below from that folder (`cd scripts/migration && npm install` first). They don't read `server/.env`: set these variables in the shell instead:
@@ -152,11 +174,22 @@ CI (`.github/workflows/code_check.yaml`) runs `npm run lint`, `npm run format-ch
 The `Dockerfile` builds the React app and serves `build/` with nginx on port 80:
 
 ```bash
-docker build -t kukulcan   --build-arg REACT_APP_SUPABASE_URL=<project URL>   --build-arg REACT_APP_SUPABASE_PUBLISHABLE_KEY=<publishable key> .
+docker build -t kukulcan \
+  --build-arg REACT_APP_SUPABASE_URL=<project URL> \
+  --build-arg REACT_APP_SUPABASE_PUBLISHABLE_KEY=<publishable key> .
 docker run -p 8080:80 kukulcan
 ```
 
 Create React App compiles `REACT_APP_SUPABASE_*` into the bundle, so pass them as build args (or set them in your hosting provider's build settings). Without them the app stops at load with an error naming the missing variables. CI doesn't need them: the Jest tests mock the Supabase client. The database and Edge Function deploy separately with the Supabase CLI (see above).
+
+### Cloudflare Workers
+
+The app is also deployed as a static-assets Worker, `kukulcan` (production: `https://kukulcan.ramirezgjennyg.workers.dev`; previews: `https://*-kukulcan.ramirezgjennyg.workers.dev`). `wrangler.jsonc` serves `build/` and falls back to `index.html` for React Router paths.
+
+- Build command `npm run build`, deploy command `npx wrangler deploy` (Workers Builds, connected to this repo).
+- `REACT_APP_SUPABASE_URL`, `REACT_APP_SUPABASE_PUBLISHABLE_KEY` and `NODE_VERSION=22` go in **Settings → Build → Variables and secrets** (build variables). Create React App compiles them into the static bundle during `npm run build`, and the bundle can't read Worker runtime variables. (The dashboard also refuses runtime variables on this Worker because it serves assets without a script; a Worker with a script would accept them, but the app still wouldn't see them.)
+- In Supabase **Authentication → URL Configuration**, set Site URL to the production URL and add exactly `https://kukulcan.ramirezgjennyg.workers.dev/set-password`. Don't add a wildcard for previews: anyone with the publishable key can request a recovery email with any allowed `redirectTo`, so a wildcard would let any preview build (from any branch) receive users' recovery tokens. To test password emails on a preview, add that preview's exact `/set-password` URL and remove it afterwards.
+- The Express server isn't deployed here: it runs on each user's machine (`127.0.0.1:3001`).
 
 ## Project layout
 
