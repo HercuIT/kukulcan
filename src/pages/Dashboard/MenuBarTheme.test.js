@@ -28,7 +28,8 @@ function renderMenu(props = {}) {
   );
 }
 
-const openView = () => fireEvent.click(screen.getByText(M.menuLabels.View ?? "View"));
+const openView = () =>
+  fireEvent.click(screen.getByText(M.menuLabels.View ?? "View"));
 const option = (label) => screen.getByText(label).closest(".dropdown-option");
 
 beforeEach(() => {
@@ -57,9 +58,9 @@ describe("MenuBar theme options (HTE-111)", () => {
         expect(option(label)).toHaveAttribute("role", "menuitemradio");
       }
       expect(option(LABEL.system)).toHaveAttribute("aria-checked", "true");
-      expect(within(option(LABEL.system)).getByText(M.activeOption)).toHaveClass(
-        "visually-hidden",
-      );
+      expect(
+        within(option(LABEL.system)).getByText(M.activeOption),
+      ).toHaveClass("visually-hidden");
       expect(option(LABEL.dark)).toHaveAttribute("aria-checked", "false");
     });
 

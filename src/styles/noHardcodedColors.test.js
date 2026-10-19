@@ -47,7 +47,9 @@ describe("no hard-coded colors", () => {
   describe("detector", () => {
     test("positive: finds hex, rgb() and named colors", () => {
       expect(findColorLiterals("a { color: #fff; }")).toHaveLength(1);
-      expect(findColorLiterals('style={{ background: "rgba(0,0,0,.4)" }}')).toHaveLength(1);
+      expect(
+        findColorLiterals('style={{ background: "rgba(0,0,0,.4)" }}'),
+      ).toHaveLength(1);
       expect(findColorLiterals('color: "red"')).toHaveLength(1);
     });
 
