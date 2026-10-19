@@ -20,19 +20,23 @@ const throwIfError = ({ data, error }) => {
  * RETURNING: la política de lectura depende de workflow_designers, que el trigger
  * llena después del insert.
  */
-export async function createWorkflow({ name, nodes }) {
+export async function createWorkflow({ name, nodes, connections = [] }) {
   const id = crypto.randomUUID();
   throwIfError(
-    await supabase
-      .from("workflows")
-      .insert({ id, name, nodes: cleanNodes(nodes) }),
+    await supabase.from("workflows").insert({
+      id,
+      name,
+      nodes: cleanNodes(nodes),
+      connections: cleanNodes(connections),
+    }),
   );
   return id;
 }
 
 // Guarda el contenido. El trigger sube la versión y sella fecha y autor.
-export async function saveWorkflow(id, { nodes, name }) {
+export async function saveWorkflow(id, { nodes, connections, name }) {
   const fields = { nodes: cleanNodes(nodes) };
+  if (connections !== undefined) fields.connections = cleanNodes(connections);
   if (name !== undefined) fields.name = name;
   const rows = throwIfError(
     await supabase.from("workflows").update(fields).eq("id", id).select("id"),

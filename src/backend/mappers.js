@@ -26,6 +26,8 @@ export function toAppError(error, fallbackMessage = "Unexpected error") {
   const appError = new Error(error.message || fallbackMessage);
   appError.code =
     ERROR_CODES[error.code] || AUTH_ERROR_CODES[error.code] || error.code;
+  // El HINT de las RPC identifica la regla rota (p. ej. "cycle"); la UI lo traduce.
+  if (error.hint) appError.hint = error.hint;
   appError.cause = error;
   return appError;
 }
@@ -54,7 +56,7 @@ export function rowToWorkflow(row) {
   return {
     id: row.id,
     name: row.name,
-    content: { nodes: row.nodes || [] },
+    content: { nodes: row.nodes || [], connections: row.connections || [] },
     metadata: {
       status: row.status,
       version: row.version,
@@ -81,6 +83,23 @@ export function profileToUser(row) {
     uid: row.id,
     email: row.email,
     isReviewer: row.reviewer === true,
+  };
+}
+
+// Fila de user_definitions → la forma que usa el panel.
+export function rowToDefinition(row) {
+  return {
+    id: row.id,
+    parentId: row.parent_id ?? null,
+    kind: row.kind,
+    name: row.name,
+    version: row.version,
+    description: row.description ?? null,
+    abstract: row.abstract ?? null,
+    implementation: row.implementation || {},
+    parameters: row.parameters || [],
+    predefined: row.predefined ?? null,
+    position: row.position ?? 0,
   };
 }
 

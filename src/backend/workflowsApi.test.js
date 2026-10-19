@@ -69,6 +69,22 @@ describe("workflowsApi", () => {
         id: "new-id",
         name: "WF",
         nodes: [{ id: "a" }],
+        connections: [],
+      });
+    });
+
+    test("createWorkflow and saveWorkflow store the canvas connections", async () => {
+      const chain = query({ data: [{ id: "wf" }], error: null });
+      supabase.from.mockReturnValue(chain);
+      const conns = [{ id: "c1", from: "a", to: "b", fromPort: undefined }];
+      await createWorkflow({ name: "WF", nodes: [], connections: conns });
+      expect(chain.insert.mock.calls[0][0].connections).toEqual([
+        { id: "c1", from: "a", to: "b" },
+      ]);
+      await saveWorkflow("wf", { nodes: [], connections: conns });
+      expect(chain.update).toHaveBeenCalledWith({
+        nodes: [],
+        connections: [{ id: "c1", from: "a", to: "b" }],
       });
     });
 
@@ -242,6 +258,17 @@ describe("workflowsApi", () => {
       supabase.from.mockReturnValue(chain);
       await saveWorkflow("wf", { nodes: [], name: "Nuevo" });
       expect(chain.update).toHaveBeenCalledWith({ nodes: [], name: "Nuevo" });
+    });
+
+    test("getWorkflow returns saved connections, and [] for older rows", async () => {
+      supabase.from.mockReturnValue(
+        query({ data: { ...ROW, connections: [{ id: "c" }] }, error: null }),
+      );
+      expect((await getWorkflow("wf-1")).content.connections).toEqual([
+        { id: "c" },
+      ]);
+      supabase.from.mockReturnValue(query({ data: ROW, error: null }));
+      expect((await getWorkflow("wf-1")).content.connections).toEqual([]);
     });
 
     test("subscribeToWorkflow loads now, reloads on change and stops on unsubscribe", async () => {
