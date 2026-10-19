@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import "../../styles/ModalStyle/UnsavedChangesModal.css";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 export default function UnsavedChangesModal({
   open,
@@ -14,13 +15,23 @@ export default function UnsavedChangesModal({
     <div className="unsaved-changes-modal-backdrop">
       <div className="unsaved-changes-modal">
         <div className="modal-header">
-          <h2>Su sesión ha expirado</h2>
+          <h2>{UI_STRINGS.dashboard.unsavedChangesModal.suSesionHaExpirado}</h2>
           <div className="warning-icon">⚠️</div>
         </div>
 
         <div className="modal-body">
-          <p>Ha realizado cambios sin guardar en el lienzo.</p>
-          <p>¿Desea guardarlos antes de continuar?</p>
+          <p>
+            {
+              UI_STRINGS.dashboard.unsavedChangesModal
+                .haRealizadoCambiosSinGuardar
+            }
+          </p>
+          <p>
+            {
+              UI_STRINGS.dashboard.unsavedChangesModal
+                .deseaGuardarlosAntesDeContinuar
+            }
+          </p>
         </div>
 
         <div className="modal-buttons">
@@ -28,10 +39,10 @@ export default function UnsavedChangesModal({
             {isSaving ? (
               <>
                 <div className="loading-spinner"></div>
-                Guardando...
+                {UI_STRINGS.dashboard.unsavedChangesModal.guardando}
               </>
             ) : (
-              "Guardar Ahora"
+              UI_STRINGS.dashboard.unsavedChangesModal.guardarAhora
             )}
           </button>
 
@@ -40,13 +51,15 @@ export default function UnsavedChangesModal({
             className="btn-danger"
             disabled={isSaving}
           >
-            Descartar Cambios
+            {UI_STRINGS.dashboard.unsavedChangesModal.descartarCambios}
           </button>
         </div>
 
         {isSaving && (
           <div className="saving-progress">
-            <p>Guardando sus cambios...</p>
+            <p>
+              {UI_STRINGS.dashboard.unsavedChangesModal.guardandoSusCambios}
+            </p>
           </div>
         )}
       </div>

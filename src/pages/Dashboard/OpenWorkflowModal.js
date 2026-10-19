@@ -1,6 +1,7 @@
 import "../../styles/ModalStyle/OpenWorkflowModal.css";
 import { useState, useEffect } from "react";
 import { listMyWorkflows } from "../../backend/workflowsApi";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 const StatusIndicator = ({ status }) => {
   const statusInfo = {
@@ -33,11 +34,11 @@ const RoleIndicator = ({ role }) => {
   return (
     <span className={`role-pill role-${role}`}>
       {role === "designer"
-        ? "Designer"
+        ? UI_STRINGS.dashboard.openWorkflowModal.roles.designer
         : role === "reviewer"
-          ? "Reviewer"
+          ? UI_STRINGS.dashboard.openWorkflowModal.roles.reviewer
           : role === "deployer"
-            ? "Deployer"
+            ? UI_STRINGS.dashboard.openWorkflowModal.roles.deployer
             : role}
     </span>
   );
@@ -84,7 +85,10 @@ export default function OpenWorkflowModal({
         setWorkflows(workflowsList);
       } catch (err) {
         console.error("Error loading workflows:", err);
-        setError("Error loading workflows: " + err.message);
+        setError(
+          UI_STRINGS.dashboard.openWorkflowModal.errors.errorLoadingWorkflows +
+            err.message,
+        );
       } finally {
         setLoading(false);
       }
@@ -109,19 +113,23 @@ export default function OpenWorkflowModal({
   return (
     <div className="modal-backdrop">
       <div className="modal-content">
-        <h2>Open Workflow</h2>
+        <h2>{UI_STRINGS.dashboard.openWorkflowModal.openWorkflow}</h2>
 
-        {loading && <div className="loading-message">Loading workflows...</div>}
+        {loading && (
+          <div className="loading-message">
+            {UI_STRINGS.dashboard.openWorkflowModal.loadingWorkflows}
+          </div>
+        )}
 
         {error && <div className="error-message">{error}</div>}
 
         <div className="workflow-list">
           {/* HEADER WITH 4 COLUMNS */}
           <div className="workflow-list-header">
-            <span>Workflow Name</span>
-            <span>State</span>
-            <span>Your Role</span>
-            <span>Last Modified</span>
+            <span>{UI_STRINGS.dashboard.openWorkflowModal.workflowName}</span>
+            <span>{UI_STRINGS.dashboard.openWorkflowModal.state}</span>
+            <span>{UI_STRINGS.dashboard.openWorkflowModal.yourRole}</span>
+            <span>{UI_STRINGS.dashboard.openWorkflowModal.lastModified}</span>
           </div>
 
           {!loading && !error && sortedWorkflows.length > 0
@@ -133,7 +141,8 @@ export default function OpenWorkflowModal({
                 >
                   {/* EACH ELEMENT IN ITS CORRESPONDING COLUMN */}
                   <span className="workflow-name">
-                    {workflow.name || "Unnamed"}
+                    {workflow.name ||
+                      UI_STRINGS.dashboard.openWorkflowModal.unnamed}
                   </span>
                   <span>
                     <StatusIndicator status={workflow.metadata?.status} />
@@ -144,7 +153,8 @@ export default function OpenWorkflowModal({
                   <span className="workflow-date">
                     {toDate(
                       workflow.metadata?.lastModifiedAt,
-                    )?.toLocaleString() ?? "N/A"}
+                    )?.toLocaleString() ??
+                      UI_STRINGS.dashboard.openWorkflowModal.notAvailable}
                   </span>
                 </div>
               ))
@@ -152,16 +162,21 @@ export default function OpenWorkflowModal({
               !error && (
                 <div className="empty-list-message">
                   {isDeployer
-                    ? "No approved workflows available for deployment."
+                    ? UI_STRINGS.dashboard.openWorkflowModal
+                        .noApprovedWorkflowsAvailableFor
                     : user?.email?.includes("reviewer")
-                      ? "You have no workflows assigned for review."
-                      : "No workflows available."}
+                      ? UI_STRINGS.dashboard.openWorkflowModal
+                          .youHaveNoWorkflowsAssigned
+                      : UI_STRINGS.dashboard.openWorkflowModal
+                          .noWorkflowsAvailable}
                 </div>
               )}
         </div>
 
         <div className="modal-buttons">
-          <button onClick={onClose}>Cancel</button>
+          <button onClick={onClose}>
+            {UI_STRINGS.dashboard.openWorkflowModal.cancel}
+          </button>
         </div>
       </div>
     </div>

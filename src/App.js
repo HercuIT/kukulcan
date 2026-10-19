@@ -6,6 +6,7 @@ import { getMyRoles, onSessionChange } from "./backend/authApi";
 import Home from "./pages/Home/Home.js";
 import Dashboard from "./pages/Dashboard/Dashboard.js";
 import Login from "./pages/Login/Login";
+import { UI_STRINGS } from "./constants/uiStrings";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -35,7 +36,7 @@ export default function App() {
   }, []);
 
   if (loading) {
-    return <div className="loading-container">Cargando...</div>;
+    return <div className="loading-container">{UI_STRINGS.app.loading}</div>;
   }
 
   return (

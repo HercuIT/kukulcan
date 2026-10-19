@@ -1,5 +1,6 @@
 import React from "react";
 import "./EquipmentDetails.css";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 const EquipmentDetails = ({ equipment, onClose }) => {
   // Si no hay equipo seleccionado, no mostramos nada
@@ -20,18 +21,31 @@ const EquipmentDetails = ({ equipment, onClose }) => {
         <h3>{label}</h3>
         <ul>
           <li>
-            <strong>Maximum Capacity:</strong> {details.capacity || "N/A"}
+            <strong>
+              {UI_STRINGS.components.equipmentDetails.maximumCapacity}
+            </strong>{" "}
+            {details.capacity ||
+              UI_STRINGS.components.equipmentDetails.notAvailable}
           </li>
           <li>
-            <strong>Last Maintenance:</strong>{" "}
-            {details.lastMaintenance || "N/A"}
+            <strong>
+              {UI_STRINGS.components.equipmentDetails.lastMaintenance}
+            </strong>{" "}
+            {details.lastMaintenance ||
+              UI_STRINGS.components.equipmentDetails.notAvailable}
           </li>
           <li>
-            <strong>Manufacturer Model:</strong>{" "}
-            {details.manufacturerModel || "N/A"}
+            <strong>
+              {UI_STRINGS.components.equipmentDetails.manufacturerModel}
+            </strong>{" "}
+            {details.manufacturerModel ||
+              UI_STRINGS.components.equipmentDetails.notAvailable}
           </li>
           <li>
-            <strong>Connection Status:</strong> {details.status || "Unknown"}
+            <strong>
+              {UI_STRINGS.components.equipmentDetails.connectionStatus}
+            </strong>{" "}
+            {details.status || UI_STRINGS.components.equipmentDetails.unknown}
           </li>
         </ul>
       </div>

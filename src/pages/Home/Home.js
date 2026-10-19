@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../../styles/HomeStyle/HomeStyle.css";
 import { signOut } from "../../backend/authApi";
 import Logo from "../../assets/Logofinal.png";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 const menuOptions = {
   TMApp: ["Home", "Settings", "Profile"],
@@ -22,7 +23,7 @@ function MenuBar() {
     if (menu === "File" && option === "New") {
       navigate("dashboard");
     } else {
-      alert(`Seleccionaste: ${menu} > ${option}`);
+      alert(UI_STRINGS.home.menuBar.alerts.seleccionaste(menu, option));
     }
   };
 
@@ -36,7 +37,7 @@ function MenuBar() {
     <nav className="menu-bar">
       <img
         src={Logo}
-        alt="Logo de la empresa"
+        alt={UI_STRINGS.home.menuBar.logoDeLaEmpresa}
         style={{
           height: "42px",
           marginRight: "16px",
@@ -148,7 +149,7 @@ export default function Home({ user, userRoles }) {
     return (
       <div className="loader-overlay">
         <div className="loader"></div>
-        <p>Loading...</p>
+        <p>{UI_STRINGS.home.page.loading}</p>
       </div>
     );
   }
@@ -158,29 +159,31 @@ export default function Home({ user, userRoles }) {
       {!serverOnline && (
         <div className="custom-modal">
           <div className="custom-modal-content">
-            <h3>El servidor local no está disponible</h3>
+            <h3>{UI_STRINGS.home.page.elServidorLocalNoEsta}</h3>
             <p>
-              Para continuar, debes instalar el servicio de host local.
+              {UI_STRINGS.home.page.paraContinuarDebesInstalarEl}
               <br />
               <a
                 href="URL_DE_DESCARGA_DEL_INSTALADOR.exe"
                 download
                 style={{ color: "#3498db", fontWeight: "bold" }}
               >
-                Descargar servidor
+                {UI_STRINGS.home.page.descargarServidor}
               </a>
             </p>
             <p>
-              Una vez instalado, el servidor se iniciará automáticamente.
+              {UI_STRINGS.home.page.unaVezInstaladoElServidor}
               <br />
-              Si no deseas instalarlo, puedes cerrar sesión.
+              {UI_STRINGS.home.page.siNoDeseasInstalarloPuedes}
             </p>
-            <button onClick={handleLogout}>Cerrar sesión</button>
+            <button onClick={handleLogout}>
+              {UI_STRINGS.home.page.cerrarSesion}
+            </button>
             <button
               onClick={() => setServerOnline(true)}
               style={{ marginLeft: 12 }}
             >
-              Saltar este paso
+              {UI_STRINGS.home.page.saltarEstePaso}
             </button>
           </div>
         </div>
@@ -206,13 +209,15 @@ export default function Home({ user, userRoles }) {
             <MenuBar />
             <div className="user-info">
               <span>{user.email}</span>
-              <button onClick={handleLogout}>Cerrar Sesión</button>
+              <button onClick={handleLogout}>
+                {UI_STRINGS.home.page.cerrarSesionMenu}
+              </button>
             </div>
           </div>
           <div style={{ padding: 32 }}>
-            <h1>Bienvenido a la página principal</h1>
-            <p>Esta es la nueva página de inicio.</p>
-            <h3>Tus Roles:</h3>
+            <h1>{UI_STRINGS.home.page.bienvenidoALaPaginaPrincipal}</h1>
+            <p>{UI_STRINGS.home.page.estaEsLaNuevaPagina}</p>
+            <h3>{UI_STRINGS.home.page.tusRoles}</h3>
             <pre>{JSON.stringify(userRoles, null, 2)}</pre>
           </div>
         </>

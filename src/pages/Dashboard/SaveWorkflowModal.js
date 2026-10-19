@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 export default function SaveWorkflowModal({ open, onClose, onSave }) {
   const [name, setName] = useState("");
@@ -17,7 +18,9 @@ export default function SaveWorkflowModal({ open, onClose, onSave }) {
 
   const handleSaveClick = () => {
     if (!name.trim()) {
-      setError("El nombre no puede estar vacío.");
+      setError(
+        UI_STRINGS.dashboard.saveWorkflowModal.errors.elNombreNoPuedeEstar,
+      );
       return;
     }
     onSave(name);
@@ -26,17 +29,19 @@ export default function SaveWorkflowModal({ open, onClose, onSave }) {
   return (
     <div className="create-node-modal-backdrop">
       <div className="create-node-modal" style={{ maxWidth: "400px" }}>
-        <h2>Guardar Flujo de Trabajo</h2>
+        <h2>{UI_STRINGS.dashboard.saveWorkflowModal.guardarFlujoDeTrabajo}</h2>
         <p style={{ marginTop: 0, marginBottom: "15px", color: "#555" }}>
-          Introduce un nombre para tu flujo de trabajo.
+          {UI_STRINGS.dashboard.saveWorkflowModal.introduceUnNombreParaTu}
         </p>
         <label>
-          Nombre:
+          {UI_STRINGS.dashboard.saveWorkflowModal.nombre}
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ej: Proceso de Ensamblaje v1"
+            placeholder={
+              UI_STRINGS.dashboard.saveWorkflowModal.ejProcesoDeEnsamblajeV1
+            }
             style={{ width: "100%", boxSizing: "border-box", marginTop: "5px" }}
           />
         </label>
@@ -45,8 +50,12 @@ export default function SaveWorkflowModal({ open, onClose, onSave }) {
           className="create-node-modal-buttons"
           style={{ marginTop: "20px" }}
         >
-          <button onClick={onClose}>Cancelar</button>
-          <button onClick={handleSaveClick}>Guardar</button>
+          <button onClick={onClose}>
+            {UI_STRINGS.dashboard.saveWorkflowModal.cancelar}
+          </button>
+          <button onClick={handleSaveClick}>
+            {UI_STRINGS.dashboard.saveWorkflowModal.guardar}
+          </button>
         </div>
       </div>
     </div>

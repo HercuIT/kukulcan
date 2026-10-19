@@ -8,6 +8,7 @@ import {
   requestChanges,
 } from "../../backend/workflowsApi";
 import "../../styles/ModalStyle/ShareWorkflowModal.css";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 const getUsernameFromEmail = (email) => {
   if (!email || typeof email !== "string") {
@@ -67,7 +68,7 @@ export default function ShareWorkflowModal({
     setError("");
 
     if (!isSignedIn) {
-      setError("You must be logged in to perform this action");
+      setError(UI_STRINGS.dashboard.shareWorkflowModal.errors.loginRequired);
       setIsLoading(false);
       return false;
     }
@@ -92,7 +93,10 @@ export default function ShareWorkflowModal({
 
   const handleAddDesigner = async () => {
     if (!newUserEmail.trim()) {
-      setError("Please enter an email address");
+      setError(
+        UI_STRINGS.dashboard.shareWorkflowModal.errors
+          .pleaseEnterAnEmailAddress,
+      );
       return;
     }
 
@@ -108,7 +112,10 @@ export default function ShareWorkflowModal({
 
   const handleRemoveDesigner = async (designerIdToRemove) => {
     if (workflow.metadata.designerIds.length <= 1) {
-      setError("Cannot remove the last designer from the workflow");
+      setError(
+        UI_STRINGS.dashboard.shareWorkflowModal.errors
+          .cannotRemoveTheLastDesigner,
+      );
       return;
     }
 
@@ -163,7 +170,10 @@ export default function ShareWorkflowModal({
     <div className="modal-backdrop">
       <div className="modal-content share-modal">
         <div className="modal-header">
-          <h2>Workflow Actions - &quot;{workflow.name}&quot;</h2>
+          <h2>
+            {UI_STRINGS.dashboard.shareWorkflowModal.workflowActions}
+            {workflow.name}&quot;
+          </h2>
           <button
             className="close-button"
             onClick={onClose}
@@ -180,7 +190,7 @@ export default function ShareWorkflowModal({
               className={`tab-button ${activeSection === "share" ? "active" : ""}`}
               onClick={() => setActiveSection("share")}
             >
-              Share & Assign
+              {UI_STRINGS.dashboard.shareWorkflowModal.shareAssign}
             </button>
           )}
           {showReviewActions && (
@@ -188,14 +198,14 @@ export default function ShareWorkflowModal({
               className={`tab-button ${activeSection === "review" ? "active" : ""}`}
               onClick={() => setActiveSection("review")}
             >
-              Review Actions
+              {UI_STRINGS.dashboard.shareWorkflowModal.reviewActions}
             </button>
           )}
         </div>
 
         {!isSignedIn && (
           <div className="error-message">
-            ⚠️ You must be logged in to use this function
+            {UI_STRINGS.dashboard.shareWorkflowModal.loginRequiredWarning}
           </div>
         )}
 
@@ -203,9 +213,9 @@ export default function ShareWorkflowModal({
         {activeSection === "share" && isDesigner && (
           <>
             <div className="share-section">
-              <h4>Design Team</h4>
+              <h4>{UI_STRINGS.dashboard.shareWorkflowModal.designTeam}</h4>
               <p className="section-description">
-                These people can edit the workflow.
+                {UI_STRINGS.dashboard.shareWorkflowModal.thesePeopleCanEditThe}
               </p>
 
               <div className="user-list">
@@ -222,7 +232,9 @@ export default function ShareWorkflowModal({
                         className="remove-user-btn"
                         onClick={() => handleRemoveDesigner(id)}
                         disabled={isLoading || !isSignedIn}
-                        title="Remove designer"
+                        title={
+                          UI_STRINGS.dashboard.shareWorkflowModal.removeDesigner
+                        }
                       >
                         ×
                       </button>
@@ -234,7 +246,9 @@ export default function ShareWorkflowModal({
               <div className="add-user-form">
                 <input
                   type="email"
-                  placeholder="Enter designer's email"
+                  placeholder={
+                    UI_STRINGS.dashboard.shareWorkflowModal.enterDesignerSEmail
+                  }
                   value={newUserEmail}
                   onChange={(e) => setNewUserEmail(e.target.value)}
                   onKeyPress={handleKeyPress}
@@ -246,15 +260,20 @@ export default function ShareWorkflowModal({
                   disabled={isLoading || !newUserEmail.trim() || !isSignedIn}
                   className="add-button"
                 >
-                  {isLoading ? "Adding..." : "Add Designer"}
+                  {isLoading
+                    ? UI_STRINGS.dashboard.shareWorkflowModal.adding
+                    : UI_STRINGS.dashboard.shareWorkflowModal.addDesigner}
                 </button>
               </div>
             </div>
 
             <div className="share-section">
-              <h4>Assign Reviewer</h4>
+              <h4>{UI_STRINGS.dashboard.shareWorkflowModal.assignReviewer}</h4>
               <p className="section-description">
-                Select the person who should approve this workflow.
+                {
+                  UI_STRINGS.dashboard.shareWorkflowModal
+                    .selectThePersonWhoShould
+                }
               </p>
 
               <select
@@ -263,7 +282,9 @@ export default function ShareWorkflowModal({
                 disabled={isLoading || !isSignedIn}
                 className="reviewer-select"
               >
-                <option value="">-- Unassigned --</option>
+                <option value="">
+                  {UI_STRINGS.dashboard.shareWorkflowModal.unassigned}
+                </option>
                 {potentialReviewers.map((reviewer) => (
                   <option key={reviewer.uid} value={reviewer.uid}>
                     {getUsernameFromEmail(reviewer.email)} ({reviewer.email})
@@ -273,7 +294,7 @@ export default function ShareWorkflowModal({
 
               {selectedReviewer && (
                 <div className="current-reviewer">
-                  Currently assigned to:{" "}
+                  {UI_STRINGS.dashboard.shareWorkflowModal.currentlyAssignedTo}{" "}
                   <strong>
                     {getUsernameFromEmail(userMap.get(selectedReviewer))}
                   </strong>
@@ -286,34 +307,54 @@ export default function ShareWorkflowModal({
         {/* Review Actions Section */}
         {activeSection === "review" && showReviewActions && (
           <div className="review-section">
-            <h4>Review Workflow</h4>
+            <h4>{UI_STRINGS.dashboard.shareWorkflowModal.reviewWorkflow}</h4>
             <p className="section-description">
-              You are the assigned reviewer for this workflow. Please choose an
-              action:
+              {
+                UI_STRINGS.dashboard.shareWorkflowModal
+                  .youAreTheAssignedReviewer
+              }
             </p>
 
             <div className="review-actions">
               <div className="action-card">
-                <h5>Approve Workflow</h5>
-                <p>Approve this workflow if it meets all requirements.</p>
+                <h5>
+                  {UI_STRINGS.dashboard.shareWorkflowModal.approveWorkflow}
+                </h5>
+                <p>
+                  {
+                    UI_STRINGS.dashboard.shareWorkflowModal
+                      .approveThisWorkflowIfIt
+                  }
+                </p>
                 <button
                   onClick={handleApprove}
                   disabled={isLoading}
                   className="approve-action-btn"
                 >
-                  {isLoading ? "Processing..." : "Approve Workflow"}
+                  {isLoading
+                    ? UI_STRINGS.dashboard.shareWorkflowModal.processing
+                    : UI_STRINGS.dashboard.shareWorkflowModal.approveWorkflow}
                 </button>
               </div>
 
               <div className="action-card">
-                <h5>Request Changes</h5>
-                <p>Request changes if modifications are needed.</p>
+                <h5>
+                  {UI_STRINGS.dashboard.shareWorkflowModal.requestChanges}
+                </h5>
+                <p>
+                  {
+                    UI_STRINGS.dashboard.shareWorkflowModal
+                      .requestChangesIfModificationsAre
+                  }
+                </p>
                 <button
                   onClick={handleRequestChanges}
                   disabled={isLoading}
                   className="request-changes-action-btn"
                 >
-                  {isLoading ? "Processing..." : "Request Changes"}
+                  {isLoading
+                    ? UI_STRINGS.dashboard.shareWorkflowModal.processing
+                    : UI_STRINGS.dashboard.shareWorkflowModal.requestChanges}
                 </button>
               </div>
             </div>
@@ -323,12 +364,17 @@ export default function ShareWorkflowModal({
         {/* Status Information */}
         <div className="workflow-status-info">
           <p>
-            <strong>Current Status:</strong>{" "}
-            {workflow.metadata?.status || "unknown"}
+            <strong>
+              {UI_STRINGS.dashboard.shareWorkflowModal.currentStatus}
+            </strong>{" "}
+            {workflow.metadata?.status ||
+              UI_STRINGS.dashboard.shareWorkflowModal.unknown}
           </p>
           {workflow.metadata?.assignedReviewerId && (
             <p>
-              <strong>Assigned Reviewer:</strong>{" "}
+              <strong>
+                {UI_STRINGS.dashboard.shareWorkflowModal.assignedReviewer}
+              </strong>{" "}
               {getUsernameFromEmail(
                 userMap.get(workflow.metadata.assignedReviewerId),
               )}
@@ -356,7 +402,9 @@ export default function ShareWorkflowModal({
             disabled={isLoading}
             className="done-button"
           >
-            {isLoading ? "Processing..." : "Done"}
+            {isLoading
+              ? UI_STRINGS.dashboard.shareWorkflowModal.processing
+              : UI_STRINGS.dashboard.shareWorkflowModal.done}
           </button>
         </div>
       </div>

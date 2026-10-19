@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import ShareWorkflowModal from "./ShareWorkflowModal"; // Importa el nuevo modal
+import ShareWorkflowModal from "./ShareWorkflowModal";
+import { UI_STRINGS } from "../../constants/uiStrings";
+// Importa el nuevo modal
 
 export default function WorkflowHeader({
   workflow,
@@ -24,11 +26,13 @@ export default function WorkflowHeader({
       <div className="workflow-actions">
         {/* El botón ahora abre el modal */}
         {canShare && (
-          <button onClick={() => setShareModalOpen(true)}>👥 Compartir</button>
+          <button onClick={() => setShareModalOpen(true)}>
+            {UI_STRINGS.dashboard.workflowHeader.compartir}
+          </button>
         )}
         {canApprove && (
           <button className="approve-btn" onClick={onApprove}>
-            ✅ Aprobar
+            {UI_STRINGS.dashboard.workflowHeader.aprobar}
           </button>
         )}
       </div>

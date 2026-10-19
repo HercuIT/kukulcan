@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { UI_STRINGS } from "../../constants/uiStrings";
 
 function PropertiesPanelModal({ open, node, onClose, onSave }) {
   // Estados locales para los campos del formulario.
@@ -34,18 +35,20 @@ function PropertiesPanelModal({ open, node, onClose, onSave }) {
     <div className="properties-modal-backdrop" onClick={onClose}>
       {/* El modal en sí, con un onClick que detiene la propagación para evitar cerrar al hacer click dentro */}
       <div className="properties-modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Node Properties</h2>
+        <h2>{UI_STRINGS.dashboard.propertiesPanelModal.nodeProperties}</h2>
 
         <div className="prop-item">
-          <label>Node ID:</label>
+          <label>{UI_STRINGS.dashboard.propertiesPanelModal.nodeId}</label>
           <input type="text" value={node.id} readOnly disabled />
         </div>
         <div className="prop-item">
-          <label>Type:</label>
+          <label>{UI_STRINGS.dashboard.propertiesPanelModal.type}</label>
           <input type="text" value={node.type} readOnly disabled />
         </div>
         <div className="prop-item">
-          <label htmlFor="prop-label">Label:</label>
+          <label htmlFor="prop-label">
+            {UI_STRINGS.dashboard.propertiesPanelModal.label}
+          </label>
           <input
             id="prop-label"
             type="text"
@@ -55,7 +58,9 @@ function PropertiesPanelModal({ open, node, onClose, onSave }) {
           />
         </div>
         <div className="prop-item">
-          <label htmlFor="prop-desc">Description:</label>
+          <label htmlFor="prop-desc">
+            {UI_STRINGS.dashboard.propertiesPanelModal.description}
+          </label>
           <textarea
             id="prop-desc"
             value={desc}
@@ -65,7 +70,9 @@ function PropertiesPanelModal({ open, node, onClose, onSave }) {
           />
         </div>
         <div className="prop-item">
-          <label htmlFor="prop-abstract">Abstract:</label>
+          <label htmlFor="prop-abstract">
+            {UI_STRINGS.dashboard.propertiesPanelModal.abstract}
+          </label>
           <textarea
             id="prop-abstract"
             value={abstract}
@@ -76,10 +83,12 @@ function PropertiesPanelModal({ open, node, onClose, onSave }) {
         </div>
 
         <div className="properties-modal-buttons">
-          <button onClick={onClose}>Cancel</button>
+          <button onClick={onClose}>
+            {UI_STRINGS.dashboard.propertiesPanelModal.cancel}
+          </button>
           {!isReadOnly && (
             <button onClick={handleSave} className="save-btn">
-              Save
+              {UI_STRINGS.dashboard.propertiesPanelModal.save}
             </button>
           )}
         </div>
