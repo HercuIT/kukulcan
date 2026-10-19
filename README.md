@@ -7,49 +7,58 @@ A browser-based visual editor for manufacturing workflows. Designers drag proced
 | Part | Location | Stack | Purpose |
 | --- | --- | --- | --- |
 | Web app | `src/` | React 19, Create React App, React Router 7 | Login, home, and the workflow designer (`/dashboard`) |
-| Cloud Functions | `functions/` | Firebase Functions v2, Node 20 | Review workflow (submit, approve, request changes), designer/reviewer assignment, `compileXML` endpoint |
+| Database | `supabase/migrations/` | Supabase Postgres, Row-Level Security | Users' roles, workflows, collaborators, history, server logs; status changes run as Postgres functions (RPC) |
+| Edge Function | `supabase/functions/compile-xml/` | Supabase Edge Functions (Deno) | Validates a workflow and compiles it to XML (signed-in users only) |
 | Local API server | `server/` | Express 5, Node | Health checks, local JSON→XML compile, and deploying workflow XML to Ignition |
-| Data / auth | Firebase project `xicotencatl` | Firebase Auth, Firestore | Users, roles, workflows and their version history, server logs |
+| Auth | Supabase Auth | Email and password | Sign-in, sign-up, sessions |
 
 ```
 Browser (React, :3000)
- ├── Firebase Auth / Firestore (direct, via src/backend/firebaseConfig.js)
- ├── Cloud Functions (httpsCallable: approveWorkflow, submitForReview, …; fetch: compileXML)
+ ├── Supabase Auth, tables and RPC (src/backend/*Api.js; RLS checks every request)
+ ├── Supabase Realtime (live updates of the open workflow)
+ ├── Edge Function compile-xml (supabase.functions.invoke)
  └── /api/*  ──proxy──▶  Express server (:3001)  ──▶  Ignition Gateway (webdev API)
-                                                └──▶  Firestore `server_logs`
+                                                └──▶  Supabase `server_logs` (service role)
 ```
+
+Components never import Supabase directly: they call `src/backend/authApi.js` and `src/backend/workflowsApi.js`, which return workflows in the shape the UI has always used (`{ id, name, content: { nodes }, metadata: { … } }`, built in `src/backend/mappers.js`).
 
 ### Roles
 
-Each user's roles are stored in Firestore at `roles/{uid}` and loaded after login (`src/App.js`). The app checks the `designer`, `reviewer` and `deployer` flags.
+Each user's roles live in the `profiles` table (`designer`, `reviewer`, `deployer`) and are loaded after login (`src/App.js`). Signing up creates a profile with every role off (a trigger on `auth.users`). Roles are granted by an admin in the Supabase dashboard or with the service role; clients can't change them.
 
 ### Workflow lifecycle
 
-Workflows live at `artifacts/manufacturing-suite-v1/workflows/{workflowId}`, with state under `metadata`:
+Workflows live in the `workflows` table. Their designers are in `workflow_designers`, and checkout notes and change requests are in `workflow_history`:
 
 ```
-draft ──submitForReview / assignReviewerToWorkflow──▶ pending_review ──approveWorkflow──▶ approved
-  ▲                                                        │
-  └──────────── (edit) ◀── changes_requested ◀──requestChanges──┘
+draft ──submit_for_review / assign_reviewer──▶ pending_review ──approve_workflow──▶ approved
+  ▲                                                   │
+  └──────── (edit) ◀── changes_requested ◀──request_changes──┘
 ```
 
-Only the assigned reviewer (`metadata.assignedReviewerId`) can approve a workflow or request changes. Designers who can edit a workflow are listed in `metadata.designerIds`.
+Clients can only edit a workflow's `name`, `nodes` and `checkout_description`, and only while they are one of its designers and it is in `draft` or `changes_requested`. Every other change goes through a `security definer` RPC that rechecks the rules: `submit_for_review`, `assign_reviewer`, `approve_workflow`, `request_changes`, `add_designer`, `remove_designer` and `checkout_workflow`. Only the assigned reviewer can approve or request changes. Errors use fixed codes (`28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong status), which `mappers.js` turns into the app's codes.
 
 ## Getting started
 
 ### Prerequisites
 
-- Node.js 20 (the version Cloud Functions and CI use; Docker uses 18)
+- Node.js 20 (the version CI uses; Docker uses 18)
 - npm
-- Firebase CLI (`npm i -g firebase-tools`) if you work on Cloud Functions
-- Access to the `xicotencatl` Firebase project
+- A Supabase project with `supabase/migrations/` applied, and the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) if you change the database or the Edge Function
 
 ### Web app
 
 ```bash
 npm install
-npm start          # http://localhost:3000
+cp .env.example .env.local   # then fill in the two values below
+npm start                    # http://localhost:3000
 ```
+
+| Variable (`.env.local`, git-ignored) | Meaning |
+| --- | --- |
+| `REACT_APP_SUPABASE_URL` | Supabase project URL |
+| `REACT_APP_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable (anon) key. Safe in the browser because RLS guards the data |
 
 The dev server sends `/api/*` requests to `http://localhost:3001` (the `proxy` setting in `package.json`). Start the local API server if you need health checks or deploy.
 
@@ -65,12 +74,14 @@ The server listens on `127.0.0.1:3001` and reads these settings from `server/.en
 
 | Variable | Meaning |
 | --- | --- |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service-role key, used to write `server_logs` and to check the caller's token. Server-side only |
 | `IP_IGNITION` | Ignition gateway host |
 | `PORT_IGNITION` | Ignition gateway port |
 | `USER_IGNITION` / `PASSWORD_IGNITION` | Gateway basic-auth credentials |
 | `PROJECT_NAME_IGNITION` | Ignition project hosting the `recibirXML` webdev endpoint |
 
-It also needs a Firebase service-account key at `server/serviceAccountKey.json` to write logs to Firestore. Both `server/.env` and the key are git-ignored: create them locally and never commit them.
+`server/.env.example` lists them. `server/.env` is git-ignored: create it locally and never commit it. Each log call inserts one `server_logs` row (`level`, `event`, `request_id`, `workflow_id`, `user_id`, other fields in `details`); a failed insert is printed to the console and never breaks the request. `/api/deploy-workflow` logs the caller's Supabase user id when the request carries `Authorization: Bearer <access token>`, and `unknown` otherwise.
 
 Endpoints:
 
@@ -81,14 +92,25 @@ Endpoints:
 | POST | `/api/compile` | Validates a workflow JSON (`nodes`, `connections`; exactly one Begin and one End) and returns XML |
 | POST | `/api/deploy-workflow` | Validates workflow XML (`Content-Type: application/xml`) and forwards it to Ignition |
 
-### Cloud Functions
+### Database and Edge Function
 
 ```bash
-cd functions
-npm install
-npm run serve      # local emulator
-npm run deploy     # firebase deploy --only functions
+supabase link --project-ref <ref>
+supabase db push                          # apply supabase/migrations/
+supabase functions deploy compile-xml     # JWT verification stays on (supabase/config.toml)
 ```
+
+Every schema change ships as a new file in `supabase/migrations/`. `npm run test:node` runs the migrations against an in-memory Postgres (PGlite) and checks the RLS and RPC rules, so you can test them without Docker.
+
+### Firebase → Supabase data migration
+
+One-off scripts in `scripts/migration/` (own `package.json`; run `npm install` there). They read Firestore with a service-account key passed through `GOOGLE_APPLICATION_CREDENTIALS` (never committed) and write to Supabase with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`:
+
+1. `firebase auth:export users.json --format=json --project xicotencatl`, then `node import-users.js users.json`: creates each user in Supabase Auth (no password; users set one through a reset email), copies their roles to `profiles` and writes `out/uid_map.json`.
+2. `node migrate-data.js [--dry-run] [--skip-logs]`: copies workflows, designers, history and `server_logs`, rewriting every Firebase UID. It writes nothing if any UID is unmapped. Safe to rerun.
+3. `node verify.js`: compares counts and per-workflow node checksums, status, version and designers. Exits 1 on any mismatch.
+
+`users.json` and `out/` are git-ignored.
 
 ### MCP servers for AI coding agents
 
@@ -96,7 +118,7 @@ npm run deploy     # firebase deploy --only functions
 
 | Server | What it is | Access |
 | --- | --- | --- |
-| `firebase` | Firebase CLI MCP server (`npx firebase-tools@latest mcp --only auth,firestore`) | Your Firebase CLI login (`firebase login`) on project `xicotencatl` |
+| `firebase` | Firebase CLI MCP server (`npx firebase-tools@latest mcp --only auth,firestore`), kept to inspect the old data until the Firebase project is deleted | Your Firebase CLI login (`firebase login`) on project `xicotencatl` |
 | `supabase` | Supabase hosted MCP server (`https://mcp.supabase.com/mcp?read_only=true`) | OAuth in the browser on first use; read-only |
 
 Claude Code asks you to approve project servers the first time you run `claude` in the repo; check them with `claude mcp list`. On native Windows, if the `firebase` server fails to start, change its `command` to `cmd` and put `"/c", "npx"` in front of its args. Don't commit tokens to `.mcp.json`.
@@ -108,11 +130,12 @@ Claude Code asks you to approve project servers the first time you run `claude` 
 | `npm start` | Start the dev server |
 | `npm run build` | Build for production into `build/` |
 | `npm test` | Run Jest in watch mode |
+| `npm run test:node` | Run the Node tests: database (PGlite), `compile-xml`, server logger, migration transforms |
 | `npm run lint` | Run ESLint |
 | `npm run format` / `npm run format-check` | Run Prettier (write / check) |
 | `npm run lint:css` / `npm run lint:html` | Run Stylelint / HTMLHint on `public/` |
 
-CI (`.github/workflows/code_check.yaml`) runs `npm run lint`, `npm run format-check` and the Jest unit tests (`npm test`) on every pull request to `main`.
+CI (`.github/workflows/code_check.yaml`) runs `npm run lint`, `npm run format-check`, the Jest unit tests (`npm test`) and `npm run test:node` on every pull request to `main`.
 
 ## Deployment
 
@@ -123,14 +146,17 @@ docker build -t kukulcan .
 docker run -p 8080:80 kukulcan
 ```
 
-Cloud Functions deploy separately with the Firebase CLI (see above).
+The image reads `REACT_APP_SUPABASE_*` at build time, so set them in the build environment. The database and Edge Function deploy separately with the Supabase CLI (see above).
 
 ## Project layout
 
 ```
 src/
   App.js                       routing + auth/role loading
-  backend/firebaseConfig.js    Firebase client init (auth, db, functions)
+  backend/supabaseClient.js    Supabase client init
+  backend/authApi.js           sign-in/up/out, session listener, roles
+  backend/workflowsApi.js      workflows CRUD, Realtime subscription, RPC wrappers, compile
+  backend/mappers.js           row ↔ legacy shape, error codes
   pages/
     Login/, Home/              login and landing pages
     Dashboard/Dashboard.js     the workflow designer: hierarchy tree, canvas, menu bar, node modals
@@ -139,8 +165,11 @@ src/
   components/                  shared UI (ModalMessage, EquipmentDetails)
   styles/                      CSS per page/modal
 public/ICONOSPNG/              toolbar icons
-functions/index.js             all Cloud Functions
-server/src/                    Express API (routes/, logger.js)
+supabase/migrations/           schema, RLS, triggers and RPC functions
+supabase/functions/compile-xml Edge Function (compiler.mjs holds the XML logic)
+supabase/tests/                Node tests for the database and the compiler
+server/src/                    Express API (routes/, logger.js, supabaseAdmin.js)
+scripts/migration/             one-off Firebase → Supabase migration scripts
 docs/HTE-*-testing.md          manual test plans, one per Jira ticket
 ```
 
