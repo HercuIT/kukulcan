@@ -271,6 +271,7 @@ Features are specified before they're built, as Claude Docs, using the section t
 | Supabase migration (HTE-supabase-migration) | [Kukulcan: Firebase → Supabase Migration Spec](https://claude.ai/code/artifact/30984f03-013f-4dd7-a1ae-8fe059596380) | Implemented (PR #1) |
 | VCR-001 | [Version-Controlled Hierarchy Rules](https://claude.ai/code/artifact/b8a553aa-eeb5-4048-a173-d6b268216a3b) | Draft, partly written |
 | WFPR-003 | [Nested User Created Node Definitions](https://claude.ai/code/artifact/9753755e-5f4d-43bb-93af-e9e59d416800) | Draft, open questions pending |
+| WFPR-004 | [Expandable Pre-Defined Definitions](https://claude.ai/code/artifact/cf5b6f1e-aa6f-400f-bc6f-f425c4349488) | Draft, depends on VCR-001; open questions pending |
 
 ## Contributing
 
