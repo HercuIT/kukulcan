@@ -9,4 +9,9 @@
     // React Router: unknown paths (/dashboard, /set-password) get index.html instead of a 404.
     "not_found_handling": "single-page-application",
   },
+  // Required by Workers Previews (preview builds of non-production branches). Empty on purpose:
+  // `assets` and `compatibility_date` already apply to previews from the top level, and the app has
+  // no runtime vars or bindings. Wrangler suggests copying REACT_APP_SUPABASE_* here; don't, they
+  // are read only at build time from the build variables.
+  "previews": {},
 }

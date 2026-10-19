@@ -59,6 +59,7 @@ npm start                    # http://localhost:3000
 | --- | --- |
 | `REACT_APP_SUPABASE_URL` | Supabase project URL |
 | `REACT_APP_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable (anon) key. Safe in the browser because RLS guards the data |
+| `REACT_APP_LOCAL_SERVER_CHECK` | Optional. `true` makes Home check `http://localhost:3001/api/health` every 3 s and show the "server not available" dialog until the local server answers. Unset (the default, and on the deployed site) skips the check |
 
 The dev server sends `/api/*` requests to `http://localhost:3001` (the `proxy` setting in `package.json`). Start the local API server if you need health checks or deploy.
 
