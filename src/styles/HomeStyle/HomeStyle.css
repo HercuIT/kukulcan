@@ -4,7 +4,7 @@
   padding: 10px 24px;
   display: flex;
   align-items: center;
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: var(--kk-font-sans);
   position: relative;
   box-shadow: 0 2px 8px rgba(26, 35, 126, 0.08);
   /* Keep top edge flat; round only bottom corners for a card-like look */

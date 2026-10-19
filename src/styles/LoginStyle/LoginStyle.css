@@ -5,7 +5,7 @@
   justify-content: center;
   height: 100vh;
   background-color: #f0f2f5;
-  font-family: sans-serif;
+  font-family: var(--kk-font-sans);
 }
 .login-box {
   background: white;
@@ -58,7 +58,7 @@
   justify-content: center;
   height: 100vh;
   font-size: 24px;
-  font-family: sans-serif;
+  font-family: var(--kk-font-sans);
 }
 .user-info {
   margin-left: auto;
@@ -66,7 +66,7 @@
   align-items: center;
   color: white;
   padding: 0 20px;
-  font-family: sans-serif;
+  font-family: var(--kk-font-sans);
 }
 .user-info button {
   margin-left: 15px;

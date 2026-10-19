@@ -105,8 +105,7 @@
   align-items: center;
   justify-content: center;
   padding: 4px 12px;
-  border-radius: 12px;
-  color: white;
+  border-radius: var(--kk-radius-pill);
   font-size: 0.75em;
   font-weight: bold;
   min-width: 80px;
@@ -124,29 +123,35 @@
 
 /* Colores para roles */
 .role-designer {
-  background-color: #3498db !important;
+  background-color: var(--kk-mint-soft) !important;
+  color: var(--kk-mint-text);
 }
 
 .role-reviewer {
-  background-color: #e67e22 !important;
+  background-color: var(--kk-cyan-soft) !important;
+  color: var(--kk-cyan-text);
 }
 
 /* Colores para estados */
 .status-draft {
-  background-color: #6c757d;
+  background-color: var(--kk-status-draft-bg);
+  color: var(--kk-status-draft-fg);
 }
 .status-pending_review {
-  background-color: #ffc107;
-  color: #000;
+  background-color: var(--kk-status-review-bg);
+  color: var(--kk-status-review-fg);
 }
 .status-changes_requested {
-  background-color: #dc3545;
+  background-color: var(--kk-status-changes-bg);
+  color: var(--kk-status-changes-fg);
 }
 .status-approved {
-  background-color: #28a745;
+  background-color: var(--kk-status-approved-bg);
+  color: var(--kk-status-approved-fg);
 }
 .status-deployed {
-  background-color: #17a2b8;
+  background-color: var(--kk-cyan-soft);
+  color: var(--kk-cyan-text);
 }
 
 /* ESTADOS DEL MODAL */
@@ -213,6 +218,6 @@
 }
 
 .role-pill.role-deployer {
-  background-color: #6f42c1;
-  color: white;
+  background-color: var(--kk-status-draft-bg);
+  color: var(--kk-ink);
 }

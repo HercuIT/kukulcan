@@ -99,7 +99,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: sans-serif;
+  font-family: var(--kk-font-sans);
   position: relative;
   z-index: 10;
 }
@@ -370,7 +370,7 @@ button:disabled {
   border-radius: 12px;
   min-width: 360px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: var(--kk-font-sans);
   position: relative;
 }
 
@@ -473,6 +473,8 @@ button:disabled {
 .canvas-node.selected {
   border-color: transparent; /* Asegura que el borde no reaparezca */
   box-shadow: none;
+  outline: 2px solid var(--kk-brand-mint);
+  outline-offset: 2px;
 }
 
 .canvas-node.grabbing {
@@ -510,12 +512,25 @@ button:disabled {
   margin-bottom: 2px;
 }
 
+/* Begin = pastilla menta, End = pastilla cian (HTE-111) */
 .start-end-label {
-  color: #e67e22;
+  color: var(--kk-cyan-text);
   font-weight: bold;
   font-size: 14px;
   margin-top: 2px;
   text-align: center;
+  padding: 0 var(--kk-space-2);
+  border-radius: var(--kk-radius-pill);
+}
+
+.start-end-label--start {
+  color: var(--kk-mint-text);
+  background: var(--kk-mint-soft);
+}
+
+.start-end-label--end {
+  color: var(--kk-cyan-text);
+  background: var(--kk-cyan-soft);
 }
 
 .connection-node {
@@ -566,7 +581,7 @@ button:disabled {
 }
 
 .canvas-area {
-  background: #fafbfc;
+  background: var(--kk-canvas);
   overflow: hidden;
   width: 100%;
   height: 100%;
@@ -585,25 +600,7 @@ button:disabled {
   cursor: grabbing;
 }
 
-/* Watermark logo en el canvas */
-.canvas-area::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 400px; /* Ajusta según el tamaño deseado */
-  height: 400px;
-  background-image: url("../../assets/logo-background.png");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.2; /* Opacidad baja para marca de agua sutil */
-  pointer-events: none; /* No interfiere con interacciones */
-  z-index: 0;
-}
-
-/* Asegura que el contenido del canvas esté sobre la marca de agua */
+/* Asegura que el contenido del canvas quede sobre el fondo del canvas */
 .canvas-transform {
   position: absolute;
   left: 0;
@@ -687,23 +684,13 @@ button:disabled {
   font-weight: bold;
 }
 
-/* Estilo opcional para cuadrícula activada: la lógica de background-position se maneja en JS */
+/* Cuadrícula activada: puntos de 1px cada 20px (canvas-dot). background-position se maneja en JS */
 .canvas-area.grid-enabled {
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 19px,
-      #ccc 19px,
-      #ccc 20px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 19px,
-      #ccc 19px,
-      #ccc 20px
-    );
+  background-image: radial-gradient(
+    circle,
+    var(--kk-canvas-dot) 1px,
+    transparent 1.5px
+  );
   background-size: 20px 20px;
   background-position: 0 0;
 }
@@ -766,7 +753,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-family: sans-serif;
+  font-family: var(--kk-font-sans);
   margin-top: 130px;
 }
 
@@ -944,7 +931,7 @@ button:disabled {
   min-width: 400px;
   max-width: 500px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: var(--kk-font-sans);
   animation: modal-fade-in 0.2s ease-out;
 }
 
