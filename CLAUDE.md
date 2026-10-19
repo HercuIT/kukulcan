@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repo. `AGENTS.md` is a symlink to 
 
 ## What this is
 
-A React (Create React App) visual editor for manufacturing workflows, backed by Firebase (Auth, Firestore, Cloud Functions in `functions/`) and a small Express server (`server/`) that compiles workflows and deploys their XML to an Ignition gateway.
+A React (Create React App) visual editor for manufacturing workflows, backed by Supabase (Auth, Postgres with RLS, RPC functions, Realtime, and the `compile-xml` Edge Function) and a small Express server (`server/`) that compiles workflows and deploys their XML to an Ignition gateway.
 
 ## Commands
 
@@ -14,33 +14,35 @@ npm run lint                  # ESLint (CI)
 npm run format-check          # Prettier (CI); run `npm run format` to fix
 npm run build                 # production build
 npm test                      # Jest watch mode (CI); `CI=true npm test` runs once
+npm run test:node             # Node tests: migrations on PGlite, compile-xml, server logger, migration scripts (CI)
 cd server && node src/index.js    # local API on 127.0.0.1:3001
-cd functions && npm run serve     # Functions emulator
 ```
 
-CI runs lint, Prettier and the Jest unit tests. Run all three before you call a change done.
+CI runs lint, Prettier, the Jest unit tests and `npm run test:node`. Run all four before you call a change done. On Windows, check Prettier with `npx prettier --check --end-of-line auto <files>`: `core.autocrlf` checks files out with CRLF, which plain `format-check` reports as errors.
 
 ## Where things are
 
 - `src/pages/Dashboard/Dashboard.js`: about 5,000 lines holding most of the designer UI. Its main components are `TreeNode` and `TreeViewExample` (the hierarchy panel), `MenuBar`, `Canvas`, `NodeParametersModal`, `CreateNodeModal`, `PredefinedNodeWizard`, `ContextMenu`, and the default-export `App({ user, userRoles })`, which holds the dashboard state. Search by component name rather than reading the whole file.
 - `src/pages/Dashboard/*Modal.js`: the save, open, share, version-history, checkout and unsaved-changes dialogs.
-- `src/backend/firebaseConfig.js`: exports `auth`, `db`, `functions` (region `us-central1`).
-- `functions/index.js`: all callable functions (`submitForReview`, `approveWorkflow`, `requestChanges`, `addDesignerToWorkflow`, `removeDesignerFromWorkflow`, `assignReviewerToWorkflow`) and the `compileXML` HTTP function. The frontend calls `compileXML` through the hard-coded `COMPILE_URL` in `Dashboard.js`.
-- `server/src/routes/`: `health`, `ignitionHealth`, `compile` (JSON→XML), `deployWorkflow` (XML→Ignition). `server/src/logger.js` writes logs to Firestore `server_logs`.
+- `src/backend/`: the only code that talks to Supabase. `supabaseClient.js` (client from `REACT_APP_SUPABASE_URL` / `REACT_APP_SUPABASE_PUBLISHABLE_KEY`), `authApi.js` (sign-in/up/out, `onSessionChange`, `getMyRoles`), `workflowsApi.js` (workflow CRUD, `subscribeToWorkflow`, `listMyWorkflows`, `listUsers`, one wrapper per RPC, `compileWorkflow`), `mappers.js` (rows ↔ the legacy `{ id, name, content, metadata }` shape, error codes). Components import these, never `@supabase/supabase-js`. The `user` prop is `{ uid, email }`.
+- `supabase/migrations/`: schema, RLS policies, triggers and the RPC functions (`submit_for_review`, `assign_reviewer`, `approve_workflow`, `request_changes`, `add_designer`, `remove_designer`, `checkout_workflow`, `my_workflows`). Every schema change is a new migration file.
+- `supabase/functions/compile-xml/`: the Edge Function; `compiler.mjs` holds the validation and XML code (a second copy lives in `server/src/routes/compileRoutes.js`).
+- `server/src/routes/`: `health`, `ignitionHealth`, `compile` (JSON→XML), `deployWorkflow` (XML→Ignition). `server/src/logger.js` inserts one Supabase `server_logs` row per event through `supabaseAdmin.js` (service role).
+- `scripts/migration/`: one-off Firebase → Supabase scripts (`import-users.js`, `migrate-data.js`, `verify.js`) with their own `package.json`.
 
 ## MCP servers
 
 `.mcp.json` registers two MCP servers for this repo:
 
-- `firebase`: the Firebase CLI's MCP server (`firebase-tools mcp`), limited to the `auth` and `firestore` tools. It acts as whoever is logged into the Firebase CLI, against the shared `xicotencatl` project. Use it to read users and Firestore documents. Writes and deletes follow the Firebase rule under "Watch out for".
-- `supabase`: Supabase's hosted MCP server in read-only mode, for the planned Firebase → Supabase migration. Once a Supabase project exists, add `&project_ref=<ref>` to its URL. Keep `read_only=true` unless the user asks for write access.
+- `firebase`: the Firebase CLI's MCP server (`firebase-tools mcp`), limited to the `auth` and `firestore` tools. It acts as whoever is logged into the Firebase CLI, against the shared `xicotencatl` project. The app no longer uses Firebase; keep this only to inspect the old data until the project is deleted. Writes and deletes follow the Firebase rule under "Watch out for".
+- `supabase`: Supabase's hosted MCP server in read-only mode. Once the Supabase project exists, add `&project_ref=<ref>` to its URL. Keep `read_only=true` unless the user asks for write access.
 
 Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their own: Firebase through `firebase login`, Supabase through OAuth in the browser.
 
 ## Domain facts
 
-- Firestore paths: `roles/{uid}` holds the role flags (`designer`, `reviewer`, `deployer`); `artifacts/manufacturing-suite-v1/workflows/{id}` holds workflows, with state in `metadata`.
-- Workflow `metadata.status`: `draft` → `pending_review` → `approved`, or `pending_review` → `changes_requested` → back to editing. Status changes go through Cloud Functions, which check `metadata.assignedReviewerId` and `metadata.designerIds`.
+- Tables: `profiles` (one per `auth.users` row; role flags `designer`, `reviewer`, `deployer`, created by a sign-up trigger), `workflows` (canvas graph in `nodes` jsonb), `workflow_designers`, `workflow_history` (`kind` = `checkout` or `changes_requested`), `server_logs` (service role only).
+- Workflow `status`: `draft` → `pending_review` → `approved`, or `pending_review` → `changes_requested` → back to editing. Clients may only update `name`, `nodes` and `checkout_description` (column grants + RLS); status, reviewer and collaborator changes go through the RPC functions, which check `assigned_reviewer_id` and `workflow_designers`. A trigger bumps `version` when `name` or `nodes` change and stamps `last_modified_*` for user writes (service-role writes keep their values).
 - A valid workflow has exactly one Begin/Start node with no inputs and one End node with no outputs. In XML, node types map to `BeginElement`, `EndElement`, `NodeDefinitionName`, etc. (`TYPE_TO_XML` in `server/src/routes/compileRoutes.js`). Deploy requires every non-Begin/End node to have at least one `<Parameter>` with a non-empty value.
 
 ## Rules for new code
@@ -67,6 +69,6 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
 ## Watch out for
 
 - `Dashboard.js` sees many parallel feature branches, so merge conflicts there are common. Past merges have left duplicated JSX fragments outside conflict markers. After resolving a conflict, check that the file still parses (`npm run build` or `npx eslint src/pages/Dashboard/Dashboard.js`).
-- `server/package.json` doesn't declare `dotenv` or `firebase-admin`. They currently resolve from the root `node_modules`.
-- Secrets: `server/.env` and `server/serviceAccountKey.json` (and `server/node_modules/`) are git-ignored; GitHub push protection rejects pushes that contain them. Never print, copy or commit secret values, and don't add credentials to tracked files.
-- The Firebase project is shared (`xicotencatl`). Don't run `firebase deploy` or write to Firestore unless the user explicitly asks.
+- Secrets: `server/.env`, `.env.local`, `server/serviceAccountKey.json` (legacy) and `server/node_modules/` are git-ignored; GitHub push protection rejects pushes that contain credentials. The Supabase service-role key belongs only in `server/.env` or the migration scripts' environment, never in the frontend. Never print, copy or commit secret values, and don't add credentials to tracked files.
+- Shared projects: don't run `supabase db push`, `supabase functions deploy` or write to Supabase, and don't run `firebase deploy` or write to Firestore (`xicotencatl`), unless the user explicitly asks.
+- RLS gotchas: a client `insert … returning` on `workflows` fails because the read policy depends on `workflow_designers`, which the trigger fills after the insert. `createWorkflow` generates the id client-side and inserts without `returning`. An update that RLS filters out returns zero rows instead of an error, so `saveWorkflow` checks the row count.
