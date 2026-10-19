@@ -8,6 +8,7 @@ import ShareWorkflowModal from "./ShareWorkflowModal";
 import UnsavedChangesModal from "./UnsavedChangesModal";
 import CheckoutModal from "./CheckoutModal";
 import VersionHistoryModal from "./VersionHistoryModal";
+import UserDefinitionsTree from "./UserDefinitionsTree";
 import { EquipmentNode } from "./equipmentData";
 import { MaterialsNode } from "./MaterialData";
 import { onSessionChange, signOut } from "../../backend/authApi";
@@ -22,6 +23,10 @@ import {
   saveWorkflow,
   subscribeToWorkflow,
 } from "../../backend/workflowsApi";
+import {
+  expandForCanvas,
+  predefinedKeyFor,
+} from "../../backend/definitionsApi";
 import ModalMessage from "../../components/ModalMessage";
 import Selecto from "react-selecto";
 import Logo from "../../assets/Logofinal.png";
@@ -1701,8 +1706,6 @@ function TreeViewExample({
     target: null,
   });
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [userCreatedNodes, setUserCreatedNodes] = useState([]);
   const [preDefinedNodes, setPreDefinedNodes] = useState([]);
   const [predefWizardOpen, setPredefWizardOpen] = useState(false);
 
@@ -1748,8 +1751,16 @@ function TreeViewExample({
       procedurePhase: node.procedurePhase || null,
       operation: node.operation || null,
     };
+    // Elementos de Pre-Defined Definitions: se pueden soltar dentro de una definición de usuario.
+    if (node.predefinedKey) {
+      dragData.kind = "predefined";
+      dragData.predefinedKey = node.predefinedKey;
+      dragData.type = node.label;
+    }
 
     e.dataTransfer.setData("application/json", JSON.stringify(dragData));
+    // El lienzo lee window._dragComponent al soltar.
+    setDragComponent?.(dragData);
   };
 
   let idx = 0;
@@ -1779,69 +1790,46 @@ function TreeViewExample({
     }
 
     if (isUserCreated) {
-      actualChildren = [
-        ...userCreatedNodes
-          .filter((n) => n && n.name)
-          .map((n) => {
-            const paramsChildren = Array.isArray(n.parameters)
-              ? n.parameters
-                  .filter((p) => p && typeof p === "object" && p.name)
-                  .map((p) => ({
-                    label: String(p.name),
-                    type: "parameter",
-                    desc: `Data Type: ${p?.dataType || "N/A"}`,
-                    abstract: `Default: ${String(p?.defaultValue ?? "")}`,
-                    onClick: () =>
-                      openParamDetails(p, `${n.name} v ${n.version}`),
-                  }))
-              : [];
-            return {
-              label: `${n.name} v ${n.version}`,
-              desc: n.desc,
-              abstract: n.abstract,
-              color: "green",
-              details: {
-                capacity: "NA",
-                lastMaintenance: null,
-                manufacturerModel: null,
-                status: "Unknown",
-              },
-              implementation: n.implementation,
-              isDraggable: true,
-              type: n.name,
-              children: [
-                { label: "Parameters", children: paramsChildren },
-                { label: "Equipment", children: [] },
-                { label: "Material", children: [] },
-                { label: "Personnel", children: [] },
-                { label: "Elements", children: [] },
-              ],
-            };
-          })
-          .filter(Boolean),
-        ...(Array.isArray(children)
-          ? children.filter((child) => child && child.label)
-          : []),
-      ];
+      return (
+        <UserDefinitionsTree
+          key={label}
+          label={label}
+          level={level}
+          isOpen={isOpen}
+          onToggle={() =>
+            setExpandedNodes((prev) => ({ ...prev, [label]: !prev[label] }))
+          }
+          isDesigner={isDesigner}
+          search={search}
+          setDragComponent={setDragComponent}
+          openParamDetails={openParamDetails}
+          renderCreateModal={(props) => <CreateNodeModal {...props} />}
+        />
+      );
     }
 
     if (label === "Pre-Defined Definitions" && children) {
       actualChildren = [
         ...children
           .filter((child) => child && child.label)
-          .map((child) => ({ ...child, color: "blue" })),
+          .map((child) => ({
+            ...child,
+            color: "blue",
+            predefinedKey: predefinedKeyFor(child),
+          })),
         // Nodos creados con el PredefinedNodeWizard
         ...preDefinedNodes.map((n) => ({
           label: `${n.procedurePhase} - ${n.operation}`,
           color: "blue",
           isDraggable: true,
+          procedurePhase: n.procedurePhase,
+          operation: n.operation,
+          predefinedKey: predefinedKeyFor(n),
         })),
       ];
     }
 
-    const childCount = isUserCreated
-      ? userCreatedNodes.length
-      : actualChildren.length;
+    const childCount = actualChildren.length;
     const displayLabel = childCount > 0 ? `${label} (${childCount})` : label;
     const hasChildren =
       Array.isArray(actualChildren) && actualChildren.length > 0;
@@ -1851,14 +1839,12 @@ function TreeViewExample({
         <div
           className="tree-node"
           onClick={
-            node?.label === "User Created Definitions"
-              ? undefined
-              : isEquipment && onEquipmentSelect
-                ? () => onEquipmentSelect(node)
-                : undefined
+            isEquipment && onEquipmentSelect
+              ? () => onEquipmentSelect(node)
+              : undefined
           }
           onContextMenu={
-            isUserCreated || PREDEFINED_PROCEDURE_LABELS.includes(label)
+            PREDEFINED_PROCEDURE_LABELS.includes(label)
               ? (e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -1866,15 +1852,17 @@ function TreeViewExample({
                     visible: true,
                     x: e.clientX,
                     y: e.clientY,
-                    target: isUserCreated ? "userCreated" : "preDefined",
+                    target: "preDefined",
                   });
                 }
               : undefined
           }
           draggable={isLeafNode || node.isDraggable}
           onDragStart={(e) => {
-            if (isLeafNode) handleDragStart(e, node);
+            // Antes solo arrastraban las hojas; una fila marcada isDraggable también arrastra.
+            if (isLeafNode || node.isDraggable) handleDragStart(e, node);
           }}
+          onDragEnd={() => setDragComponent?.(null)}
           style={{
             marginLeft: level * 10,
             cursor: "pointer",
@@ -1882,26 +1870,6 @@ function TreeViewExample({
           }}
         >
           <div style={{ display: "flex", alignItems: "center" }}>
-            {isUserCreated && userCreatedNodes.length > 0 && (
-              <span
-                style={{
-                  marginRight: 6,
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                  color: "#1677ff",
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!isDesigner)
-                    return alert(
-                      UI_STRINGS.dashboard.treeView.alerts.accionNoPermitida,
-                    );
-                  setModalOpen(true);
-                }}
-              >
-                +
-              </span>
-            )}
             {hasChildren && (
               <span
                 style={{ marginRight: 4, cursor: "pointer" }}
@@ -2050,6 +2018,7 @@ function TreeViewExample({
   const filterTree = (node) => {
     if (!node) return null;
     if (!search) return node;
+    if (node.label === "User Created Definitions") return node;
     const labelMatch = node.label.toLowerCase().includes(search.toLowerCase());
     const children = (node.children || []).map(filterTree).filter(Boolean);
     if (labelMatch) return { ...node, forceOpen: true };
@@ -2102,29 +2071,9 @@ function TreeViewExample({
         onNew={() => {
           if (!isDesigner) return;
 
-          if (contextMenu.target === "userCreated") {
-            setModalOpen(true);
-          } else {
-            setPredefWizardOpen(true);
-          }
+          setPredefWizardOpen(true);
 
           setContextMenu((c) => ({ ...c, visible: false }));
-        }}
-      />
-
-      <CreateNodeModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onOk={(newNode) => {
-          if (!isDesigner) return;
-          const enriched = {
-            ...newNode,
-            parameters: newNode.parameters || [],
-            label: `${newNode.name} v ${newNode.version}`,
-            isDraggable: true,
-          };
-          setUserCreatedNodes((prev) => [...prev, enriched]);
-          setModalOpen(false);
         }}
       />
 
