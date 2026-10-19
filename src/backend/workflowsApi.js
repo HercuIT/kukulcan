@@ -39,7 +39,9 @@ export async function saveWorkflow(id, { nodes, connections, name }) {
   const fields = { nodes: cleanNodes(nodes) };
   // Nunca se guarda una conexión hacia un nodo borrado.
   if (connections !== undefined)
-    fields.connections = cleanNodes(dropDanglingConnections(connections, nodes));
+    fields.connections = cleanNodes(
+      dropDanglingConnections(connections, nodes),
+    );
   if (name !== undefined) fields.name = name;
   const rows = throwIfError(
     await supabase.from("workflows").update(fields).eq("id", id).select("id"),

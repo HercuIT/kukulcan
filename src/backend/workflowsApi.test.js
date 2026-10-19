@@ -103,9 +103,9 @@ describe("workflowsApi", () => {
       expect(
         chain.insert.mock.calls[0][0].connections.map((c) => c.id),
       ).toEqual(["ok"]);
-      expect(chain.update.mock.calls[0][0].connections.map((c) => c.id)).toEqual(
-        ["ok"],
-      );
+      expect(
+        chain.update.mock.calls[0][0].connections.map((c) => c.id),
+      ).toEqual(["ok"]);
     });
 
     test("saveWorkflow updates only the content", async () => {

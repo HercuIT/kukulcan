@@ -968,7 +968,7 @@ function makeCompactIds(nodesInOrder) {
 
 // Modal para el formulario "Create Node"
 // initial: definición a editar (modo edición); parentPath: nombres de los ancestros al crear dentro.
-function CreateNodeModal({
+export function CreateNodeModal({
   open,
   onClose,
   onOk,

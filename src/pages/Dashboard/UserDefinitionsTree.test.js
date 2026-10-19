@@ -322,3 +322,155 @@ describe("UserDefinitionsTree", () => {
     });
   });
 });
+
+// Árbol cuyo contenido el test cambia después, como haría Realtime.
+async function renderLiveTree(rows) {
+  let push;
+  api.subscribeToDefinitions.mockImplementation((cb) => {
+    push = (next) => act(() => cb(next));
+    cb(rows);
+    return () => {};
+  });
+  api.listDefinitions.mockResolvedValue(rows);
+  await act(async () => {
+    render(
+      <UserDefinitionsTree
+        label="User Created Definitions"
+        isOpen
+        onToggle={jest.fn()}
+        isDesigner
+        setDragComponent={jest.fn()}
+        openParamDetails={jest.fn()}
+        renderCreateModal={(p) => {
+          createModalProps = p;
+          return null;
+        }}
+      />,
+    );
+  });
+  return { push: (next) => push(next) };
+}
+
+const D = UI_STRINGS.dashboard.deleteDefinitionModal;
+const M = UI_STRINGS.dashboard.moveDefinitionModal;
+const predefinedRef = (id, parentId) =>
+  def(id, parentId, "Mixing", 0, {
+    kind: "predefined",
+    predefined: { key: "phase:Mixing", label: "Mixing" },
+  });
+
+describe("review fixes (PR #6)", () => {
+  describe("positive", () => {
+    test("a saved change closes the modal even if the reload after it fails", async () => {
+      api.createDefinition.mockResolvedValue("new-id");
+      await renderTree();
+      api.listDefinitions.mockRejectedValue(new Error("offline"));
+      openMenuOn(row("line"));
+      await clickMenu(S.menu.newInside);
+      await act(async () => {
+        await createModalProps.onOk({
+          name: "Heater",
+          version: "1.0",
+          desc: "d",
+          abstract: "a",
+          implementation: {},
+          parameters: [],
+        });
+      });
+      expect(api.createDefinition).toHaveBeenCalledTimes(1);
+      expect(createModalProps.open).toBe(false);
+    });
+
+    test("the delete dialog follows the live tree: children added meanwhile are offered", async () => {
+      const rows = [def("solo", null, "Solo", 0)];
+      const live = await renderLiveTree(rows);
+      openMenuOn(row("solo"));
+      await clickMenu(S.menu.delete);
+      expect(screen.getByText(D.delete)).toBeInTheDocument();
+      expect(screen.queryByText(D.keepChildren)).toBeNull();
+      await live.push([...rows, def("kid", "solo", "Kid", 0)]);
+      expect(screen.getByText(D.keepChildren)).toBeInTheDocument();
+      expect(screen.getByText(D.deleteAll(2))).toBeInTheDocument();
+    });
+
+    test("the move dialog starts on a placeholder, so Top level can be picked directly", async () => {
+      api.moveDefinition.mockResolvedValue(null);
+      await renderTree();
+      expand("line");
+      openMenuOn(row("mixer"));
+      await clickMenu(S.menu.moveTo);
+      const select = screen.getByLabelText(M.newParent);
+      expect(select.value).toBe("");
+      expect(screen.getByRole("option", { name: M.choose })).toBeDisabled();
+      expect(screen.getByRole("button", { name: M.move })).toBeDisabled();
+      fireEvent.change(select, { target: { value: "__top__" } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: M.move }));
+      });
+      expect(api.moveDefinition).toHaveBeenCalledWith("mixer", null);
+    });
+  });
+
+  describe("negative", () => {
+    test("Keep children is hidden for a top-level definition with pre-defined children", async () => {
+      await renderTree([
+        def("top", null, "Top", 0),
+        predefinedRef("ref", "top"),
+      ]);
+      openMenuOn(row("top"));
+      await clickMenu(S.menu.delete);
+      expect(screen.queryByText(D.keepChildren)).toBeNull();
+      expect(screen.getByText(D.cannotKeepPredefined)).toBeInTheDocument();
+      expect(screen.getByText(D.deleteAll(2))).toBeInTheDocument();
+    });
+
+    test("a move target removed by another user is deselected, not sent", async () => {
+      const rows = [
+        def("a", null, "A", 0),
+        def("b", null, "B", 1),
+        def("c", null, "C", 2),
+      ];
+      const live = await renderLiveTree(rows);
+      openMenuOn(row("a"));
+      await clickMenu(S.menu.moveTo);
+      fireEvent.change(screen.getByLabelText(M.newParent), {
+        target: { value: "b" },
+      });
+      expect(screen.getByRole("button", { name: M.move })).toBeEnabled();
+      await live.push(rows.filter((r) => r.id !== "b"));
+      expect(screen.getByLabelText(M.newParent).value).toBe("");
+      expect(screen.getByRole("button", { name: M.move })).toBeDisabled();
+      expect(api.moveDefinition).not.toHaveBeenCalled();
+    });
+
+    test("malformed parameters on a definition don't crash the panel", async () => {
+      await renderTree([
+        def("odd", null, "Odd", 0, { parameters: { name: "x" } }),
+        def("kid", "odd", "Kid", 0),
+      ]);
+      expand("odd");
+      expect(row("kid")).toBeInTheDocument();
+      expect(screen.getByText(S.groups.parameters)).toBeInTheDocument();
+    });
+
+    test("invalid_fields from the server is shown with its UI text", () => {
+      expect(definitionErrorText({ hint: "invalid_fields" })).toBe(
+        S.errors.invalidFields,
+      );
+    });
+  });
+
+  describe("edge", () => {
+    test("Keep children stays for a nested definition with pre-defined children", async () => {
+      await renderTree([
+        def("top", null, "Top", 0),
+        def("mid", "top", "Mid", 0),
+        predefinedRef("ref", "mid"),
+      ]);
+      expand("top");
+      openMenuOn(row("mid"));
+      await clickMenu(S.menu.delete);
+      expect(screen.getByText(D.keepChildren)).toBeInTheDocument();
+    });
+  });
+});

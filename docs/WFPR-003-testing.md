@@ -140,16 +140,41 @@ Steps: open a workflow saved before this change.
 
 Expected: its nodes load, and the default Begin → Connection 1 → End edges are shown.
 
+### TC-12: Deleted edges and nodes stay deleted
+
+Steps: open a workflow, delete every connection, save and reopen it. Then delete a node that has connections (with the node's × button and with the toolbar's Remove), save and reopen.
+
+Expected: the workflow reopens with no connections (the default edges don't come back), and no connection points at the deleted node.
+
+### TC-13: New workflow starts clean
+
+Steps: open a workflow with several connections, then File → New.
+
+Expected: the canvas shows only Begin → Connection 1 → End with its two default edges; none of the previous workflow's connections remain.
+
+### TC-14: Editing definitions
+
+Steps: edit a definition that has no parameters and save; edit one with a BOOL parameter whose default is unchecked and save; edit one saved without description or abstract and save.
+
+Expected: all three save. No blank parameter row is added, the BOOL stays unchecked after reopening Edit, and description/abstract may stay empty (they're still required when creating).
+
+### TC-15: Dialogs while others edit
+
+Steps: (1) open Delete on a definition with no children; in another browser, add a child to it. (2) Open Move to… on a definition and pick a destination; in another browser, delete that destination. (3) Open Delete on a top-level definition that contains a pre-defined reference.
+
+Expected: (1) the dialog switches to "Keep children" / "Delete with everything inside". (2) the selection clears and Move is disabled until a new destination is picked. (3) "Keep children" isn't offered, with a line explaining why. Move to… opens with "Choose a destination…" selected, and "Top level" can be picked with one click.
+
 ## Automated scenarios
 
 Run with `CI=true npm test` (Jest) and `npm run test:node` (Node).
 
 | Area | Positive | Negative | Edge |
 | --- | --- | --- | --- |
-| RPCs (`supabase/tests/definitions.test.mjs`, PGlite) | Create top-level and nested with fields; append order; pre-defined references; edit; move with subtree and to top level; manual reorder with positions renumbered; delete leaf and subtree; keep_children puts children after siblings; connections saved and bump the version | Non-designers rejected (`42501`); anon can't call or read; direct writes denied; unknown parent (`P0002`); empty name; duplicate name+version ignoring case and spaces; cycles into self or descendant; pre-defined can't have children or be top level, duplicates rejected; keep_children clash rolls back; keep_children of a top-level definition with pre-defined children | Same name under different parents; 1,000-level chain with a deep cycle rejected and the deepest node moved out; index past the end appends; top-level keep_children promotes children; table published to Realtime |
-| Data layer (`src/backend/definitionsApi.test.js`) | Tree building and ordering; visible rows with groups after children; search keeps ancestors; paths; pre-defined keys; expand-on-drop positions, chain and copies; RPC arguments; row mapping | Rule hint kept on errors; orphan rows shown at the top and logged; corrupted parent loops don't hang | 1,000-level chain builds, flattens, paths and expands (indent capped at 8); empty input; Realtime reload and unsubscribe |
-| Panel (`src/pages/Dashboard/UserDefinitionsTree.test.js`) | Count and nested expand; create inside with parent path; edit; drag to move; drop a pre-defined element; move up; delete with children | Non-designer read-only; server rule error shown with its UI text; drop onto own descendant ignored; `canDropOn` / `definitionErrorText` | Search reveals a deep match; pre-defined rows have no create/edit; 1,000-level chain renders with indentation capped |
-| Workflows (`workflowsApi.test.js`, `canvasConnections.test.js`) | Connections stored on create and save; returned on get | Older rows return `[]` | Older workflows get the default edges on open |
+| RPCs (`supabase/tests/definitions.test.mjs`, PGlite) | Create top-level and nested with fields; append order; pre-defined references; edit; move with subtree and to top level; manual reorder with positions renumbered; delete leaf and subtree; keep_children puts children after siblings; connections saved and bump the version | Non-designers rejected (`42501`); anon can't call or read; direct writes denied; unknown parent (`P0002`); empty name; duplicate name+version ignoring case and spaces; cycles into self or descendant; pre-defined can't have children or be top level, duplicates rejected; keep_children clash rolls back; keep_children of a top-level definition with pre-defined children; non-array `parameters` / non-object `implementation` rejected on create and update (`invalid_fields`); the table rejects them even for the service role; non-array `connections` rejected | Same name under different parents; 1,000-level chain with a deep cycle rejected and the deepest node moved out; index past the end appends; top-level keep_children promotes children; workflows saved without connections keep `null`, a saved `[]` stays `[]`; nested `as()`/`asServiceRole()` restore the outer role; table published to Realtime |
+| Data layer (`src/backend/definitionsApi.test.js`) | Tree building and ordering; visible rows with groups after children; search keeps ancestors; paths; pre-defined keys; expand-on-drop positions, chain and copies; RPC arguments; row mapping | Rule hint kept on errors; orphan rows shown at the top and logged; corrupted parent loops don't hang | 1,000-level chain builds, flattens, paths and expands (indent capped at 8); empty input; Realtime reload and unsubscribe; an older reload answering last is ignored; `addPredefinedChild` without a parent sends `null` |
+| Panel (`src/pages/Dashboard/UserDefinitionsTree.test.js`) | Count and nested expand; create inside with parent path; edit; drag to move; drop a pre-defined element; move up; delete with children; a saved change closes the modal even if the reload fails; delete dialog follows the live tree; move dialog starts on a placeholder and Top level is selectable | Non-designer read-only; server rule error shown with its UI text; drop onto own descendant ignored; `canDropOn` / `definitionErrorText`; no Keep children for a top-level definition with pre-defined children; a move target removed by another user is deselected; malformed parameters don't crash the panel; `invalid_fields` text | Search reveals a deep match; pre-defined rows have no create/edit; 1,000-level chain renders with indentation capped; Keep children stays for a nested definition with pre-defined children |
+| Create/edit modal (`src/pages/Dashboard/CreateNodeModal.test.js`) | No blank parameter added when editing; BOOL false and true kept | Create still requires description and abstract; edit still requires a name | Null description/abstract editable; non-list parameters open empty; `parseBool` |
+| Workflows (`workflowsApi.test.js`, `canvasConnections.test.js`, `mappers.test.js`) | Connections stored on create and save (undefined keys removed); returned on get; `dropDanglingConnections` keeps valid ones | Connections to a deleted node never saved; a saved `[]` stays empty on open; dangling and malformed entries dropped | Older rows return `null` and get the default edges on open; empty inputs |
 
 ## Result
 

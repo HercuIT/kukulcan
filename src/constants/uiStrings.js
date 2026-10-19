@@ -151,7 +151,8 @@ export const UI_STRINGS = {
         predefinedNeedsParent:
           "Pre-defined definitions must stay inside a user definition.",
         nameRequired: "The name is required.",
-        invalidFields: "The definition's parameters or implementation are malformed.",
+        invalidFields:
+          "The definition's parameters or implementation are malformed.",
         noPermission: "You need the Designer role to change definitions.",
         generic: "The definitions couldn't be updated.",
       },
