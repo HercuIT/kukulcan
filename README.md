@@ -43,13 +43,13 @@ Clients can only edit a workflow's `name` and `nodes`, and only while they are o
 
 | Term | Meaning |
 | --- | --- |
-| Workflow | A designed process: a row in `workflows`, whose `nodes` hold the canvas (nodes and connections). It moves through `draft` → `pending_review` → `approved` |
+| Workflow | A designed process: a row in `workflows`, whose `nodes` hold the canvas nodes. Its status moves `draft` → `pending_review` → `approved`, or from `pending_review` to `changes_requested` and back to editing (see "Workflow lifecycle") |
 | Node | One element on the canvas (`type`, `label`, position, and optionally `parameters` and `implementation`). Begin/Start and End are special node types |
-| Connection | A directed link `from` → `to` between two nodes |
-| Node definition | A reusable template you drag from the hierarchy panel onto the canvas. **Pre-defined** ones come from the built-in catalog; **user-created** ones come from the Create Node modal (name, version, implementation, parameters) |
+| Connection | A directed link `from` → `to` between two nodes. **Known limitation:** connections aren't saved with the workflow yet, so edges drawn by the user are lost when it's reopened |
+| Node definition | A reusable template placed on the canvas from the hierarchy panel. **Pre-defined** ones come from the built-in catalog; **user-created** ones come from the Create Node modal (name, version, implementation, parameters). **Known limitation:** user-created definitions can't be dragged onto the canvas yet, because their rows have child groups and the panel only starts a drag from leaf rows (fix specified in WFPR-003) |
 | ISA-88 levels | The procedural hierarchy definitions belong to, outermost first: Site Procedure, Area Procedure, Procedure, (Procedure) Unit Procedure, (Procedure) Operation, (Procedure) Phase |
-| Operation / Phase | The two lowest ISA-88 levels: a Phase (e.g. Add Ingredient) runs inside an Operation (e.g. Mixing) |
-| Parameter | A named value on a node (`name`, `value` or `defaultValue`, units, data type). Deploy requires at least one with a value on every non-Begin/End node |
+| Operation / Phase | The two lowest ISA-88 levels. **Intended rule:** a Phase (e.g. Add Ingredient) runs inside an Operation (e.g. Mixing). **Current catalog:** it's inverted: `PROCEDURE_PHASES` lists Mixing, Drying and Inspection as phases, and `OPERATIONS_BY_PHASE` lists Add Ingredient and the others as their operations. VCR-001 proposes flipping it |
+| Parameter | A named value on a node (`name`, `value` or `defaultValue`, units, data type). Deploy requires every non-Begin/End node to have at least one, and every `<Parameter>` to have a non-empty `name` and `value` (see "Ignition XML contract") |
 | Rule set | The version-controlled hierarchy rules proposed in VCR-001 (which levels and definitions may contain which) |
 | Roles | Flags in `profiles`: **designer** (creates and edits workflows), **reviewer** (approves or requests changes when assigned), **deployer** (sees approved workflows to deploy). VCR-001 proposes **rule_admin** |
 | Ignition | The Inductive Automation gateway that receives the compiled XML through its `recibirXML` webdev endpoint |
@@ -205,7 +205,11 @@ Endpoints:
 </Workflow>
 ```
 
-- Node types map to XML types through `TYPE_TO_XML`: Begin/Start → `BeginElement`, End → `EndElement`, the ISA-88 levels → `NodeDefinitionName`.
+- Node types map to XML `type` differently in the two compilers:
+  - `compile-xml` (used by the app): Begin/Start → `BeginElement`, End → `EndElement`, and any other type passes through unchanged (an ISA-88 level stays e.g. `Procedure Phase`).
+  - `/api/compile` (`compileRoutes.js`): also maps the ISA-88 levels to `NodeDefinitionName`.
+
+  The deploy validator doesn't check `type`, so both pass it. What `recibirXML` expects for procedural nodes is unconfirmed.
 - Ignition answers with a JSON `status`/`message`. "The file already exists in the destination folder." means a workflow with that file name was already deployed.
 - **Known gap:** neither compiler's output passes this check as-is:
   - `compile-xml` (used by the app) wraps `<Workflow>` in a `<Controller>`/`<Programs>`/`<SFCContent>` document for the PLC.

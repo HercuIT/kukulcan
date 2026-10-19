@@ -59,16 +59,20 @@ What specs and features in the designer have to work with (all in `src/pages/Das
   - The predefined catalog is `PROCEDURE_PHASES` plus `OPERATIONS_BY_PHASE`, picked in `PredefinedNodeWizard`.
   - User-created definitions come from `CreateNodeModal`: `{ name, version, desc, abstract, implementation: { program, routine }, parameters: [{ name, dataType, defaultValue }] }`.
   - Both kinds live only in React state (`preDefinedNodes`, `userCreatedNodes`): they're lost on reload and never persisted.
-- **Canvas:** a flat list of nodes plus connections, saved as `workflows.nodes` (no containment between nodes).
+- **Canvas:** a flat list of nodes (`canvasNodes`) plus a separate list of connections (`manualConnections`, `{ id, from, to, fromPort, toPort }`), with no containment between nodes. **Only the nodes are saved:** `saveWorkflow` / `createWorkflow` write `canvasNodes` to `workflows.nodes`, and opening a workflow restores the nodes only. Edges drawn by the user are lost on reopen; the Canvas regenerates just the default Begin → Connection 1 → End edges (known defect below).
   - A node has `id`, `type`, `label`, `x`, `y`, and optionally `parameters`, `implementation`, `procedurePhase`, `operation`.
   - `parameters` is either grouped (`{ <tab>: [ … ] }`, from `NodeParametersModal`) or flat (`[ … ]`, from `CreateNodeModal`).
   - A new canvas starts with Begin, Connection 1 and End (`getDefaultWorkflowNodes`).
   - Panel rows reach the canvas through `handleDragStart`'s JSON drag data.
-- **Validation layers**, from first to last; a new rule must say which layer(s) check it:
-  1. `validateWorkflow` in `Dashboard.js` (the editor, before compiling).
-  2. `validateWorkflow` in `supabase/functions/compile-xml/compiler.mjs` (structure, ids, Begin/End, connections, size limits).
-  3. RLS and RPC checks in the database (who may change what, status rules).
-  4. `validarWorkflow` in `server/src/routes/deployWorkflowRoutes.js` (the XML contract before Ignition).
+- **Validation, by operation.** These are separate flows, not one pipeline. A new rule must say which operation(s) enforce it, and whether both compiler copies change:
+
+  | Operation | Where it's checked | What it checks |
+  | --- | --- | --- |
+  | Editing (live) and before compiling | `validateWorkflow` in `Dashboard.js` | Graph shape in the editor: one START, at least one END, no disconnected or unreachable nodes |
+  | Saving, sharing, status changes | RLS, column grants and RPC functions in the database | Who may change what, and the workflow status rules |
+  | Compiling in the app | `validateWorkflow` in `supabase/functions/compile-xml/compiler.mjs` | Structure, node ids, Begin/End, connections, size limits |
+  | Compiling through the local server (`POST /api/compile`) | `validateWorkflow` in `server/src/routes/compileRoutes.js` | A separate, older copy of the same graph checks: it must mirror `compiler.mjs` when either changes |
+  | Deploying (`POST /api/deploy-workflow`) | `validarWorkflow` in `server/src/routes/deployWorkflowRoutes.js` | The Ignition XML contract (see `README.md`) |
 
 ## Rules for new code
 
@@ -92,7 +96,7 @@ What specs and features in the designer have to work with (all in `src/pages/Das
 A spec is written before implementation, as a Claude Doc (not a file in the repo), and listed in the **Specs** table in `README.md` with its link and status. Read the specs it depends on first (e.g. WFPR-003 builds on VCR-001's rules). Use these sections, in this order:
 
 1. **Overview:** the user story verbatim, goals, non-goals, and a "Done when" list of checkable outcomes.
-2. **Current state:** what the code does today, naming files, components and constants (see "Editor domain model" below), and the known defects the feature touches.
+2. **Current state:** what the code does today, naming files, components and constants (see "Editor domain model" above), and the known defects the feature touches.
 3. **Model or behaviour:** the concepts, operations and rules; a diagram when the content is a flow, tree or lifecycle.
 4. **Data model and authorization:** tables and columns, RLS (who reads, who changes), and the RPC functions with the rules each enforces and its error codes (`28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong state).
 5. **Enforcement / canvas, compile and deploy:** which validation layer checks what, and whether the Ignition XML contract changes (it's a non-goal unless the story says otherwise; see `README.md`).
@@ -131,6 +135,7 @@ Both the Supabase migration and later specs follow the same pattern. A new table
 
   | Defect | Where |
   | --- | --- |
+  | Connections aren't saved: only `canvasNodes` goes to `workflows.nodes`, so user-drawn edges are lost when a workflow is reopened (predates the Supabase migration) | `executeUpdateWorkflow`, `executeSaveAsNew`, `handleLoadWorkflow` in `Dashboard.js` |
   | `OPERATIONS_BY_PHASE` nests Operations inside Phases, the reverse of ISA-88 (Phases inside Operations); VCR-001 proposes flipping it | `Dashboard.js` |
   | Hierarchy panel expand state is keyed by label, so same-named rows expand together | `TreeViewExample` |
   | Dragging a user-created definition sends no data: `handleDragStart` only runs for leaf rows | `TreeViewExample` |
