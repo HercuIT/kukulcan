@@ -1,12 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from "firebase/auth";
-// Importa 'setDoc' y 'doc' de Firestore y la instancia 'db'
-import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from "../../backend/firebaseConfig.js";
+import { signIn, signUp } from "../../backend/authApi";
 import "../../styles/LoginStyle/LoginStyle.css";
 
 export default function Login() {
@@ -22,22 +16,8 @@ export default function Login() {
       return;
     }
     try {
-      //Crea el usuario en Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      const user = userCredential.user;
-
-      // Crea el documento de rol para el nuevo usuario
-      const rolesRef = doc(db, "roles", user.uid);
-      await setDoc(rolesRef, {
-        email: user.email,
-        designer: false,
-        deployer: false,
-        reviewer: false,
-      });
+      // Crea el usuario en Supabase Auth; el trigger de la base crea su perfil sin roles
+      await signUp(email, password);
 
       alert(
         "¡Usuario registrado con éxito! Se te ha asignado un rol por defecto. Por favor, inicia sesión.",
@@ -46,7 +26,7 @@ export default function Login() {
       setEmail("");
       setPassword("");
     } catch (err) {
-      if (err.code === "auth/email-already-in-use") {
+      if (err.code === "email-in-use") {
         setError("Este correo electrónico ya está en uso.");
       } else {
         setError("Ocurrió un error al registrar el usuario.");
@@ -62,20 +42,14 @@ export default function Login() {
       return;
     }
     try {
-      // 1. Inicia sesión con Firebase Auth (esto no ha cambiado)
-      await signInWithEmailAndPassword(auth, email, password);
+      // Inicia sesión con Supabase Auth; los roles se leen de profiles en App.js
+      await signIn(email, password);
 
-      // HEMOS ELIMINADO LA LLAMADA A 'fetch("http://localhost:3001/login")'
-      // Esto te permitirá iniciar sesión sin depender del backend local.
-      // ADVERTENCIA: Sin el backend, los Custom Claims no se establecerán,
-      // por lo que las reglas de seguridad de Firestore seguirán fallando
-      // hasta que implementes la Cloud Function para asignar roles.
-
-      // 3. Si todo es correcto, navega a la página principal
+      // Si todo es correcto, navega a la página principal
       navigate("/");
     } catch (err) {
       console.error("Error de inicio de sesión:", err);
-      if (err.code === "auth/invalid-credential") {
+      if (err.code === "invalid-credentials") {
         setError(
           "Correo o contraseña incorrectos. Por favor, verifica tus datos.",
         );
@@ -91,7 +65,7 @@ export default function Login() {
     const devEmail = "dev@test.com";
     const devPassword = "password123";
     try {
-      await signInWithEmailAndPassword(auth, devEmail, devPassword);
+      await signIn(devEmail, devPassword);
       navigate("/");
     } catch (err) {
       console.error("Error en login de desarrollador:", err);

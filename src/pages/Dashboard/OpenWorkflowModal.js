@@ -1,7 +1,6 @@
 import "../../styles/ModalStyle/OpenWorkflowModal.css";
 import { useState, useEffect } from "react";
-import { collection, query, where, or, getDocs } from "firebase/firestore";
-import { db } from "../../backend/firebaseConfig";
+import { listMyWorkflows } from "../../backend/workflowsApi";
 
 const StatusIndicator = ({ status }) => {
   const statusInfo = {
@@ -55,7 +54,6 @@ export default function OpenWorkflowModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const appId = "manufacturing-suite-v1";
   const isDeployer = userRoles?.deployer === true;
 
   useEffect(() => {
@@ -66,44 +64,19 @@ export default function OpenWorkflowModal({
       setError(null);
 
       try {
-        const workflowsRef = collection(db, "artifacts", appId, "workflows");
-
-        let q;
-        let userRole = "unknown";
-
-        if (isDeployer) {
-          // 🆕 PARA DEPLOYERS: Obtener workflows en estado 'approved'
-          q = query(workflowsRef, where("metadata.status", "==", "approved"));
-          userRole = "deployer";
-        } else {
-          // PARA DISEÑADORES Y REVISORES: Lógica existente
-          q = query(
-            workflowsRef,
-            or(
-              where("metadata.designerIds", "array-contains", user.uid),
-              where("metadata.assignedReviewerId", "==", user.uid),
-            ),
-          );
-        }
-
-        const querySnapshot = await getDocs(q);
-        const workflowsList = querySnapshot.docs.map((doc) => {
-          const data = doc.data();
-
+        // Deployers: workflows aprobados. Diseñadores y revisores: donde participan.
+        const found = await listMyWorkflows(
+          isDeployer ? "deployer" : "designer",
+        );
+        const workflowsList = found.map((workflow) => ({
+          ...workflow,
           // Determinar el rol del usuario para este workflow
-          let workflowUserRole = userRole;
-          if (!isDeployer) {
-            workflowUserRole = data.metadata.designerIds?.includes(user.uid)
+          userRole: isDeployer
+            ? "deployer"
+            : workflow.metadata.designerIds?.includes(user.uid)
               ? "designer"
-              : "reviewer";
-          }
-
-          return {
-            id: doc.id,
-            ...data,
-            userRole: workflowUserRole,
-          };
-        });
+              : "reviewer",
+        }));
 
         console.log(
           `Found ${workflowsList.length} workflows for role: ${isDeployer ? "deployer" : "designer/reviewer"}`,
@@ -124,15 +97,14 @@ export default function OpenWorkflowModal({
     return null;
   }
 
-  const sortedWorkflows = [...workflows].sort((a, b) => {
-    const dateA = a.metadata?.lastModifiedAt?.toDate
-      ? a.metadata.lastModifiedAt.toDate()
-      : 0;
-    const dateB = b.metadata?.lastModifiedAt?.toDate
-      ? b.metadata.lastModifiedAt.toDate()
-      : 0;
-    return dateB - dateA;
-  });
+  // Las fechas llegan como cadenas ISO desde Postgres
+  const toDate = (iso) => (iso ? new Date(iso) : null);
+
+  const sortedWorkflows = [...workflows].sort(
+    (a, b) =>
+      (toDate(b.metadata?.lastModifiedAt) || 0) -
+      (toDate(a.metadata?.lastModifiedAt) || 0),
+  );
 
   return (
     <div className="modal-backdrop">
@@ -170,11 +142,8 @@ export default function OpenWorkflowModal({
                     <RoleIndicator role={workflow.userRole} />
                   </span>
                   <span className="workflow-date">
-                    {workflow.metadata?.lastModifiedAt?.toDate
-                      ? workflow.metadata.lastModifiedAt
-                          .toDate()
-                          .toLocaleString()
-                      : "N/A"}
+                    {toDate(workflow.metadata?.lastModifiedAt)?.toLocaleString() ??
+                      "N/A"}
                   </span>
                 </div>
               ))

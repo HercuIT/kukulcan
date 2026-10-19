@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "./backend/firebaseConfig";
+import { getMyRoles, onSessionChange } from "./backend/authApi";
 
 // Tus componentes de página reales
 import Home from "./pages/Home/Home.js";
@@ -15,18 +13,11 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onSessionChange(async (currentUser) => {
       try {
         if (currentUser) {
           setUser(currentUser);
-          const docRef = doc(db, "roles", currentUser.uid);
-          const docSnap = await getDoc(docRef);
-
-          if (docSnap.exists()) {
-            setUserRoles(docSnap.data());
-          } else {
-            setUserRoles({});
-          }
+          setUserRoles(await getMyRoles(currentUser.uid));
         } else {
           setUser(null);
           setUserRoles(null);

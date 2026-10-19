@@ -1,0 +1,85 @@
+{
+  "id": "W-9",
+  "workflowName": "Mezcla Ácida <1>",
+  "version": "2",
+  "program": "P1",
+  "nodes": [
+    {
+      "id": "b",
+      "type": "start",
+      "x": 10,
+      "y": 0
+    },
+    {
+      "id": "n1",
+      "type": "Procedure Phase",
+      "name": "Mix & Heat",
+      "x": 20,
+      "y": 50,
+      "equipmentId": "EQ\"1",
+      "materialId": "M1",
+      "parameters": {
+        "process": [
+          {
+            "name": "Speed",
+            "value": "10",
+            "units": "rpm",
+            "type": "REAL",
+            "defaultValue": "1"
+          },
+          {
+            "name": "Temp",
+            "value": "",
+            "units": "rpm",
+            "type": "REAL",
+            "defaultValue": "1"
+          }
+        ],
+        "other": [
+          {
+            "name": "",
+            "value": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "n2",
+      "type": "Operation",
+      "posX": 5,
+      "posY": 70,
+      "operation": "Op'1",
+      "parameters": {
+        "a": [
+          {
+            "name": "Speed",
+            "value": "3",
+            "units": "rpm",
+            "type": "REAL",
+            "defaultValue": "1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "e",
+      "type": "End",
+      "x": 10,
+      "y": 100
+    }
+  ],
+  "connections": [
+    {
+      "from": "b",
+      "to": "n1"
+    },
+    {
+      "from": "n1",
+      "to": "n2"
+    },
+    {
+      "from": "n2",
+      "to": "e"
+    }
+  ]
+}

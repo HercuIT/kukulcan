@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../styles/HomeStyle/HomeStyle.css";
-import { signOut } from "firebase/auth";
-import { auth } from "../../backend/firebaseConfig";
+import { signOut } from "../../backend/authApi";
 import Logo from "../../assets/Logofinal.png";
 
 const menuOptions = {
@@ -81,7 +80,7 @@ export default function Home({ user, userRoles }) {
   const [ignitionOnline, setIgnitionOnline] = useState(true);
 
   const handleLogout = () => {
-    signOut(auth).catch((error) =>
+    signOut().catch((error) =>
       console.error("Error al cerrar sesión:", error),
     );
   };

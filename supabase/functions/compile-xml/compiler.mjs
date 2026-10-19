@@ -1,0 +1,341 @@
+/* ===========================
+ * compile-xml: validación y generación del XML
+ * Portado sin cambios desde la Cloud Function compileXML (functions/index.js).
+ * =========================== */
+
+/* --- Validador --- */
+export function validateWorkflow(wf) {
+  const errors = [];
+  if (!wf || !Array.isArray(wf.nodes) || !Array.isArray(wf.connections)) {
+    return { ok: false, errors: ['Se esperan "nodes[]" y "connections[]"'] };
+  }
+  const nodesById = new Map(wf.nodes.map((n) => [n.id, n]));
+  const inDeg = {},
+    outDeg = {};
+  wf.nodes.forEach((n) => {
+    inDeg[n.id] = 0;
+    outDeg[n.id] = 0;
+  });
+
+  const begins = wf.nodes.filter((n) =>
+    /^(begin|start)$/i.test(String(n.type)),
+  );
+  const ends = wf.nodes.filter((n) => /^end$/i.test(String(n.type)));
+
+  if (begins.length !== 1)
+    errors.push(
+      `Debe existir exactamente 1 nodo Begin/Start (hay ${begins.length}).`,
+    );
+  if (ends.length !== 1)
+    errors.push(`Debe existir exactamente 1 nodo End (hay ${ends.length}).`);
+
+  for (const c of wf.connections) {
+    if (!nodesById.has(c.from))
+      errors.push(`Connection.from '${c.from}' no existe.`);
+    if (!nodesById.has(c.to)) errors.push(`Connection.to '${c.to}' no existe.`);
+    if (nodesById.has(c.from) && nodesById.has(c.to)) {
+      outDeg[c.from] = (outDeg[c.from] || 0) + 1;
+      inDeg[c.to] = (inDeg[c.to] || 0) + 1;
+    }
+  }
+
+  if (begins[0]) {
+    const b = begins[0].id;
+    if (inDeg[b] > 0) errors.push(`Begin (${b}) no debe tener entradas.`);
+    if (outDeg[b] === 0)
+      errors.push(`Begin (${b}) debe tener al menos una salida.`);
+  }
+  if (ends[0]) {
+    const e = ends[0].id;
+    if (outDeg[e] > 0) errors.push(`End (${e}) no debe tener salidas.`);
+    if (inDeg[e] === 0)
+      errors.push(`End (${e}) debe tener al menos una entrada.`);
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+/* --- Helpers XML --- */
+const TYPE_TO_XML = {
+  begin: "BeginElement",
+  start: "BeginElement",
+  end: "EndElement",
+};
+const mapTypeToXml = (t) =>
+  TYPE_TO_XML[String(t || "").toLowerCase()] || t || "NodeDefinitionName";
+const esc = (s = "") =>
+  String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+
+/* --- Generación del XML --- */
+export function buildXml(wf) {
+  // --- Nodos (con Parameters por nodo) ---
+  const nodesXml = (wf.nodes || [])
+    .map((n) => {
+      const typeXml = mapTypeToXml(n.type);
+      const name = n.name || n.type || "Node";
+
+      // Begin/End self-closing
+      if (typeXml === "BeginElement") {
+        return `    <Node id="${esc(n.id)}" type="BeginElement" name="Begin"/>`;
+      }
+      if (typeXml === "EndElement") {
+        return `    <Node id="${esc(n.id)}" type="EndElement" name="End"/>`;
+      }
+
+      // Aplanar parámetros
+      const flatParams = (() => {
+        const p = n.parameters;
+        if (!p || typeof p !== "object") return [];
+        const out = [];
+        for (const group of Object.values(p)) {
+          if (Array.isArray(group)) {
+            for (const x of group) {
+              if (x && (x.name || x.value || x.units)) {
+                out.push({
+                  name: x.name ?? "",
+                  value: x.value ?? "",
+                  unit: x.units ?? x.unit ?? "",
+                  dataType: x.type ?? "",
+                  defaultValue: x.defaultValue ?? "",
+                });
+              }
+            }
+          }
+        }
+        return out;
+      })();
+
+      const paramsXml = flatParams.length
+        ? `      <Parameters>
+${flatParams
+  .map((p) => {
+    const dt = p.dataType ? ` dataType="${esc(p.dataType)}"` : "";
+    const dv = p.defaultValue ? ` defaultValue="${esc(p.defaultValue)}"` : "";
+    return `        <Parameter name="${esc(p.name)}" value="${esc(p.value)}" unit="${esc(p.unit)}"${dt}${dv}/>`;
+  })
+  .join("\n")}
+      </Parameters>
+`
+        : "";
+
+      // Asignaciones opcionales
+      let assigns = "";
+      if (n.equipmentId)
+        assigns += `      <Equipment assignedId="${esc(n.equipmentId)}"/>\n`;
+      if (n.materialId)
+        assigns += `      <Material assignedId="${esc(n.materialId)}"/>\n`;
+      if (n.personnelId)
+        assigns += `      <Personnel assignedId="${esc(n.personnelId)}"/>\n`;
+      if (n.workInstructionId)
+        assigns += `      <WorkInstruction assignedId="${esc(n.workInstructionId)}"/>\n`;
+      if (n.elementName)
+        assigns += `      <Element name="${esc(n.elementName)}"/>\n`;
+      if (n.procedurePhase)
+        assigns += `      <ProcedurePhase name="${esc(n.procedurePhase)}"/>\n`;
+      if (n.operation)
+        assigns += `      <Operation name="${esc(n.operation)}"/>\n`;
+
+      if (!paramsXml && !assigns) {
+        return `    <Node id="${esc(n.id)}" type="${esc(typeXml)}" name="${esc(name)}"/>`;
+      }
+      return `    <Node id="${esc(n.id)}" type="${esc(typeXml)}" name="${esc(name)}">
+${paramsXml}${assigns}    </Node>`;
+    })
+    .join("\n");
+
+  // --- Conexiones ---
+  const connsXml = (wf.connections || [])
+    .map((c) => `    <Connection from="${esc(c.from)}" to="${esc(c.to)}"/>`)
+    .join("\n");
+
+  // --- Tags (a partir de TODOS los parámetros de TODOS los nodos) ---
+  let allParams = [];
+  try {
+    const seen = new Set();
+    (wf.nodes || []).forEach((node) => {
+      const p = node.parameters;
+      if (!p || typeof p !== "object") return;
+      for (const group of Object.values(p)) {
+        if (Array.isArray(group)) {
+          for (const par of group) {
+            if (par && par.name && !seen.has(par.name)) {
+              seen.add(par.name);
+              allParams.push(par);
+            }
+          }
+        }
+      }
+    });
+  } catch (e) {
+    console.error("Error recopilando parámetros:", e);
+    allParams = [];
+  }
+
+  const tagsXml = allParams.length
+    ? allParams
+        .map(
+          (p) =>
+            `        <Tag Name="${esc(p.name)}" TagType="Base" DataType="REAL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>`,
+        )
+        .join("\n")
+    : "";
+
+  // --- Workflow embebido (jerarquía PLC) ---
+  const workflowXml = `
+  <Workflow id="${esc(wf.id || "W-001")}" name="${esc(wf.workflowName || wf.name || "Workflow")}" version="${esc(wf.version || "1.0")}">
+    <Nodes>
+${nodesXml}
+    </Nodes>
+    <Connections>
+${connsXml}
+    </Connections>
+  </Workflow>`;
+
+  // --- STContent dinámico ---
+  const tagNames = allParams.map((p) => p.name).filter(Boolean);
+  const toIdent = (name = "") => String(name).trim().replace(/[^\w]/g, "_");
+
+  let stContent = "";
+  if (tagNames.length >= 2) {
+    stContent = `          <STContent>
+            ${toIdent(tagNames[0])} > ${toIdent(tagNames[1])}
+          </STContent>
+`;
+  } else if (tagNames.length === 1) {
+    stContent = `          <STContent>
+            ${toIdent(tagNames[0])} > 0
+          </STContent>
+`;
+  }
+
+  // --- SFC: generación de Step, Transition y DirectedLink con ID, X, Y ---
+  // Ordenamos los nodos por Y para asignar IDs internos secuenciales (1,2,3,...)
+  const orderedForSfc = [...(wf.nodes || [])].sort(
+    (a, b) => (a.y ?? 0) - (b.y ?? 0),
+  );
+
+  const nodeIdToStepId = new Map();
+  const stepLines = [];
+
+  orderedForSfc.forEach((n, idx) => {
+    const stepId = String(idx + 1); // ID interna simulada
+    nodeIdToStepId.set(n.id, stepId);
+
+    const x = n.x ?? n.posX ?? 0;
+    const y = n.y ?? n.posY ?? 0;
+
+    stepLines.push(
+      `        <Step ID="${esc(stepId)}" X="${esc(x)}" Y="${esc(y)}" />`,
+    );
+  });
+
+  let nextTransitionId = orderedForSfc.length + 1;
+  const transitionLines = [];
+  const directedLines = [];
+
+  (wf.connections || []).forEach((c, idx) => {
+    const fromStepId = nodeIdToStepId.get(c.from);
+    const toStepId = nodeIdToStepId.get(c.to);
+
+    const fromNode = orderedForSfc.find((n) => n.id === c.from);
+    const toNode = orderedForSfc.find((n) => n.id === c.to);
+
+    const fromX = fromNode?.x ?? fromNode?.posX ?? 0;
+    const fromY = fromNode?.y ?? fromNode?.posY ?? 0;
+    const toX = toNode?.x ?? toNode?.posX ?? fromX;
+    const toY = toNode?.y ?? toNode?.posY ?? fromY;
+
+    const midX = (Number(fromX) + Number(toX)) / 2;
+    const midY = (Number(fromY) + Number(toY)) / 2;
+
+    const trId = String(nextTransitionId++);
+
+    // Solo ponemos STContent en la primera transición, si existe
+    const maybeSt = idx === 0 && stContent ? `\n${stContent}        ` : "";
+
+    transitionLines.push(
+      `        <Transition ID="${esc(trId)}" X="${esc(midX)}" Y="${esc(midY)}">${maybeSt}</Transition>`,
+    );
+
+    if (fromStepId && trId) {
+      directedLines.push(
+        `        <DirectedLink Source="${esc(fromStepId)}" Target="${esc(trId)}" />`,
+      );
+    }
+    if (trId && toStepId) {
+      directedLines.push(
+        `        <DirectedLink Source="${esc(trId)}" Target="${esc(toStepId)}" />`,
+      );
+    }
+  });
+
+  const stepsXml = stepLines.join("\n");
+  const transitionsXml = transitionLines.join("\n");
+  const directedLinksXml = directedLines.join("\n");
+
+  const sfcContent = `
+      <SFCContent>
+${workflowXml}
+${stepsXml ? stepsXml + "\n" : ""}${transitionsXml ? transitionsXml + "\n" : ""}${directedLinksXml ? directedLinksXml + "\n" : ""}      </SFCContent>
+`;
+
+  // --- XML final ---
+  const programName = wf.program || wf.programName || "MainProgram";
+  const routineName = wf.routine || wf.routineName || "SFC_Control_Routine";
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Controller Use="Context">
+  <DataTypes Use="Context" />
+  <Programs Use="Context">
+    <Program Use="Context" Name="${esc(programName)}">
+      <Tags Use="Context">
+${tagsXml}
+      </Tags>
+      <SFCContent Routine="${esc(routineName)}">
+${sfcContent}
+      </SFCContent>
+    </Program>
+  </Programs>
+</Controller>`;
+}
+
+/* --- Nombre del archivo descargable --- */
+export function xmlFileName(wf) {
+  const rawName = wf.workflowName || wf.name || wf.id || "workflow";
+  let safeName = String(rawName)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9_.-]+/g, "_");
+
+  if (!safeName.toLowerCase().endsWith(".xml")) safeName += ".xml";
+  return safeName;
+}
+
+/**
+ * Compila el cuerpo de la petición. Devuelve el status HTTP y el cuerpo,
+ * igual que el handler compileXML de Firebase.
+ */
+export function compileRequest(body) {
+  let wf = body;
+  if (typeof wf === "string") {
+    try {
+      wf = JSON.parse(wf);
+    } catch {
+      return {
+        status: 400,
+        json: { message: "Body debe ser JSON válido", errors: [] },
+      };
+    }
+  }
+
+  const { ok, errors } = validateWorkflow(wf);
+  if (!ok)
+    return { status: 400, json: { message: "Fallo de compilación", errors } };
+
+  return { status: 200, xml: buildXml(wf), filename: xmlFileName(wf) };
+}

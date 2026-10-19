@@ -3,16 +3,9 @@ import React from "react";
 export default function VersionHistoryModal({ open, onClose, history }) {
   if (!open) return null;
 
-  // Helper to format timestamp
-  const formatDate = (timestamp) => {
-    if (!timestamp) return "N/A";
-    // Handle Firestore Timestamp
-    if (timestamp.seconds) {
-      return new Date(timestamp.seconds * 1000).toLocaleString();
-    }
-    // Handle JS Date or string
-    return new Date(timestamp).toLocaleString();
-  };
+  // Helper to format the ISO timestamp from Postgres
+  const formatDate = (timestamp) =>
+    timestamp ? new Date(timestamp).toLocaleString() : "N/A";
 
   return (
     <div className="create-node-modal-backdrop">
@@ -89,7 +82,7 @@ export default function VersionHistoryModal({ open, onClose, history }) {
                         color: "#555",
                       }}
                     >
-                      {formatDate(entry.timestamp)}
+                      {formatDate(entry.created_at)}
                     </td>
                   </tr>
                 ))}

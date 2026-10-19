@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
-import { httpsCallable } from "firebase/functions";
-import { auth, functions } from "../../backend/firebaseConfig";
+import {
+  addDesigner,
+  approveWorkflow,
+  assignReviewer,
+  removeDesigner,
+  requestChanges,
+} from "../../backend/workflowsApi";
 import "../../styles/ModalStyle/ShareWorkflowModal.css";
 
 const getUsernameFromEmail = (email) => {
@@ -15,7 +20,6 @@ export default function ShareWorkflowModal({
   open,
   onClose,
   workflow,
-  appId,
   allUsers = [],
   potentialReviewers = [],
   user,
@@ -55,43 +59,30 @@ export default function ShareWorkflowModal({
 
   const userMap = new Map(allUsers.map((user) => [user.uid, user.email]));
 
-  const handleCloudFunctionCall = async (
-    functionName,
-    data,
-    successMessage,
-  ) => {
+  const isSignedIn = Boolean(user);
+
+  // Ejecuta una RPC de workflowsApi y muestra su error, si lo hay.
+  const handleRpcCall = async (action, successMessage) => {
     setIsLoading(true);
     setError("");
 
-    console.log("Debug Cloud Function Call:");
-    console.log("- currentUser:", auth.currentUser);
-    console.log("- functionName:", functionName);
-    console.log("- data:", data);
-
-    if (!auth.currentUser) {
+    if (!isSignedIn) {
       setError("You must be logged in to perform this action");
       setIsLoading(false);
       return false;
     }
 
     try {
-      console.log("Calling function:", functionName);
-
-      const callableFunction = httpsCallable(functions, functionName);
-      const result = await callableFunction(data);
-
-      console.log("Function executed successfully:", result);
+      await action();
 
       if (successMessage) {
         // setSuccessMessage(successMessage);
       }
       return true;
     } catch (err) {
-      console.error(`Error in ${functionName}:`, err);
-      console.error("Error details:", err.details);
+      console.error("Error in workflow action:", err);
 
-      const errorMessage =
-        err.message || err.details || "An unexpected error occurred";
+      const errorMessage = err.message || "An unexpected error occurred";
       setError(errorMessage);
       return false;
     } finally {
@@ -105,13 +96,8 @@ export default function ShareWorkflowModal({
       return;
     }
 
-    const success = await handleCloudFunctionCall(
-      "addDesignerToWorkflow",
-      {
-        appId,
-        workflowId: workflow.id,
-        newUserEmail: newUserEmail.trim(),
-      },
+    const success = await handleRpcCall(
+      () => addDesigner(workflow.id, newUserEmail.trim()),
       "Designer added successfully!",
     );
 
@@ -126,25 +112,15 @@ export default function ShareWorkflowModal({
       return;
     }
 
-    await handleCloudFunctionCall(
-      "removeDesignerFromWorkflow",
-      {
-        appId,
-        workflowId: workflow.id,
-        designerIdToRemove,
-      },
+    await handleRpcCall(
+      () => removeDesigner(workflow.id, designerIdToRemove),
       "Designer removed successfully!",
     );
   };
 
   const handleAssignReviewer = async (reviewerId) => {
-    const success = await handleCloudFunctionCall(
-      "assignReviewerToWorkflow",
-      {
-        appId,
-        workflowId: workflow.id,
-        reviewerId,
-      },
+    const success = await handleRpcCall(
+      () => assignReviewer(workflow.id, reviewerId),
       reviewerId
         ? "Reviewer assigned successfully!"
         : "Reviewer unassigned successfully!",
@@ -156,12 +132,8 @@ export default function ShareWorkflowModal({
   };
 
   const handleApprove = async () => {
-    const success = await handleCloudFunctionCall(
-      "approveWorkflow",
-      {
-        appId,
-        workflowId: workflow.id,
-      },
+    const success = await handleRpcCall(
+      () => approveWorkflow(workflow.id),
       "Workflow approved successfully!",
     );
 
@@ -171,12 +143,8 @@ export default function ShareWorkflowModal({
   };
 
   const handleRequestChanges = async () => {
-    const success = await handleCloudFunctionCall(
-      "requestChanges",
-      {
-        appId,
-        workflowId: workflow.id,
-      },
+    const success = await handleRpcCall(
+      () => requestChanges(workflow.id),
       "Changes requested successfully!",
     );
 
@@ -225,7 +193,7 @@ export default function ShareWorkflowModal({
           )}
         </div>
 
-        {!auth.currentUser && (
+        {!isSignedIn && (
           <div className="error-message">
             ⚠️ You must be logged in to use this function
           </div>
@@ -253,7 +221,7 @@ export default function ShareWorkflowModal({
                       <button
                         className="remove-user-btn"
                         onClick={() => handleRemoveDesigner(id)}
-                        disabled={isLoading || !auth.currentUser}
+                        disabled={isLoading || !isSignedIn}
                         title="Remove designer"
                       >
                         ×
@@ -270,13 +238,13 @@ export default function ShareWorkflowModal({
                   value={newUserEmail}
                   onChange={(e) => setNewUserEmail(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  disabled={isLoading || !auth.currentUser}
+                  disabled={isLoading || !isSignedIn}
                   className="email-input"
                 />
                 <button
                   onClick={handleAddDesigner}
                   disabled={
-                    isLoading || !newUserEmail.trim() || !auth.currentUser
+                    isLoading || !newUserEmail.trim() || !isSignedIn
                   }
                   className="add-button"
                 >
@@ -294,7 +262,7 @@ export default function ShareWorkflowModal({
               <select
                 value={selectedReviewer}
                 onChange={(e) => handleAssignReviewer(e.target.value)}
-                disabled={isLoading || !auth.currentUser}
+                disabled={isLoading || !isSignedIn}
                 className="reviewer-select"
               >
                 <option value="">-- Unassigned --</option>

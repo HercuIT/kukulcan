@@ -10,28 +10,21 @@ import CheckoutModal from "./CheckoutModal";
 import VersionHistoryModal from "./VersionHistoryModal";
 import { EquipmentNode } from "./equipmentData";
 import { MaterialsNode } from "./MaterialData";
+import { onSessionChange, signOut } from "../../backend/authApi";
 import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  getDocs,
-  doc,
-  getDoc,
-  updateDoc,
-  onSnapshot,
-  query,
-  where,
-  arrayUnion,
-  Timestamp,
-} from "firebase/firestore";
-import { getFunctions, httpsCallable } from "firebase/functions";
-import { auth, db } from "../../backend/firebaseConfig";
-import { signOut } from "firebase/auth";
+  approveWorkflow,
+  checkoutWorkflow,
+  compileWorkflow,
+  createWorkflow,
+  getWorkflow,
+  listMyWorkflows,
+  listUsers,
+  saveWorkflow,
+  subscribeToWorkflow,
+} from "../../backend/workflowsApi";
 import ModalMessage from "../../components/ModalMessage";
 import Selecto from "react-selecto";
 import Logo from "../../assets/Logofinal.png";
-
-const COMPILE_URL = "https://compilexml-mg5wgcxqda-uc.a.run.app";
 
 // === Helpers para normalizar nodos y generar IDs cortos ===
 const NODE_DEFINITION_NAMES = new Set([
@@ -2333,8 +2326,6 @@ export default function App({ user, userRoles }) {
   const [toolbarLeftPx, setToolbarLeftPx] = useState(null);
   const [toolbarTopPx, setToolbarTopPx] = useState(null);
 
-  const appId = "manufacturing-suite-v1";
-
   const navigate = useNavigate();
 
   const isDesigner = userRoles?.designer === true;
@@ -2353,10 +2344,10 @@ export default function App({ user, userRoles }) {
     !isDesigner || isWorkflowReadOnly || isSessionReadOnly;
 
   useEffect(() => {
-    // Detector de expiración de token Firebase
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    // Detector de expiración de la sesión de Supabase
+    const unsubscribe = onSessionChange((user) => {
       if (!user) {
-        console.log("Token de Firebase expirado o sesión cerrada");
+        console.log("Sesión de Supabase expirada o cerrada");
         handleLogoutRequest();
       }
     });
@@ -2369,7 +2360,7 @@ export default function App({ user, userRoles }) {
   }, [isDirty]);
 
   const performLogout = () => {
-    signOut(auth).then(() => navigate("/login"));
+    signOut().then(() => navigate("/login"));
   };
 
   const handleLogoutRequest = () => {
@@ -2458,11 +2449,9 @@ export default function App({ user, userRoles }) {
       return;
     }
 
-    const docRef = doc(db, "artifacts", appId, "workflows", currentWorkflowId);
-
-    const unsubscribe = onSnapshot(docRef, (doc) => {
-      if (doc.exists()) {
-        setCurrentWorkflow({ id: doc.id, ...doc.data() });
+    const unsubscribe = subscribeToWorkflow(currentWorkflowId, (workflow) => {
+      if (workflow) {
+        setCurrentWorkflow(workflow);
       } else {
         setCurrentWorkflow(null);
         setCurrentWorkflowId(null);
@@ -2476,14 +2465,7 @@ export default function App({ user, userRoles }) {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const rolesCollection = collection(db, "roles");
-        const querySnapshot = await getDocs(rolesCollection);
-
-        const usersList = querySnapshot.docs.map((doc) => ({
-          uid: doc.id,
-          email: doc.data().email || `Usuario ${doc.id.substring(0, 5)}`,
-          isReviewer: doc.data().reviewer === true,
-        }));
+        const usersList = await listUsers();
 
         setAllUsers(usersList);
 
@@ -2508,15 +2490,9 @@ export default function App({ user, userRoles }) {
     }
 
     try {
-      const functions = getFunctions();
-      const approveWorkflowFn = httpsCallable(functions, "approveWorkflow");
+      await approveWorkflow(currentWorkflow.id);
 
-      const result = await approveWorkflowFn({
-        appId: "manufacturing-suite-v1",
-        workflowId: currentWorkflow.id,
-      });
-
-      alert(result.data.message);
+      alert("Workflow aprobado.");
     } catch (error) {
       if (error.code === "unauthenticated") {
         handleLogoutRequest();
@@ -2554,25 +2530,7 @@ export default function App({ user, userRoles }) {
         );
       }
 
-      const resp = await fetch(COMPILE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(workflowToCompile),
-      });
-
-      if (!resp.ok) {
-        let data = {};
-        try {
-          data = await resp.json();
-        } catch {
-          data = { message: "Fallo de compilación", errors: [] };
-        }
-        const errs = Array.isArray(data.errors) ? data.errors : [];
-        const list = errs.length ? "\n- " + errs.join("\n- ") : "";
-        throw new Error(`${data.message || "Fallo de compilación"}${list}`);
-      }
-
-      return await resp.blob();
+      return await compileWorkflow(workflowToCompile);
     } catch (err) {
       throw new Error(
         "Error de compilación: no se pudo conectar con el servicio en la nube.\n" +
@@ -2586,17 +2544,12 @@ export default function App({ user, userRoles }) {
     const fetchWorkflows = async () => {
       if (!user) return;
       try {
-        const q = query(
-          collection(db, "artifacts", appId, "workflows"),
-          where("metadata.designerIds", "array-contains", user.uid),
+        const workflowsList = await listMyWorkflows("designer");
+        setSavedWorkflows(
+          workflowsList.filter((wf) =>
+            wf.metadata.designerIds.includes(user.uid),
+          ),
         );
-
-        const querySnapshot = await getDocs(q);
-        const workflowsList = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setSavedWorkflows(workflowsList);
       } catch (error) {
         console.error("Error al obtener los flujos de trabajo:", error);
       }
@@ -2605,7 +2558,7 @@ export default function App({ user, userRoles }) {
   }, [user]);
 
   const handleLogout = () => {
-    signOut(auth)
+    signOut()
       .then(() => {
         navigate("/login");
       })
@@ -2654,42 +2607,20 @@ export default function App({ user, userRoles }) {
 
     setIsSaving(true);
 
-    const workflowDocRef = doc(
-      db,
-      "artifacts",
-      appId,
-      "workflows",
-      currentWorkflowId,
-    );
-
     try {
-      const docSnap = await getDoc(workflowDocRef);
-      const currentStatus = docSnap.data()?.metadata?.status;
+      const latest = await getWorkflow(currentWorkflowId);
+      const currentStatus = latest?.metadata?.status;
       const allowedStatuses = ["draft", "changes_requested"];
 
-      if (docSnap.exists() && !allowedStatuses.includes(currentStatus)) {
+      if (latest && !allowedStatuses.includes(currentStatus)) {
         alert(
           `No se puede editar un workflow que no está en estado "draft" o "changes_requested". Estado actual: ${currentStatus}`,
         );
         return false;
       }
 
-      const cleanedCanvasNodes = canvasNodes.map((node) => {
-        const cleanedNode = {};
-        for (const key in node) {
-          if (node[key] !== undefined) {
-            cleanedNode[key] = node[key];
-          }
-        }
-        return cleanedNode;
-      });
-
-      await updateDoc(workflowDocRef, {
-        "content.nodes": cleanedCanvasNodes,
-        "metadata.lastModifiedAt": serverTimestamp(),
-        "metadata.lastModifiedBy": user.uid,
-        "metadata.version": (docSnap.data().metadata.version || 1) + 1,
-      });
+      // El trigger de la base sube la versión y sella fecha y autor
+      await saveWorkflow(currentWorkflowId, { nodes: canvasNodes });
 
       console.log("✅ Workflow actualizado");
       setIsDirty(false);
@@ -2700,10 +2631,6 @@ export default function App({ user, userRoles }) {
       if (e.code === "permission-denied") {
         alert(
           "Error de permisos: No tienes permisos para actualizar este workflow.",
-        );
-      } else if (e.message.includes("Unsupported field value: undefined")) {
-        alert(
-          "Error: Hay valores inválidos en el workflow. Por favor intenta guardar nuevamente.",
         );
       } else {
         alert("Error al actualizar: " + e.message);
@@ -2724,42 +2651,15 @@ export default function App({ user, userRoles }) {
 
     setIsSaving(true);
 
-    const cleanedCanvasNodes = canvasNodes.map((node) => {
-      const cleanedNode = {};
-      for (const key in node) {
-        if (node[key] !== undefined) {
-          cleanedNode[key] = node[key];
-        }
-      }
-      return cleanedNode;
-    });
-
-    const workflowsCollection = collection(db, "artifacts", appId, "workflows");
-
-    const newWorkflowData = {
-      name: workflowName,
-      content: {
-        nodes: cleanedCanvasNodes,
-      },
-      metadata: {
-        status: "draft",
-        version: 1,
-        createdAt: serverTimestamp(),
-        createdBy: user.uid,
-        lastModifiedAt: serverTimestamp(),
-        lastModifiedBy: user.uid,
-        designerIds: [user.uid],
-        assignedReviewerId: null,
-        approvedBy: null,
-        deployedBy: null,
-      },
-    };
-
     try {
-      const docRef = await addDoc(workflowsCollection, newWorkflowData);
-      console.log("✅ Workflow guardado con ID:", docRef.id);
+      // Se crea en draft con el usuario como creador y primer diseñador (defaults y trigger)
+      const newId = await createWorkflow({
+        name: workflowName,
+        nodes: canvasNodes,
+      });
+      console.log("✅ Workflow guardado con ID:", newId);
       setSaveModalOpen(false);
-      setCurrentWorkflowId(docRef.id);
+      setCurrentWorkflowId(newId);
       setIsDirty(false);
       return true;
     } catch (e) {
@@ -2767,10 +2667,6 @@ export default function App({ user, userRoles }) {
 
       if (e.code === "permission-denied") {
         alert("Error de permisos: No tienes permisos para guardar workflows.");
-      } else if (e.message.includes("Unsupported field value: undefined")) {
-        alert(
-          "Error: Hay valores inválidos en el workflow. Por favor intenta guardar nuevamente.",
-        );
       } else {
         alert("Error al guardar: " + e.message);
       }
@@ -2783,12 +2679,9 @@ export default function App({ user, userRoles }) {
   const handleLoadWorkflow = async (workflowId) => {
     if (!user) return;
 
-    const workflowDocRef = doc(db, "artifacts", appId, "workflows", workflowId);
-
     try {
-      const docSnap = await getDoc(workflowDocRef);
-      if (docSnap.exists()) {
-        const workflowData = docSnap.data();
+      const workflowData = await getWorkflow(workflowId);
+      if (workflowData) {
 
         setCanvasNodes(workflowData.content.nodes || []);
 
@@ -2916,24 +2809,7 @@ export default function App({ user, userRoles }) {
     }
 
     try {
-      const workflowDocRef = doc(
-        db,
-        "artifacts",
-        appId,
-        "workflows",
-        currentWorkflowId,
-      );
-
-      await updateDoc(workflowDocRef, {
-        "metadata.checkoutDescription": description,
-        "metadata.lastModifiedAt": serverTimestamp(),
-        "metadata.lastModifiedBy": user.uid,
-        "metadata.history": arrayUnion({
-          description: description,
-          userId: user.uid,
-          timestamp: Timestamp.now(),
-        }),
-      });
+      await checkoutWorkflow(currentWorkflowId, description);
 
       setIsSessionReadOnly(false);
 
@@ -2987,7 +2863,6 @@ export default function App({ user, userRoles }) {
           open={isShareModalOpen}
           onClose={() => setShareModalOpen(false)}
           workflow={currentWorkflow}
-          appId={appId}
           potentialReviewers={potentialReviewers}
           allUsers={allUsers}
           user={user}
