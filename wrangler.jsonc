@@ -1,0 +1,12 @@
+// Cloudflare Workers (static assets) config for the React app.
+// The Worker only serves the Create React App build; REACT_APP_SUPABASE_* are build variables
+// (Worker → Settings → Build → Variables and secrets), not runtime variables.
+{
+  "name": "kukulcan",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./build",
+    // React Router: unknown paths (/dashboard, /set-password) get index.html instead of a 404.
+    "not_found_handling": "single-page-application",
+  },
+}

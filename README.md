@@ -152,11 +152,22 @@ CI (`.github/workflows/code_check.yaml`) runs `npm run lint`, `npm run format-ch
 The `Dockerfile` builds the React app and serves `build/` with nginx on port 80:
 
 ```bash
-docker build -t kukulcan   --build-arg REACT_APP_SUPABASE_URL=<project URL>   --build-arg REACT_APP_SUPABASE_PUBLISHABLE_KEY=<publishable key> .
+docker build -t kukulcan \
+  --build-arg REACT_APP_SUPABASE_URL=<project URL> \
+  --build-arg REACT_APP_SUPABASE_PUBLISHABLE_KEY=<publishable key> .
 docker run -p 8080:80 kukulcan
 ```
 
 Create React App compiles `REACT_APP_SUPABASE_*` into the bundle, so pass them as build args (or set them in your hosting provider's build settings). Without them the app stops at load with an error naming the missing variables. CI doesn't need them: the Jest tests mock the Supabase client. The database and Edge Function deploy separately with the Supabase CLI (see above).
+
+### Cloudflare Workers
+
+The app is also deployed as a static-assets Worker, `kukulcan` (production: `https://kukulcan.ramirezgjennyg.workers.dev`; previews: `https://*-kukulcan.ramirezgjennyg.workers.dev`). `wrangler.jsonc` serves `build/` and falls back to `index.html` for React Router paths.
+
+- Build command `npm run build`, deploy command `npx wrangler deploy` (Workers Builds, connected to this repo).
+- `REACT_APP_SUPABASE_URL`, `REACT_APP_SUPABASE_PUBLISHABLE_KEY` and `NODE_VERSION=22` go in **Settings → Build → Variables and secrets**. A static-assets Worker can't have runtime variables, and the build is the only place these are read.
+- In Supabase **Authentication → URL Configuration**, set Site URL to the production URL and add `https://kukulcan.ramirezgjennyg.workers.dev/set-password` (plus `https://*-kukulcan.ramirezgjennyg.workers.dev/set-password` to test password emails on previews).
+- The Express server isn't deployed here: it runs on each user's machine (`127.0.0.1:3001`).
 
 ## Project layout
 
