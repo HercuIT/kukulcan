@@ -37,13 +37,13 @@ draft ──submit_for_review / assign_reviewer──▶ pending_review ──ap
   └──────── (edit) ◀── changes_requested ◀──request_changes──┘
 ```
 
-Clients can only edit a workflow's `name`, `nodes` and `checkout_description`, and only while they are one of its designers and it is in `draft` or `changes_requested`. Every other change goes through a `security definer` RPC that rechecks the rules: `submit_for_review`, `assign_reviewer`, `approve_workflow`, `request_changes`, `add_designer`, `remove_designer` and `checkout_workflow`. Only the assigned reviewer can approve or request changes. Errors use fixed codes (`28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong status), which `mappers.js` turns into the app's codes.
+Clients can only edit a workflow's `name` and `nodes`, and only while they are one of its designers and it is in `draft` or `changes_requested`. Every other change goes through a `security definer` RPC that rechecks the rules: `submit_for_review`, `assign_reviewer`, `approve_workflow`, `request_changes`, `add_designer`, `remove_designer` and `checkout_workflow`. Only the assigned reviewer can approve or request changes, and only while they still have the `reviewer` role. Choosing "-- Unassigned --" clears the reviewer without changing the status. Errors use fixed codes (`28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong status), which `mappers.js` turns into the app's codes.
 
 ## Getting started
 
 ### Prerequisites
 
-- Node.js 20 (the version CI uses; Docker uses 18)
+- Node.js 22 or later (CI and the Docker build use 22; `@supabase/supabase-js` requires it)
 - npm
 - A Supabase project with `supabase/migrations/` applied, and the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) if you change the database or the Edge Function
 
@@ -152,11 +152,11 @@ CI (`.github/workflows/code_check.yaml`) runs `npm run lint`, `npm run format-ch
 The `Dockerfile` builds the React app and serves `build/` with nginx on port 80:
 
 ```bash
-docker build -t kukulcan .
+docker build -t kukulcan   --build-arg REACT_APP_SUPABASE_URL=<project URL>   --build-arg REACT_APP_SUPABASE_PUBLISHABLE_KEY=<publishable key> .
 docker run -p 8080:80 kukulcan
 ```
 
-The image reads `REACT_APP_SUPABASE_*` at build time, so set them in the build environment. The database and Edge Function deploy separately with the Supabase CLI (see above).
+Create React App compiles `REACT_APP_SUPABASE_*` into the bundle, so pass them as build args (or set them in your hosting provider's build settings). Without them the app stops at load with an error naming the missing variables. CI doesn't need them: the Jest tests mock the Supabase client. The database and Edge Function deploy separately with the Supabase CLI (see above).
 
 ## Project layout
 

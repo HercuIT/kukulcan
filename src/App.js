@@ -15,21 +15,29 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Cada cambio de sesión invalida a los anteriores: si un getMyRoles lento termina después de
+    // un cambio de cuenta, su resultado se descarta en vez de mezclar usuario y roles.
+    let latestChange = 0;
     const unsubscribe = onSessionChange(async (currentUser) => {
+      const change = ++latestChange;
+      const isLatest = () => change === latestChange;
       try {
         if (currentUser) {
+          const roles = await getMyRoles(currentUser.uid);
+          if (!isLatest()) return;
           setUser(currentUser);
-          setUserRoles(await getMyRoles(currentUser.uid));
+          setUserRoles(roles);
         } else {
           setUser(null);
           setUserRoles(null);
         }
       } catch (error) {
+        if (!isLatest()) return;
         console.error("Error al obtener datos del usuario:", error);
         setUser(null);
         setUserRoles(null);
       } finally {
-        setLoading(false);
+        if (isLatest()) setLoading(false);
       }
     });
 

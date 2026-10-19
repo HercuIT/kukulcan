@@ -167,6 +167,29 @@ describe("App", () => {
       expect(screen.queryByTestId("set-password")).not.toBeInTheDocument();
     });
 
+    test("a slow role lookup for a previous account doesn't overwrite the new one", async () => {
+      let resolveFirst;
+      getMyRoles
+        .mockImplementationOnce(
+          () => new Promise((resolve) => (resolveFirst = resolve)),
+        )
+        .mockResolvedValueOnce({ deployer: true });
+
+      window.history.pushState({}, "", "/");
+      render(<App />);
+      await act(async () => {
+        authCallback({ uid: "user-a", email: "a@example.com" });
+        await authCallback({ uid: "user-b", email: "b@example.com" });
+      });
+      await act(async () => {
+        resolveFirst({ designer: true });
+      });
+
+      expect(screen.getByTestId("home")).toHaveTextContent(
+        'Home user-b {"deployer":true}',
+      );
+    });
+
     test("unsubscribes from auth changes on unmount", async () => {
       const { unmount } = await renderAt("/", null);
 

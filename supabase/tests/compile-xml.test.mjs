@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
   compileRequest,
+  LIMITS,
+  readTextLimited,
   validateWorkflow,
   xmlFileName,
 } from "../functions/compile-xml/compiler.mjs";
@@ -131,5 +133,107 @@ describe("edge", () => {
     const result = compileRequest({ nodes, connections });
     assert.equal(result.status, 200);
     assert.equal((result.xml.match(/<Tag /g) || []).length, 2000);
+  });
+});
+
+describe("review fixes", () => {
+  const graph = (middle) => ({
+    nodes: [
+      { id: "s", type: "start", y: 0 },
+      middle,
+      { id: "e", type: "end", y: 99 },
+    ],
+    connections: [
+      { from: "s", to: middle.id },
+      { from: middle.id, to: "e" },
+    ],
+  });
+
+  test("positive: flat parameters from CreateNodeModal compile into <Parameters> and tags", () => {
+    const { status, xml } = compileRequest(
+      graph({
+        id: "n1",
+        type: "Procedure Phase",
+        y: 1,
+        parameters: [
+          { name: "Speed", dataType: "REAL", defaultValue: "12.5" },
+          { name: "Count", dataType: "INT", defaultValue: "3" },
+        ],
+      }),
+    );
+    assert.equal(status, 200);
+    assert.match(
+      xml,
+      /<Parameter name="Speed" value="12.5" unit="" dataType="REAL" defaultValue="12.5"\/>/,
+    );
+    assert.match(xml, /<Tag Name="Count" /);
+  });
+
+  test("negative: malformed nodes and connections give 400, not a crash", () => {
+    for (const body of [
+      { nodes: [null], connections: [] },
+      { nodes: [42, "x"], connections: [] },
+      { nodes: [{ id: "s", type: "start" }], connections: [null] },
+      { nodes: [[]], connections: [] },
+    ]) {
+      const result = compileRequest(body);
+      assert.equal(result.status, 400, JSON.stringify(body));
+      assert.ok(result.json.errors.length > 0);
+    }
+  });
+
+  test("negative: missing, empty and duplicate node ids are rejected", () => {
+    const { errors } = validateWorkflow({
+      nodes: [
+        { id: "a", type: "start" },
+        { id: "a", type: "end" },
+        { type: "x" },
+        { id: "  ", type: "y" },
+      ],
+      connections: [],
+    });
+    assert.deepEqual(errors, [
+      "El id de nodo 'a' está repetido.",
+      "El nodo #3 no tiene id.",
+      "El nodo #4 no tiene id.",
+    ]);
+  });
+
+  test("edge: node and connection counts over the limit are rejected", () => {
+    const nodes = Array.from({ length: LIMITS.maxNodes + 1 }, (_, i) => ({
+      id: `n${i}`,
+    }));
+    assert.match(
+      validateWorkflow({ nodes, connections: [] }).errors[0],
+      /Demasiados nodos/,
+    );
+    const connections = Array.from(
+      { length: LIMITS.maxConnections + 1 },
+      () => ({}),
+    );
+    assert.match(
+      validateWorkflow({ nodes: [], connections }).errors[0],
+      /Demasiadas conexiones/,
+    );
+  });
+
+  test("edge: bodies over the size limit get 413", async () => {
+    const big = "x".repeat(LIMITS.maxBodyBytes + 1);
+    assert.equal(compileRequest(big).status, 413);
+
+    const declared = new Request("http://x", {
+      method: "POST",
+      body: "{}",
+      headers: { "Content-Length": String(LIMITS.maxBodyBytes + 1) },
+    });
+    assert.equal(await readTextLimited(declared), null);
+
+    const streamed = new Request("http://x", {
+      method: "POST",
+      body: "a".repeat(11),
+    });
+    assert.equal(await readTextLimited(streamed, 10), null);
+    const ok = new Request("http://x", { method: "POST", body: "ñandú" });
+    assert.equal(await readTextLimited(ok, 10), "ñandú");
   });
 });

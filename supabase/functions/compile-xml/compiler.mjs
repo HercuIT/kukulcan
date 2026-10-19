@@ -11,7 +11,8 @@ export const LIMITS = {
   maxConnections: 10000,
 };
 
-const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+const isPlainObject = (v) =>
+  v !== null && typeof v === "object" && !Array.isArray(v);
 const hasId = (id) =>
   (typeof id === "string" && id.trim() !== "") ||
   (typeof id === "number" && Number.isFinite(id));
@@ -19,7 +20,9 @@ const hasId = (id) =>
 // Estructura mínima antes de leer id/type/from/to: objetos, ids presentes y sin repetir, tamaños.
 function validateStructure(wf) {
   if (wf.nodes.length > LIMITS.maxNodes)
-    return [`Demasiados nodos (${wf.nodes.length}); el máximo es ${LIMITS.maxNodes}.`];
+    return [
+      `Demasiados nodos (${wf.nodes.length}); el máximo es ${LIMITS.maxNodes}.`,
+    ];
   if (wf.connections.length > LIMITS.maxConnections)
     return [
       `Demasiadas conexiones (${wf.connections.length}); el máximo es ${LIMITS.maxConnections}.`,
@@ -41,7 +44,8 @@ function validateStructure(wf) {
     seen.add(key);
   });
   wf.connections.forEach((c, i) => {
-    if (!isPlainObject(c)) errors.push(`La conexión #${i + 1} no es un objeto.`);
+    if (!isPlainObject(c))
+      errors.push(`La conexión #${i + 1} no es un objeto.`);
   });
   return errors;
 }

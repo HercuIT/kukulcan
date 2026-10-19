@@ -377,7 +377,6 @@ describe("negative", () => {
       ),
       "P0002",
     );
-
   });
 
   test("non-designers cannot manage collaborators or check out", async () => {
@@ -714,7 +713,10 @@ describe("review fixes", () => {
     const wf = await newWorkflow(users.designer);
     await rejectsWith(
       as(users.designer, () =>
-        q("update public.workflows set checkout_description = 'x' where id = $1", [wf]),
+        q(
+          "update public.workflows set checkout_description = 'x' where id = $1",
+          [wf],
+        ),
       ),
       "42501",
     );
@@ -745,12 +747,16 @@ describe("review fixes", () => {
     await as(users.designer, () =>
       q("select public.submit_for_review($1, $2)", [wf, users.reviewer]),
     );
-    await as(users.reviewer, () => q("select public.request_changes($1)", [wf]));
+    await as(users.reviewer, () =>
+      q("select public.request_changes($1)", [wf]),
+    );
     await as(users.designer, () =>
       q("select public.assign_reviewer($1, $2)", [wf, users.reviewer]),
     );
     // De vuelta a changes_requested para poder desasignar.
-    await as(users.reviewer, () => q("select public.request_changes($1)", [wf]));
+    await as(users.reviewer, () =>
+      q("select public.request_changes($1)", [wf]),
+    );
     await as(users.designer, () =>
       q("select public.assign_reviewer($1, null)", [wf]),
     );
@@ -765,14 +771,20 @@ describe("review fixes", () => {
   });
 
   test("negative: a reviewer whose role was revoked can no longer approve or request changes", async () => {
-    const exReviewer = await createUser("exReviewer", "ex-reviewer@example.com", {
-      reviewer: true,
-    });
+    const exReviewer = await createUser(
+      "exReviewer",
+      "ex-reviewer@example.com",
+      {
+        reviewer: true,
+      },
+    );
     const wf = await newWorkflow(users.designer);
     await as(users.designer, () =>
       q("select public.submit_for_review($1, $2)", [wf, exReviewer]),
     );
-    await q("update public.profiles set reviewer = false where id = $1", [exReviewer]);
+    await q("update public.profiles set reviewer = false where id = $1", [
+      exReviewer,
+    ]);
     await rejectsWith(
       as(exReviewer, () => q("select public.approve_workflow($1)", [wf])),
       "42501",

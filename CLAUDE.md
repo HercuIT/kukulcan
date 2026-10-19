@@ -43,7 +43,7 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
 ## Domain facts
 
 - Tables: `profiles` (one per `auth.users` row; role flags `designer`, `reviewer`, `deployer`, created by a sign-up trigger), `workflows` (canvas graph in `nodes` jsonb), `workflow_designers`, `workflow_history` (`kind` = `checkout` or `changes_requested`), `server_logs` (service role only).
-- Workflow `status`: `draft` → `pending_review` → `approved`, or `pending_review` → `changes_requested` → back to editing. Clients may only update `name`, `nodes` and `checkout_description` (column grants + RLS); status, reviewer and collaborator changes go through the RPC functions, which check `assigned_reviewer_id` and `workflow_designers`. A trigger bumps `version` when `name` or `nodes` change and stamps `last_modified_*` for user writes (service-role writes keep their values).
+- Workflow `status`: `draft` → `pending_review` → `approved`, or `pending_review` → `changes_requested` → back to editing. Clients may only update `name` and `nodes` (column grants + RLS; `checkout_description` is set by `checkout_workflow`); status, reviewer and collaborator changes go through the RPC functions, which check `assigned_reviewer_id` and `workflow_designers`. A trigger bumps `version` when `name` or `nodes` change and stamps `last_modified_*` for user writes (service-role writes keep their values).
 - A valid workflow has exactly one Begin/Start node with no inputs and one End node with no outputs. In XML, node types map to `BeginElement`, `EndElement`, `NodeDefinitionName`, etc. (`TYPE_TO_XML` in `server/src/routes/compileRoutes.js`). Deploy requires every non-Begin/End node to have at least one `<Parameter>` with a non-empty value.
 
 ## Rules for new code

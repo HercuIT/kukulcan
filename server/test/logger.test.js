@@ -101,8 +101,14 @@ describe("logger", () => {
 });
 
 describe("getRequestUserId", () => {
-  const client = (result) => () => ({
-    auth: { getUser: async () => result },
+  // El cliente falso exige recibir exactamente el token del encabezado.
+  const client = (result, expectedToken) => () => ({
+    auth: {
+      getUser: async (token) => {
+        assert.equal(token, expectedToken);
+        return result;
+      },
+    },
   });
 
   test("positive: returns the Supabase user id for a valid bearer token", async () => {
@@ -110,7 +116,7 @@ describe("getRequestUserId", () => {
     assert.equal(
       await getRequestUserId(
         req,
-        client({ data: { user: { id: "u-9" } }, error: null }),
+        client({ data: { user: { id: "u-9" } }, error: null }, "abc"),
       ),
       "u-9",
     );
@@ -121,7 +127,10 @@ describe("getRequestUserId", () => {
     assert.equal(
       await getRequestUserId(
         req,
-        client({ data: { user: null }, error: { message: "invalid JWT" } }),
+        client(
+          { data: { user: null }, error: { message: "invalid JWT" } },
+          "bad",
+        ),
       ),
       "unknown",
     );
