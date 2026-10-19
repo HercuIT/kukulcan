@@ -46,6 +46,12 @@ export function onSessionChange(callback) {
   };
 }
 
+// Cambia la contraseña del usuario con sesión (p. ej. tras abrir el enlace de recuperación).
+export async function updatePassword(password) {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw toAppError(error);
+}
+
 // Roles del usuario con la misma forma que el antiguo documento roles/{uid}.
 export async function getMyRoles(uid) {
   const { data, error } = await supabase

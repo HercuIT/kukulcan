@@ -5,6 +5,7 @@ import {
   signIn,
   signOut,
   signUp,
+  updatePassword,
 } from "./authApi";
 
 jest.mock("./supabaseClient", () => ({
@@ -14,6 +15,7 @@ jest.mock("./supabaseClient", () => ({
       signUp: jest.fn(),
       signOut: jest.fn(),
       onAuthStateChange: jest.fn(),
+      updateUser: jest.fn(),
     },
     from: jest.fn(),
   },
@@ -106,6 +108,36 @@ describe("authApi", () => {
       });
       expect(supabase.from).toHaveBeenCalledWith("profiles");
       expect(chain.eq).toHaveBeenCalledWith("id", "u-1");
+    });
+  });
+
+  describe("updatePassword", () => {
+    test("positive: sets the signed-in user's password", async () => {
+      supabase.auth.updateUser.mockResolvedValue({ data: {}, error: null });
+      await updatePassword("s3cret-pass");
+      expect(supabase.auth.updateUser).toHaveBeenCalledWith({
+        password: "s3cret-pass",
+      });
+    });
+
+    test("negative: weak passwords reject with weak-password", async () => {
+      supabase.auth.updateUser.mockResolvedValue({
+        data: null,
+        error: { code: "weak_password", message: "Password is too weak" },
+      });
+      await expect(updatePassword("123")).rejects.toMatchObject({
+        code: "weak-password",
+      });
+    });
+
+    test("edge: a missing recovery session rejects with Supabase's message", async () => {
+      supabase.auth.updateUser.mockResolvedValue({
+        data: null,
+        error: { message: "Auth session missing!" },
+      });
+      await expect(updatePassword("s3cret-pass")).rejects.toThrow(
+        "Auth session missing!",
+      );
     });
   });
 

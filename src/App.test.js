@@ -24,6 +24,10 @@ jest.mock("./pages/Dashboard/Dashboard.js", () => {
   );
   return Dashboard;
 });
+jest.mock("./pages/SetPassword/SetPassword", () => {
+  const SetPassword = () => <div data-testid="set-password">SetPassword</div>;
+  return SetPassword;
+});
 jest.mock("./pages/Login/Login", () => {
   const Login = () => <div data-testid="login">Login</div>;
   return Login;
@@ -146,6 +150,21 @@ describe("App", () => {
       });
 
       expect(screen.getByTestId("login")).toBeInTheDocument();
+    });
+
+    test("the recovery link opens the set-password page when signed in", async () => {
+      getMyRoles.mockResolvedValue({});
+
+      await renderAt("/set-password", USER);
+
+      expect(screen.getByTestId("set-password")).toBeInTheDocument();
+    });
+
+    test("an expired recovery link (no session) shows Login", async () => {
+      await renderAt("/set-password", null);
+
+      expect(screen.getByTestId("login")).toBeInTheDocument();
+      expect(screen.queryByTestId("set-password")).not.toBeInTheDocument();
     });
 
     test("unsubscribes from auth changes on unmount", async () => {

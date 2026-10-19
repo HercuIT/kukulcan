@@ -466,6 +466,26 @@ export const UI_STRINGS = {
       tusRoles: "Tus Roles:",
     },
   },
+  setPassword: {
+    title: "Crea tu contraseña",
+    description:
+      "Kukulcan cambió de proveedor de inicio de sesión. Elige una contraseña nueva para continuar.",
+    newPassword: "Contraseña nueva",
+    confirmPassword: "Confirmar contraseña",
+    save: "Guardar contraseña",
+    saving: "Guardando...",
+    errors: {
+      missingFields: "Por favor, completa ambos campos.",
+      mismatch: "Las contraseñas no coinciden.",
+      tooShort: (min) => `La contraseña debe tener al menos ${min} caracteres.`,
+      weakPassword: "La contraseña no cumple los requisitos de seguridad.",
+      samePassword: "La contraseña nueva debe ser distinta de la anterior.",
+      generic: "Ocurrió un error al guardar la contraseña.",
+    },
+    alerts: {
+      success: "Contraseña guardada.",
+    },
+  },
   login: {
     errors: {
       porFavorCompletaAmbosCampos: "Por favor, completa ambos campos.",

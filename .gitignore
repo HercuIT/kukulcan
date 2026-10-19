@@ -32,4 +32,5 @@ server/node_modules/
 # Firebase → Supabase migration scripts: dependencies, exports and the UID map
 scripts/migration/node_modules/
 scripts/migration/out/
-users.json
+/users.json
+/scripts/migration/users.json

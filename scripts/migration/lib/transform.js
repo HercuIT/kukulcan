@@ -93,17 +93,29 @@ function transformWorkflow(legacyId, data, historyDocs, uidMap) {
   return { workflow, designers, history, missing, errors };
 }
 
-// Un documento de server_logs/{id} → una fila de server_logs.
-function transformLog(docId, data, uidMap) {
+// userId que el servidor escribía cuando no había usuario; no es un UID de Firebase.
+const NO_USER_IDS = new Set(["unknown"]);
+
+/**
+ * Un documento de server_logs/{id} → una fila de server_logs.
+ * Los UID de Firebase sin mapeo se acumulan en `missing` (como en transformWorkflow)
+ * para que la migración se detenga antes de escribir.
+ */
+function transformLog(docId, data, uidMap, missing = new Set()) {
   const { level, timestamp, event, requestId, workflowId, userId, ...rest } =
     data;
   const requestIdValue = requestId || docId;
+  let userIdValue = null;
+  if (userId) {
+    if (NO_USER_IDS.has(userId)) userIdValue = userId;
+    else userIdValue = mapUid(uidMap, userId, missing);
+  }
   return {
     level: ["info", "warn", "error"].includes(level) ? level : "info",
     event: event ?? null,
     request_id: UUID_RE.test(requestIdValue) ? requestIdValue : null,
     workflow_id: workflowId ?? null,
-    user_id: (userId && uidMap[userId]) || userId || null,
+    user_id: userIdValue,
     details: { ...rest, firestore_id: docId },
     created_at: toIso(timestamp) || new Date(0).toISOString(),
   };

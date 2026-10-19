@@ -6,6 +6,7 @@ import { getMyRoles, onSessionChange } from "./backend/authApi";
 import Home from "./pages/Home/Home.js";
 import Dashboard from "./pages/Dashboard/Dashboard.js";
 import Login from "./pages/Login/Login";
+import SetPassword from "./pages/SetPassword/SetPassword";
 import { UI_STRINGS } from "./constants/uiStrings";
 
 export default function App() {
@@ -51,6 +52,8 @@ export default function App() {
             {/* Aquí pasamos el objeto 'user' como una prop al Dashboard.
               Esto es esencial para que el Dashboard sepa quién está guardando.
             */}
+            {/* Destino del enlace de recuperación (send-password-resets.js) */}
+            <Route path="/set-password" element={<SetPassword />} />
             <Route
               path="/dashboard"
               element={<Dashboard user={user} userRoles={userRoles} />}

@@ -15,6 +15,8 @@ export const AUTH_ERROR_CODES = {
   invalid_credentials: "invalid-credentials",
   user_already_exists: "email-in-use",
   email_exists: "email-in-use",
+  weak_password: "weak-password",
+  same_password: "same-password",
 };
 
 // Convierte un error de Supabase (PostgREST, Auth o Functions) en un Error con un `code` de la app.

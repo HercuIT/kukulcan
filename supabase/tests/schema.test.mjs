@@ -564,3 +564,128 @@ describe("edge", () => {
     assert.equal(rows.length, 0);
   });
 });
+
+describe("migrate_workflow (data migration RPC)", () => {
+  const migrate = (workflow, designers = [], history = []) =>
+    q("select public.migrate_workflow($1::jsonb, $2::jsonb, $3::jsonb) as id", [
+      JSON.stringify(workflow),
+      JSON.stringify(designers),
+      JSON.stringify(history),
+    ]);
+  const legacy = (legacyId, extra = {}) => ({
+    legacy_id: legacyId,
+    name: "Migrado",
+    nodes: [{ id: "n1", type: "start" }],
+    status: "approved",
+    version: 7,
+    created_by: users.designer,
+    created_at: "2025-05-01T00:00:00Z",
+    last_modified_by: users.designer2,
+    last_modified_at: "2025-06-01T00:00:00Z",
+    approved_by: users.reviewer,
+    ...extra,
+  });
+  const teamOf = async (id) =>
+    (
+      await q(
+        "select user_id from public.workflow_designers where workflow_id = $1 order by user_id",
+        [id],
+      )
+    ).rows.map((r) => r.user_id);
+
+  test("positive: writes the workflow, its team and history with Firestore's values", async () => {
+    const {
+      rows: [{ id }],
+    } = await migrate(
+      legacy("fs-pos"),
+      [{ user_id: users.designer2 }],
+      [
+        {
+          kind: "checkout",
+          description: "nota",
+          user_id: users.designer2,
+          created_at: "2025-05-15T00:00:00Z",
+        },
+      ],
+    );
+    const { rows } = await q(
+      "select status, version, approved_by, last_modified_by, last_modified_at from public.workflows where id = $1",
+      [id],
+    );
+    assert.equal(rows[0].status, "approved");
+    assert.equal(rows[0].version, 7);
+    assert.equal(rows[0].approved_by, users.reviewer);
+    assert.equal(rows[0].last_modified_by, users.designer2);
+    assert.equal(
+      rows[0].last_modified_at.toISOString(),
+      "2025-06-01T00:00:00.000Z",
+    );
+    // El equipo es el de Firestore: el trigger no deja al creador si no estaba en designerIds.
+    assert.deepEqual(await teamOf(id), [users.designer2]);
+    const history = await q(
+      "select kind, description from public.workflow_history where workflow_id = $1",
+      [id],
+    );
+    assert.deepEqual(history.rows, [{ kind: "checkout", description: "nota" }]);
+  });
+
+  test("positive: rerunning updates in place and replaces team and history", async () => {
+    const first = await migrate(
+      legacy("fs-rerun"),
+      [{ user_id: users.designer }],
+      [{ kind: "checkout", description: "uno" }],
+    );
+    const second = await migrate(
+      legacy("fs-rerun", { name: "Renombrado", version: 8 }),
+      [{ user_id: users.designer }, { user_id: users.designer2 }],
+      [{ kind: "checkout", description: "dos" }],
+    );
+    const id = first.rows[0].id;
+    assert.equal(second.rows[0].id, id);
+    const { rows } = await q(
+      "select name, version from public.workflows where id = $1",
+      [id],
+    );
+    assert.deepEqual(rows[0], { name: "Renombrado", version: 8 });
+    assert.equal((await teamOf(id)).length, 2);
+    const history = await q(
+      "select description from public.workflow_history where workflow_id = $1",
+      [id],
+    );
+    assert.deepEqual(history.rows, [{ description: "dos" }]);
+  });
+
+  test("negative: a failure rolls back the whole workflow write", async () => {
+    const {
+      rows: [{ id }],
+    } = await migrate(legacy("fs-atomic"), [{ user_id: users.designer }]);
+    await rejectsWith(
+      migrate(legacy("fs-atomic", { name: "No debe quedar" }), [
+        { user_id: users.designer2 },
+        { user_id: crypto.randomUUID() },
+      ]),
+      "23503",
+    );
+    const { rows } = await q(
+      "select name from public.workflows where id = $1",
+      [id],
+    );
+    assert.equal(rows[0].name, "Migrado");
+    assert.deepEqual(await teamOf(id), [users.designer]);
+  });
+
+  test("negative: clients cannot call it and legacy_id is required", async () => {
+    await rejectsWith(
+      as(users.designer, () => migrate(legacy("fs-client"))),
+      "42501",
+    );
+    await rejectsWith(migrate(legacy(null)), "P0001");
+  });
+
+  test("edge: empty team and history arrays leave none", async () => {
+    const {
+      rows: [{ id }],
+    } = await migrate(legacy("fs-empty"));
+    assert.deepEqual(await teamOf(id), []);
+  });
+});

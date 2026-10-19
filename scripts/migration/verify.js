@@ -2,10 +2,11 @@
 /**
  * Paso 3: compara Firestore con Postgres. Sale con código 1 si algo no coincide.
  *
- *   node verify.js
+ *   node verify.js [--skip-logs]
  *
  * Revisa conteos (workflows, diseñadores, historial, logs) y, por workflow, el checksum de
- * los nodos, el estado, la versión y el equipo.
+ * los nodos, el estado, la versión y el equipo. Usa --skip-logs si migrate-data.js corrió
+ * con --skip-logs.
  */
 const {
   getFirestore,
@@ -24,7 +25,30 @@ async function count(supabase, table, filter) {
   return n;
 }
 
+// PostgREST devuelve como máximo 1000 filas por petición (max_rows): se pide por páginas.
+const PAGE = 1000;
+
+async function fetchMigratedWorkflows(supabase) {
+  const rows = [];
+  for (let from = 0; ; from += PAGE) {
+    const page = unwrap(
+      await supabase
+        .from("workflows")
+        .select(
+          "legacy_id, nodes, status, version, workflow_designers(user_id)",
+        )
+        .not("legacy_id", "is", null)
+        .order("legacy_id")
+        .range(from, from + PAGE - 1),
+      "workflows",
+    );
+    rows.push(...page);
+    if (page.length < PAGE) return rows;
+  }
+}
+
 async function main() {
+  const skipLogs = process.argv.includes("--skip-logs");
   const uidMap = readUidMap();
   const firestore = getFirestore();
   const supabase = getSupabase();
@@ -47,13 +71,7 @@ async function main() {
     historyTotal += t.history.length;
   }
 
-  const rows = unwrap(
-    await supabase
-      .from("workflows")
-      .select("legacy_id, nodes, status, version, workflow_designers(user_id)")
-      .not("legacy_id", "is", null),
-    "workflows",
-  );
+  const rows = await fetchMigratedWorkflows(supabase);
   const actual = new Map(rows.map((r) => [r.legacy_id, r]));
 
   for (const [legacyId, t] of expected) {
@@ -93,14 +111,16 @@ async function main() {
       historyTotal,
       await count(supabase, "workflow_history"),
     ],
-    [
+  ];
+  if (!skipLogs) {
+    counts.push([
       "server_logs",
       (await firestore.collection("server_logs").count().get()).data().count,
       await count(supabase, "server_logs", (q) =>
         q.not("details->>firestore_id", "is", null),
       ),
-    ],
-  ];
+    ]);
+  }
   console.table(
     counts.map(([table, firestoreCount, postgresCount]) => ({
       table,

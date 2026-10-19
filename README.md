@@ -106,11 +106,12 @@ Every schema change ships as a new file in `supabase/migrations/`. `npm run test
 
 One-off scripts in `scripts/migration/` (own `package.json`; run `npm install` there). They read Firestore with a service-account key passed through `GOOGLE_APPLICATION_CREDENTIALS` (never committed) and write to Supabase with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`:
 
-1. `firebase auth:export users.json --format=json --project xicotencatl`, then `node import-users.js users.json`: creates each user in Supabase Auth (no password; users set one through a reset email), copies their roles to `profiles` and writes `out/uid_map.json`.
-2. `node migrate-data.js [--dry-run] [--skip-logs]`: copies workflows, designers, history and `server_logs`, rewriting every Firebase UID. It writes nothing if any UID is unmapped. Safe to rerun.
-3. `node verify.js`: compares counts and per-workflow node checksums, status, version and designers. Exits 1 on any mismatch.
+1. `firebase auth:export users.json --format=json --project xicotencatl`, then `node import-users.js users.json`: creates each user in Supabase Auth without a password, copies their roles to `profiles` (creating the profile if it's missing) and writes `out/uid_map.json`.
+2. `node migrate-data.js [--dry-run] [--skip-logs]`: copies workflows, designers, history and `server_logs`, rewriting every Firebase UID (workflows and logs). It reads and validates everything first and writes nothing if any UID is unmapped. Each workflow is written in one transaction by the `migrate_workflow` RPC (service role only). Logs are inserted under a run id, and earlier runs' logs are deleted only after every insert succeeds. Safe to rerun after a failure.
+3. `node verify.js [--skip-logs]`: compares counts and per-workflow node checksums, status, version and designers. Exits 1 on any mismatch. Pass `--skip-logs` if step 2 did.
+4. On cutover day: `SITE_URL=<app URL> node send-password-resets.js [--dry-run]`: emails every imported user a link to `<SITE_URL>/set-password`, where the app asks for their new password. Before running it, add `<SITE_URL>/**` to Supabase Auth's redirect URLs and configure custom SMTP (the built-in mailer is rate-limited).
 
-`users.json` and `out/` are git-ignored.
+`/users.json`, `scripts/migration/users.json` and `out/` are git-ignored.
 
 ### MCP servers for AI coding agents
 

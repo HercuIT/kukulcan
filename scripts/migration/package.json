@@ -6,7 +6,8 @@
   "scripts": {
     "import-users": "node import-users.js",
     "migrate-data": "node migrate-data.js",
-    "verify": "node verify.js"
+    "verify": "node verify.js",
+    "send-password-resets": "node send-password-resets.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
