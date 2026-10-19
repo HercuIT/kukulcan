@@ -1,31 +1,33 @@
 import { render, screen, act } from "@testing-library/react";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { getMyRoles, onSessionChange } from "./backend/authApi";
 import App from "./App";
 
-jest.mock("./backend/firebaseConfig", () => ({ auth: {}, db: {} }));
-
-jest.mock("firebase/auth", () => ({ onAuthStateChanged: jest.fn() }));
-
-jest.mock("firebase/firestore", () => ({
-  doc: jest.fn((db, collection, id) => ({ path: `${collection}/${id}` })),
-  getDoc: jest.fn(),
+jest.mock("./backend/authApi", () => ({
+  onSessionChange: jest.fn(),
+  getMyRoles: jest.fn(),
 }));
 
 // Stub the pages so these tests cover App's auth and routing only.
-jest.mock("./pages/Home/Home.js", () => ({ user, userRoles }) => (
-  <div data-testid="home">
-    Home {user.uid} {JSON.stringify(userRoles)}
-  </div>
-));
-jest.mock("./pages/Dashboard/Dashboard.js", () => ({ user, userRoles }) => (
-  <div data-testid="dashboard">
-    Dashboard {user.uid} {JSON.stringify(userRoles)}
-  </div>
-));
-jest.mock("./pages/Login/Login", () => () => (
-  <div data-testid="login">Login</div>
-));
+jest.mock("./pages/Home/Home.js", () => {
+  const Home = ({ user, userRoles }) => (
+    <div data-testid="home">
+      Home {user.uid} {JSON.stringify(userRoles)}
+    </div>
+  );
+  return Home;
+});
+jest.mock("./pages/Dashboard/Dashboard.js", () => {
+  const Dashboard = ({ user, userRoles }) => (
+    <div data-testid="dashboard">
+      Dashboard {user.uid} {JSON.stringify(userRoles)}
+    </div>
+  );
+  return Dashboard;
+});
+jest.mock("./pages/Login/Login", () => {
+  const Login = () => <div data-testid="login">Login</div>;
+  return Login;
+});
 
 const USER = { uid: "user-1", email: "designer@example.com" };
 
@@ -35,16 +37,11 @@ let unsubscribe;
 beforeEach(() => {
   jest.clearAllMocks();
   unsubscribe = jest.fn();
-  onAuthStateChanged.mockImplementation((auth, callback) => {
+  onSessionChange.mockImplementation((callback) => {
     authCallback = callback;
     return unsubscribe;
   });
   window.history.pushState({}, "", "/");
-});
-
-const rolesDoc = (data) => ({
-  exists: () => data !== null,
-  data: () => data,
 });
 
 async function renderAt(path, currentUser) {
@@ -59,18 +56,18 @@ async function renderAt(path, currentUser) {
 describe("App", () => {
   describe("positive", () => {
     test("shows Home with the user's roles at / when signed in", async () => {
-      getDoc.mockResolvedValue(rolesDoc({ designer: true, reviewer: false }));
+      getMyRoles.mockResolvedValue({ designer: true, reviewer: false });
 
       await renderAt("/", USER);
 
       expect(screen.getByTestId("home")).toHaveTextContent(
         'Home user-1 {"designer":true,"reviewer":false}',
       );
-      expect(doc).toHaveBeenCalledWith({}, "roles", "user-1");
+      expect(getMyRoles).toHaveBeenCalledWith("user-1");
     });
 
     test("shows the Dashboard at /dashboard when signed in", async () => {
-      getDoc.mockResolvedValue(rolesDoc({ designer: true }));
+      getMyRoles.mockResolvedValue({ designer: true });
 
       await renderAt("/dashboard", USER);
 
@@ -86,7 +83,7 @@ describe("App", () => {
       await renderAt("/", null);
 
       expect(screen.getByTestId("login")).toBeInTheDocument();
-      expect(getDoc).not.toHaveBeenCalled();
+      expect(getMyRoles).not.toHaveBeenCalled();
     });
 
     test("does not expose the Dashboard when signed out", async () => {
@@ -98,7 +95,7 @@ describe("App", () => {
 
     test("falls back to Login when loading roles fails", async () => {
       const error = new Error("permission-denied");
-      getDoc.mockRejectedValue(error);
+      getMyRoles.mockRejectedValue(error);
       const consoleError = jest
         .spyOn(console, "error")
         .mockImplementation(() => {});
@@ -123,8 +120,8 @@ describe("App", () => {
       expect(screen.queryByTestId("home")).not.toBeInTheDocument();
     });
 
-    test("gives a user without a roles document empty roles", async () => {
-      getDoc.mockResolvedValue(rolesDoc(null));
+    test("gives a user without a profile empty roles", async () => {
+      getMyRoles.mockResolvedValue({});
 
       await renderAt("/", USER);
 
@@ -132,7 +129,7 @@ describe("App", () => {
     });
 
     test("sends unknown routes to Home when signed in", async () => {
-      getDoc.mockResolvedValue(rolesDoc({}));
+      getMyRoles.mockResolvedValue({});
 
       await renderAt("/does-not-exist", USER);
 
@@ -140,7 +137,7 @@ describe("App", () => {
     });
 
     test("returns to Login when the user signs out", async () => {
-      getDoc.mockResolvedValue(rolesDoc({ designer: true }));
+      getMyRoles.mockResolvedValue({ designer: true });
       await renderAt("/", USER);
       expect(screen.getByTestId("home")).toBeInTheDocument();
 
