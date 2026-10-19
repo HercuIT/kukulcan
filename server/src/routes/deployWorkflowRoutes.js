@@ -170,7 +170,9 @@ router.post("/", async (req, res) => {
     });
     const jsonObj = parser.parse(req.body);
     workflowId = jsonObj?.Workflow?.["@_id"] || "unknown";
-  } catch {}
+  } catch {
+    // XML inválido: la validación de abajo lo reporta.
+  }
 
   logger.info({
     requestId,

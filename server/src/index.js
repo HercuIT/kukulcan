@@ -15,6 +15,8 @@ app.use("/api/ignition-health", require("./routes/ignitionHealthRoutes"));
 app.use("/api/compile", require("./routes/compileRoutes"));
 app.use("/api/deploy-workflow", require("./routes/deployWorkflowRoutes"));
 
+// Express reconoce el manejador de errores por sus 4 argumentos.
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError || err.status === 400) {
     return res.status(400).json({
