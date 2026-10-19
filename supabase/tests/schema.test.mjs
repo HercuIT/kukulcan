@@ -682,10 +682,20 @@ describe("migrate_workflow (data migration RPC)", () => {
     await rejectsWith(migrate(legacy(null)), "P0001");
   });
 
-  test("edge: empty team and history arrays leave none", async () => {
+  test("edge: rerunning with empty team and history arrays clears both", async () => {
     const {
       rows: [{ id }],
-    } = await migrate(legacy("fs-empty"));
+    } = await migrate(
+      legacy("fs-empty"),
+      [{ user_id: users.designer }],
+      [{ kind: "checkout", description: "antes" }],
+    );
+    await migrate(legacy("fs-empty"));
     assert.deepEqual(await teamOf(id), []);
+    const { rows } = await q(
+      "select count(*)::int as n from public.workflow_history where workflow_id = $1",
+      [id],
+    );
+    assert.equal(rows[0].n, 0);
   });
 });

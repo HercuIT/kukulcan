@@ -71,6 +71,7 @@ describe("Login", () => {
           S.alerts.usuarioRegistradoConExitoSe,
         ),
       );
+      expect(signUp).toHaveBeenCalledWith("new@example.com", "secret");
     });
   });
 

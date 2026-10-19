@@ -1090,7 +1090,7 @@ function CreateNodeModal({ open, onClose, onOk }) {
         <input
           value={version}
           onChange={(e) => setVersion(e.target.value)}
-          placeholder="1.0"
+          placeholder={UI_STRINGS.dashboard.createNodeModal.versionPlaceholder}
         />
         <label>{UI_STRINGS.dashboard.createNodeModal.description}</label>
         <textarea
@@ -1239,7 +1239,9 @@ function CreateNodeModal({ open, onClose, onOk }) {
                         onChange={(e) =>
                           updateParam(p.id, "defaultValue", e.target.value)
                         }
-                        placeholder="0"
+                        placeholder={
+                          UI_STRINGS.dashboard.createNodeModal.intPlaceholder
+                        }
                         style={{ width: "100%" }}
                       />
                     ) : p.dataType === "REAL" ? (
@@ -1250,7 +1252,9 @@ function CreateNodeModal({ open, onClose, onOk }) {
                         onChange={(e) =>
                           updateParam(p.id, "defaultValue", e.target.value)
                         }
-                        placeholder="0.0"
+                        placeholder={
+                          UI_STRINGS.dashboard.createNodeModal.realPlaceholder
+                        }
                         style={{ width: "100%" }}
                       />
                     ) : (

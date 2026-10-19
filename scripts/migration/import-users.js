@@ -19,6 +19,7 @@ const {
   UID_MAP_PATH,
 } = require("./lib/clients");
 
+// email → usuario de Supabase Auth (con su app_metadata).
 async function listExistingUsers(supabase) {
   const byEmail = new Map();
   for (let page = 1; ; page++) {
@@ -26,7 +27,7 @@ async function listExistingUsers(supabase) {
       await supabase.auth.admin.listUsers({ page, perPage: 1000 }),
       "listUsers",
     );
-    users.forEach((u) => u.email && byEmail.set(u.email.toLowerCase(), u.id));
+    users.forEach((u) => u.email && byEmail.set(u.email.toLowerCase(), u));
     if (users.length < 1000) return byEmail;
   }
 }
@@ -55,8 +56,23 @@ async function main() {
 
   for (const fbUser of withEmail) {
     const email = fbUser.email.toLowerCase();
-    let id = existing.get(email);
-    if (!id) {
+    const existingUser = existing.get(email);
+    let id = existingUser?.id;
+    if (existingUser) {
+      // Cuenta que ya existía (p. ej. se registró en Supabase antes del cutover): se marca como
+      // importada para que send-password-resets.js también le mande el correo.
+      if (existingUser.app_metadata?.firebase_uid !== fbUser.localId) {
+        unwrap(
+          await supabase.auth.admin.updateUserById(id, {
+            app_metadata: {
+              ...existingUser.app_metadata,
+              firebase_uid: fbUser.localId,
+            },
+          }),
+          `updateUser ${email}`,
+        );
+      }
+    } else {
       const { user } = unwrap(
         await supabase.auth.admin.createUser({
           email: fbUser.email,

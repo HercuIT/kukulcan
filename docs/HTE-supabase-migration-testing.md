@@ -95,15 +95,29 @@ Expected: status becomes Changes Requested and the reviewer is cleared. D1 can e
 
 ### TC-08: Only the assigned reviewer can act
 
-Steps: with a workflow in Pending Review assigned to R, call `approve_workflow` as D2 (from the browser console: `supabase.rpc('approve_workflow', { wf })`).
+To call the API as a user, take their access token from the signed-in browser: DevTools → Application → Local Storage → the `sb-<project-ref>-auth-token` key → `access_token`. Then use `curl` with the project URL and publishable key from `.env.local`.
 
-Expected: the call fails with code `42501` and "No eres el revisor asignado." The status doesn't change.
+Steps: with a workflow `<wf>` in Pending Review assigned to R, call `approve_workflow` with D2's token:
+
+```bash
+curl -X POST "$SUPABASE_URL/rest/v1/rpc/approve_workflow" \
+  -H "apikey: $PUBLISHABLE_KEY" -H "Authorization: Bearer $D2_TOKEN" \
+  -H "Content-Type: application/json" -d '{"wf": "<wf>"}'
+```
+
+Expected: HTTP 403 with `"code":"42501"` and "No eres el revisor asignado." The status doesn't change.
 
 ### TC-09: The client can't change status directly
 
-Steps: as D1, run `supabase.from('workflows').update({ status: 'approved' }).eq('id', wf)` in the browser console.
+Steps: with D1's token (see TC-08), try to set the status directly:
 
-Expected: permission error (`42501`). The status doesn't change.
+```bash
+curl -X PATCH "$SUPABASE_URL/rest/v1/workflows?id=eq.<wf>" \
+  -H "apikey: $PUBLISHABLE_KEY" -H "Authorization: Bearer $D1_TOKEN" \
+  -H "Content-Type: application/json" -d '{"status": "approved"}'
+```
+
+Expected: HTTP 401/403 with `"code":"42501"` (permission denied for the column). The status doesn't change.
 
 ### TC-10: Checkout and version history
 
@@ -139,22 +153,29 @@ Expected: `server_logs` gets one row per event (API_REQUEST, DEPLOY_ATTEMPT, …
 
 ### TC-14: Data migration dry run and verification
 
+Prerequisites (separate from the setup above: the scripts don't read `server/.env`):
+
+- `cd scripts/migration && npm install`.
+- `users.json` from `firebase auth:export users.json --format=json --project xicotencatl`, saved in `scripts/migration/`.
+- In the shell: `GOOGLE_APPLICATION_CREDENTIALS` (path to a Firebase service-account key file outside the repo), `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+- At least one Firebase user who already has a Supabase account with the same email.
+
 Steps: in `scripts/migration/`, run `import-users.js users.json`, then `migrate-data.js --dry-run`, `migrate-data.js` and `verify.js`. Run `migrate-data.js` a second time, then `verify.js` again.
 
-Expected: the dry run lists the workflow and log counts and writes nothing. `verify.js` prints matching counts and "Todo coincide." The second run leaves the same counts (no duplicates). An unmapped UID in a workflow or a log makes `migrate-data.js` stop before writing. After `migrate-data.js --skip-logs`, `verify.js --skip-logs` passes and skips the log count.
+Expected: the dry run lists the workflow and log counts and writes nothing. `verify.js` prints matching counts and "Todo coincide." The second run leaves the same counts (no duplicates). The user who already had a Supabase account now has `app_metadata.firebase_uid` set. An unmapped UID in a workflow or a log makes `migrate-data.js` stop before writing. After `migrate-data.js --skip-logs`, `verify.js --skip-logs` passes and skips the log count.
 
 ### TC-16: Imported user sets a password
 
 Steps:
 
-1. Add `<SITE_URL>/**` to the Supabase redirect URLs, then run `SITE_URL=<app URL> node send-password-resets.js` in `scripts/migration/`.
+1. Add `<SITE_URL>/set-password` to the Supabase redirect URLs, then run `SITE_URL=<app URL> node send-password-resets.js` in `scripts/migration/`.
 2. As an imported user, open the email's link.
-3. Enter two different passwords, then a 5-character password, then a valid password twice, and click **Guardar contraseña**.
+3. Enter two different passwords, then a 5-character password, then a valid password twice, and press Enter in the second field.
 4. Sign out and sign in with the new password.
 
 Expected:
 
-1. The script reports one email per imported user.
+1. The script reports one email per imported user, including the one whose Supabase account already existed. `--delay-ms=abc` is rejected before any email is sent.
 2. The link opens `/set-password`, signed in.
 3. "Las contraseñas no coinciden.", then "La contraseña debe tener al menos 6 caracteres.", then "Contraseña guardada." and Home.
 4. Sign-in works. An expired link opens the login page instead.

@@ -17,7 +17,8 @@ export default function SetPassword() {
   const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
 
-  const handleSave = async () => {
+  const handleSave = async (e) => {
+    e.preventDefault();
     setError("");
     if (!password || !confirm) {
       setError(S.errors.missingFields);
@@ -48,26 +49,31 @@ export default function SetPassword() {
 
   return (
     <div className="login-container">
-      <div className="login-box">
+      {/* Un form para que Enter envíe desde cualquiera de los dos campos */}
+      <form className="login-box" onSubmit={handleSave} noValidate>
         <h2>{S.title}</h2>
         <p>{S.description}</p>
+        <label htmlFor="new-password">{S.newPassword}</label>
         <input
+          id="new-password"
           type="password"
+          autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder={S.newPassword}
         />
+        <label htmlFor="confirm-password">{S.confirmPassword}</label>
         <input
+          id="confirm-password"
           type="password"
+          autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          placeholder={S.confirmPassword}
         />
-        <button onClick={handleSave} disabled={isSaving}>
+        <button type="submit" disabled={isSaving}>
           {isSaving ? S.saving : S.save}
         </button>
         {error && <p className="error-message">{error}</p>}
-      </div>
+      </form>
     </div>
   );
 }

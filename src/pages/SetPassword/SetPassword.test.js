@@ -18,10 +18,10 @@ function renderPage() {
     </MemoryRouter>,
   );
   const fill = (password, confirm = password) => {
-    fireEvent.change(screen.getByPlaceholderText(S.newPassword), {
+    fireEvent.change(screen.getByLabelText(S.newPassword), {
       target: { value: password },
     });
-    fireEvent.change(screen.getByPlaceholderText(S.confirmPassword), {
+    fireEvent.change(screen.getByLabelText(S.confirmPassword), {
       target: { value: confirm },
     });
   };
@@ -49,6 +49,16 @@ describe("SetPassword", () => {
       expect(updatePassword).toHaveBeenCalledWith("s3cret-pass");
       expect(window.alert).toHaveBeenCalledWith(S.alerts.success);
     });
+  });
+
+  test("positive: pressing Enter in a field submits the form", async () => {
+    updatePassword.mockResolvedValue();
+    const { fill } = renderPage();
+    fill("s3cret-pass");
+    fireEvent.submit(screen.getByLabelText(S.confirmPassword).closest("form"));
+    await waitFor(() =>
+      expect(updatePassword).toHaveBeenCalledWith("s3cret-pass"),
+    );
   });
 
   describe("negative", () => {

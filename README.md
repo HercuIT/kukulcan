@@ -104,12 +104,21 @@ Every schema change ships as a new file in `supabase/migrations/`. `npm run test
 
 ### Firebase → Supabase data migration
 
-One-off scripts in `scripts/migration/` (own `package.json`; run `npm install` there). They read Firestore with a service-account key passed through `GOOGLE_APPLICATION_CREDENTIALS` (never committed) and write to Supabase with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`:
+One-off scripts in `scripts/migration/`, with their own `package.json`. Run every command below from that folder (`cd scripts/migration && npm install` first). They don't read `server/.env`: set these variables in the shell instead:
+
+| Variable | Meaning |
+| --- | --- |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to a Firebase service-account key file (outside the repo, never committed); used to read Firestore |
+| `FIREBASE_PROJECT_ID` | Optional; defaults to `xicotencatl` |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Target Supabase project and its service-role key |
+| `SITE_URL` | App URL, for step 4 only |
+
+Steps:
 
 1. `firebase auth:export users.json --format=json --project xicotencatl`, then `node import-users.js users.json`: creates each user in Supabase Auth without a password, copies their roles to `profiles` (creating the profile if it's missing) and writes `out/uid_map.json`.
 2. `node migrate-data.js [--dry-run] [--skip-logs]`: copies workflows, designers, history and `server_logs`, rewriting every Firebase UID (workflows and logs). It reads and validates everything first and writes nothing if any UID is unmapped. Each workflow is written in one transaction by the `migrate_workflow` RPC (service role only). Logs are inserted under a run id, and earlier runs' logs are deleted only after every insert succeeds. Safe to rerun after a failure.
 3. `node verify.js [--skip-logs]`: compares counts and per-workflow node checksums, status, version and designers. Exits 1 on any mismatch. Pass `--skip-logs` if step 2 did.
-4. On cutover day: `SITE_URL=<app URL> node send-password-resets.js [--dry-run]`: emails every imported user a link to `<SITE_URL>/set-password`, where the app asks for their new password. Before running it, add `<SITE_URL>/**` to Supabase Auth's redirect URLs and configure custom SMTP (the built-in mailer is rate-limited).
+4. On cutover day: `SITE_URL=<app URL> node send-password-resets.js [--dry-run]`: emails every imported user a link to `<SITE_URL>/set-password`, where the app asks for their new password. Users that already had a Supabase account with the same email are tagged in step 1 and get the email too. Before running it, add exactly `<SITE_URL>/set-password` to Supabase Auth's redirect URLs (only that page, not a wildcard) and configure custom SMTP (the built-in mailer is rate-limited).
 
 `/users.json`, `scripts/migration/users.json` and `out/` are git-ignored.
 
@@ -158,7 +167,8 @@ src/
   backend/authApi.js           sign-in/up/out, session listener, roles
   backend/workflowsApi.js      workflows CRUD, Realtime subscription, RPC wrappers, compile
   backend/mappers.js           row ↔ legacy shape, error codes
-  constants/uiStrings.js       every user-facing string, grouped by page and component (UI_STRINGS)
+  constants/uiStrings.js       user-facing strings, grouped by page and component (UI_STRINGS); catalog data and
+                               PLC identifiers stay in code (see CLAUDE.md)
   pages/
     Login/, Home/              login and landing pages
     Dashboard/Dashboard.js     the workflow designer: hierarchy tree, canvas, menu bar, node modals

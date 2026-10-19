@@ -88,6 +88,9 @@ export const UI_STRINGS = {
       accept: "Accept",
     },
     createNodeModal: {
+      versionPlaceholder: "1.0",
+      intPlaceholder: "0",
+      realPlaceholder: "0.0",
       errors: {
         porFavorCompletaTodosLos: "Por favor, completa todos los campos.",
       },

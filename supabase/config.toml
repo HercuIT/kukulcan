@@ -6,8 +6,8 @@ schemas = ["public"]
 
 [auth]
 site_url = "http://localhost:3000"
-# /** permite el enlace de recuperación a /set-password (send-password-resets.js).
-additional_redirect_urls = ["http://localhost:3000/**"]
+# Solo la página del enlace de recuperación (send-password-resets.js); el site_url ya está permitido.
+additional_redirect_urls = ["http://localhost:3000/set-password"]
 
 [auth.email]
 enable_confirmations = false

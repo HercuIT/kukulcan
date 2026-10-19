@@ -31,14 +31,34 @@ const resolve = (keyPath) =>
       UI_STRINGS,
     );
 
-// Todas las referencias UI_STRINGS.a.b.c del código (sin la parte dinámica [x]).
-const references = sourceFiles(SRC).flatMap((file) =>
-  [
-    ...fs
-      .readFileSync(file, "utf8")
-      .matchAll(/UI_STRINGS(?:\.[A-Za-z_$][\w$]*)+/g),
-  ].map((m) => ({ file: path.relative(SRC, file), keyPath: m[0] })),
-);
+const PATH = "(?:\\.[A-Za-z_$][\\w$]*)+";
+
+// Todas las referencias UI_STRINGS.a.b.c del código (sin la parte dinámica [x]), incluidas las
+// que pasan por un alias como `const S = UI_STRINGS.setPassword;` → `S.title`.
+function referencesIn(file) {
+  const code = fs.readFileSync(file, "utf8");
+  const rel = path.relative(SRC, file);
+  const refs = [...code.matchAll(new RegExp(`UI_STRINGS${PATH}`, "g"))].map(
+    (m) => ({ file: rel, keyPath: m[0] }),
+  );
+  const aliases = code.matchAll(
+    new RegExp(
+      `const\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(UI_STRINGS(?:${PATH})?)\\s*;`,
+      "g",
+    ),
+  );
+  for (const [, alias, base] of aliases) {
+    const uses = code.matchAll(
+      new RegExp(`(?<![\\w$.])${alias.replace("$", "\\$")}(${PATH})`, "g"),
+    );
+    for (const [, suffix] of uses) {
+      refs.push({ file: rel, keyPath: base + suffix, alias });
+    }
+  }
+  return refs;
+}
+
+const references = sourceFiles(SRC).flatMap(referencesIn);
 
 describe("UI_STRINGS", () => {
   describe("positive", () => {
@@ -49,7 +69,9 @@ describe("UI_STRINGS", () => {
             { length: value.length },
             (_, i) => `arg${i}`,
           );
-          expect(typeof value(...args)).toBe("string");
+          const rendered = value(...args);
+          expect(typeof rendered).toBe("string");
+          expect(rendered.trim()).not.toBe("");
         } else {
           expect(typeof value).toBe("string");
           expect(value.trim()).not.toBe("");
@@ -72,6 +94,15 @@ describe("UI_STRINGS", () => {
 
     test("components use the strings module", () => {
       expect(references.length).toBeGreaterThan(300);
+    });
+
+    test("references through an alias are checked too", () => {
+      const aliased = references.filter(
+        (r) => r.file.endsWith("SetPassword.js") && r.alias === "S",
+      );
+      expect(aliased.map((r) => r.keyPath)).toContain(
+        "UI_STRINGS.setPassword.title",
+      );
     });
   });
 
