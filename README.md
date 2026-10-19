@@ -39,6 +39,21 @@ draft ──submit_for_review / assign_reviewer──▶ pending_review ──ap
 
 Clients can only edit a workflow's `name` and `nodes`, and only while they are one of its designers and it is in `draft` or `changes_requested`. Every other change goes through a `security definer` RPC that rechecks the rules: `submit_for_review`, `assign_reviewer`, `approve_workflow`, `request_changes`, `add_designer`, `remove_designer` and `checkout_workflow`. Only the assigned reviewer can approve or request changes, and only while they still have the `reviewer` role. Choosing "-- Unassigned --" clears the reviewer without changing the status. Errors use fixed codes (`28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong status), which `mappers.js` turns into the app's codes.
 
+### Glossary
+
+| Term | Meaning |
+| --- | --- |
+| Workflow | A designed process: a row in `workflows`, whose `nodes` hold the canvas (nodes and connections). It moves through `draft` → `pending_review` → `approved` |
+| Node | One element on the canvas (`type`, `label`, position, and optionally `parameters` and `implementation`). Begin/Start and End are special node types |
+| Connection | A directed link `from` → `to` between two nodes |
+| Node definition | A reusable template you drag from the hierarchy panel onto the canvas. **Pre-defined** ones come from the built-in catalog; **user-created** ones come from the Create Node modal (name, version, implementation, parameters) |
+| ISA-88 levels | The procedural hierarchy definitions belong to, outermost first: Site Procedure, Area Procedure, Procedure, (Procedure) Unit Procedure, (Procedure) Operation, (Procedure) Phase |
+| Operation / Phase | The two lowest ISA-88 levels: a Phase (e.g. Add Ingredient) runs inside an Operation (e.g. Mixing) |
+| Parameter | A named value on a node (`name`, `value` or `defaultValue`, units, data type). Deploy requires at least one with a value on every non-Begin/End node |
+| Rule set | The version-controlled hierarchy rules proposed in VCR-001 (which levels and definitions may contain which) |
+| Roles | Flags in `profiles`: **designer** (creates and edits workflows), **reviewer** (approves or requests changes when assigned), **deployer** (sees approved workflows to deploy). VCR-001 proposes **rule_admin** |
+| Ignition | The Inductive Automation gateway that receives the compiled XML through its `recibirXML` webdev endpoint |
+
 ## Getting started
 
 ### Prerequisites
@@ -92,6 +107,34 @@ Endpoints:
 | GET | `/api/ignition-health` | Checks that the Ignition gateway is reachable and `RUNNING` |
 | POST | `/api/compile` | Validates a workflow JSON (`nodes`, `connections`; exactly one Begin and one End) and returns XML |
 | POST | `/api/deploy-workflow` | Validates workflow XML (`Content-Type: application/xml`) and forwards it to Ignition |
+
+### Ignition XML contract
+
+`/api/deploy-workflow` checks the XML (`validarWorkflow` in `server/src/routes/deployWorkflowRoutes.js`), then POSTs it unchanged to `http://<IP_IGNITION>:<PORT_IGNITION>/system/webdev/<PROJECT_NAME_IGNITION>/api/recibirXML` with basic auth. The XML it accepts:
+
+```xml
+<Workflow id="W-001" name="…" version="…">            <!-- root element; id required, non-empty -->
+  <Nodes>
+    <Node id="n1" type="BeginElement" name="Begin"/>   <!-- Begin/End: no parameters needed -->
+    <Node id="n2" type="NodeDefinitionName" name="Mixing">
+      <Parameters>                                    <!-- required on every other node -->
+        <Parameter name="Speed" value="10" unit="rpm"/> <!-- name and value required, non-empty -->
+      </Parameters>
+    </Node>
+    <Node id="n3" type="EndElement" name="End"/>
+  </Nodes>
+  <Connections>
+    <Connection from="n1" to="n2"/>                    <!-- from and to required -->
+  </Connections>
+</Workflow>
+```
+
+- Node types map to XML types through `TYPE_TO_XML`: Begin/Start → `BeginElement`, End → `EndElement`, the ISA-88 levels → `NodeDefinitionName`.
+- Ignition answers with a JSON `status`/`message`. "The file already exists in the destination folder." means a workflow with that file name was already deployed.
+- **Known gap:** neither compiler's output passes this check as-is:
+  - `compile-xml` (used by the app) wraps `<Workflow>` in a `<Controller>`/`<Programs>`/`<SFCContent>` document for the PLC.
+  - `/api/compile` emits nodes without `<Parameters>`.
+- **Changing the contract:** any change (new elements such as nested nodes, new required attributes) needs the Ignition project's `recibirXML` script to change too. Specs treat it as a non-goal unless the story says otherwise.
 
 ### Database and Edge Function
 
@@ -216,13 +259,23 @@ supabase/functions/compile-xml Edge Function (compiler.mjs holds the XML logic)
 supabase/tests/                Node tests for the database and the compiler
 server/src/                    Express API (routes/, logger.js, supabaseAdmin.js)
 scripts/migration/             one-off Firebase → Supabase migration scripts
-docs/HTE-*-testing.md          manual test plans, one per Jira ticket
+docs/<TICKET>-testing.md       manual test plans, one per ticket or story (HTE-, VCR-, WFPR-…)
 ```
+
+## Specs
+
+Features are specified before they're built, as Claude Docs, using the section template in `CLAUDE.md` ("Writing specs"). Add each new spec here.
+
+| Ticket | Spec | Status |
+| --- | --- | --- |
+| Supabase migration (HTE-supabase-migration) | [Kukulcan: Firebase → Supabase Migration Spec](https://claude.ai/code/artifact/30984f03-013f-4dd7-a1ae-8fe059596380) | Implemented (PR #1) |
+| VCR-001 | [Version-Controlled Hierarchy Rules](https://claude.ai/code/artifact/b8a553aa-eeb5-4048-a173-d6b268216a3b) | Draft, partly written |
+| WFPR-003 | [Nested User Created Node Definitions](https://claude.ai/code/artifact/9753755e-5f4d-43bb-93af-e9e59d416800) | Draft, open questions pending |
 
 ## Contributing
 
-- Name branches after the Jira ticket, e.g. `HTE-91-filtering`.
-- Start commit messages and PR titles with the ticket: `HTE-91: add hierarchy filtering by element type`.
-- Add a manual test plan for each ticket at `docs/HTE-<n>-testing.md` (issue, test cases with steps and expected results, outcome).
+- Name branches after the ticket or story ID, e.g. `HTE-91-filtering` or `WFPR-003-nested-definitions`.
+- Start commit messages and PR titles with it: `HTE-91: add hierarchy filtering by element type`.
+- Add a manual test plan for each ticket at `docs/<TICKET>-testing.md` (issue, test cases with steps and expected results, outcome).
 - Open PRs against `main`. Lint and Prettier must pass.
 - Don't put a trailing space or dot at the end of a filename. Windows can't check those files out.
