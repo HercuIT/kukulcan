@@ -46,6 +46,34 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
 - Workflow `status`: `draft` → `pending_review` → `approved`, or `pending_review` → `changes_requested` → back to editing. Clients may only update `name` and `nodes` (column grants + RLS; `checkout_description` is set by `checkout_workflow`); status, reviewer and collaborator changes go through the RPC functions, which check `assigned_reviewer_id` and `workflow_designers`. A trigger bumps `version` when `name` or `nodes` change and stamps `last_modified_*` for user writes (service-role writes keep their values).
 - A valid workflow has exactly one Begin/Start node with no inputs and one End node with no outputs. In XML, node types map to `BeginElement`, `EndElement`, `NodeDefinitionName`, etc. (`TYPE_TO_XML` in `server/src/routes/compileRoutes.js`). Deploy requires every non-Begin/End node to have at least one `<Parameter>` with a non-empty value.
 
+## Editor domain model
+
+What specs and features in the designer have to work with (all in `src/pages/Dashboard/Dashboard.js` unless noted):
+
+- **Hierarchy panel** (`TreeViewExample` → `renderTree`): roots in this order: Workflows (→ Node Definitions → User Created Definitions and Pre-Defined Definitions; Nodes), Equipment (`equipmentData.js`), Assets, Data Layer, Work Instructions, Materials (`MaterialData.js`), Scheduler. Rows have no ids: logic compares labels (`label === "User Created Definitions"`) and keys expand state by label.
+- **Equipment hierarchy:**
+  - The target structure for the Equipment root is in `README.md` → "Equipment and Assets hierarchy": Enterprise → Site → Area → Work Center → Equipment Module → Sequencer → Route / Control Loops → Control Module → Device / Field IO. It has a Definitions (classes) branch and an Instances branch, levels can be skipped, and some types nest inside themselves.
+  - Specs that touch equipment use those level names and the containment table there. The table is a reading of the spreadsheet: confirm it before enforcing it.
+- **Definitions:**
+  - The ISA-88 levels are `NODE_DEFINITION_NAMES`, duplicated as `PREDEFINED_PROCEDURE_LABELS`: Procedure Phase, Procedure Operation, Procedure Unit Procedure, Procedure, Area Procedure, Site Procedure.
+  - The predefined catalog is `PROCEDURE_PHASES` plus `OPERATIONS_BY_PHASE`, picked in `PredefinedNodeWizard`.
+  - User-created definitions come from `CreateNodeModal`: `{ name, version, desc, abstract, implementation: { program, routine }, parameters: [{ name, dataType, defaultValue }] }`.
+  - Both kinds live only in React state (`preDefinedNodes`, `userCreatedNodes`): they're lost on reload and never persisted.
+- **Canvas:** a flat list of nodes (`canvasNodes`) plus a separate list of connections (`manualConnections`, `{ id, from, to, fromPort, toPort }`), with no containment between nodes. **Only the nodes are saved:** `saveWorkflow` / `createWorkflow` write `canvasNodes` to `workflows.nodes`, and opening a workflow restores the nodes only. Edges drawn by the user are lost on reopen; the Canvas regenerates just the default Begin → Connection 1 → End edges (known defect below).
+  - A node has `id`, `type`, `label`, `x`, `y`, and optionally `parameters`, `implementation`, `procedurePhase`, `operation`.
+  - `parameters` is either grouped (`{ <tab>: [ … ] }`, from `NodeParametersModal`) or flat (`[ … ]`, from `CreateNodeModal`).
+  - A new canvas starts with Begin, Connection 1 and End (`getDefaultWorkflowNodes`).
+  - Panel rows reach the canvas through `handleDragStart`'s JSON drag data.
+- **Validation, by operation.** These are separate flows, not one pipeline. A new rule must say which operation(s) enforce it, and whether both compiler copies change:
+
+  | Operation | Where it's checked | What it checks |
+  | --- | --- | --- |
+  | Editing (live) and before compiling | `validateWorkflow` in `Dashboard.js` | Graph shape in the editor: one START, at least one END, no disconnected or unreachable nodes |
+  | Saving, sharing, status changes | RLS, column grants and RPC functions in the database | Who may change what, and the workflow status rules |
+  | Compiling in the app | `validateWorkflow` in `supabase/functions/compile-xml/compiler.mjs` | Structure, node ids, Begin/End, connections, size limits |
+  | Compiling through the local server (`POST /api/compile`) | `validateWorkflow` in `server/src/routes/compileRoutes.js` | A separate, older copy of the same graph checks: it must mirror `compiler.mjs` when either changes |
+  | Deploying (`POST /api/deploy-workflow`) | `validarWorkflow` in `server/src/routes/deployWorkflowRoutes.js` | The Ignition XML contract (see `README.md`) |
+
 ## Rules for new code
 
 - **Cover every scenario.** For every piece of new code, write test scenarios of three kinds:
@@ -53,7 +81,7 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
   - **Negative:** invalid input, missing permissions or failing dependencies are rejected or handled gracefully.
   - **Edge:** empty, boundary, duplicate or unusually large inputs.
 
-  Put automated tests next to the code where practical (Jest, `*.test.js`). Always list the scenarios in the ticket's `docs/HTE-<n>-testing.md`.
+  Put automated tests next to the code where practical (Jest, `*.test.js`). Always list the scenarios in the ticket's `docs/<TICKET>-testing.md`.
 
 - **Keep all UI strings in one place.** Every user-facing string (labels, buttons, menus, tooltips, messages, errors, alerts) lives in `src/constants/uiStrings.js`, never inline in JSX or component logic. Group keys by page and component so each key shows where it's used, e.g. `UI_STRINGS.dashboard.menuBar.save` or `UI_STRINGS.login.errors.missingFields`. Components import `UI_STRINGS` and reference the key.
   - **Finding code from visible text:** to locate the code behind a piece of text on screen, search `uiStrings.js` for the text, take its key, then search `src/` for that key to reach the component to change.
@@ -63,12 +91,39 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
   - `src/constants/uiStrings.test.js` fails if any `UI_STRINGS.…` key used in `src/` doesn't exist.
 - **Keep the docs current.** When new code changes something either file describes, update `CLAUDE.md` or `README.md` in the same change. That includes commands, setup, environment variables, endpoints, database tables and functions, roles, workflow rules, project layout and conventions.
 
+## Writing specs
+
+A spec is written before implementation, as a Claude Doc (not a file in the repo), and listed in the **Specs** table in `README.md` with its link and status. Read the specs it depends on first (e.g. WFPR-003 builds on VCR-001's rules). Use these sections, in this order:
+
+1. **Overview:** the user story verbatim, goals, non-goals, and a "Done when" list of checkable outcomes.
+2. **Current state:** what the code does today, naming files, components and constants (see "Editor domain model" above), and the known defects the feature touches.
+3. **Model or behaviour:** the concepts, operations and rules; a diagram when the content is a flow, tree or lifecycle.
+4. **Data model and authorization:** tables and columns, RLS (who reads, who changes), and the RPC functions with the rules each enforces and its error codes (`28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong state).
+5. **Enforcement / canvas, compile and deploy:** which validation layer checks what, and whether the Ignition XML contract changes (it's a non-goal unless the story says otherwise; see `README.md`).
+6. **UI changes and strings:** components touched, and the new `UI_STRINGS` keys with their text.
+7. **Testing:** a Positive / Negative / Edge table per area, which becomes `docs/<TICKET>-testing.md`.
+8. **Rollout, risks and open questions:** decisions the spec can't make alone are open questions, never silent assumptions.
+
+## Recipe: adding a persisted feature
+
+Both the Supabase migration and later specs follow the same pattern. A new table or server-side rule takes these steps:
+
+1. Create the migration with `npx supabase migration new <ticket_name>` (never a hand-picked timestamp).
+2. Enable RLS, revoke `insert`/`update`/`delete` from `anon` and `authenticated`, and grant only the reads (and column-level writes) clients really need.
+3. Put every rule-checking change in a `security definer` function with `set search_path = ''`, raising the standard error codes (see "Writing specs"). Shared checks go in the `private` schema; revoke `execute` from `public, anon` and grant it to `authenticated` (or `service_role`).
+4. Add the table to the `supabase_realtime` publication if open screens must refresh.
+5. Test the SQL in `supabase/tests/*.test.mjs` on PGlite (`npm run test:node`), running as `authenticated`, `anon` and `service_role` with the helpers in `schema.test.mjs`.
+6. Call it from a module in `src/backend/` (`<feature>Api.js`), mapping rows and errors in `mappers.js`; components never import `@supabase/supabase-js`.
+7. Put new strings in `uiStrings.js`, and update `README.md`/`CLAUDE.md`.
+8. Remember that merging to `main` runs the migration on the live project (`deploy_supabase.yaml`), and that an applied migration is never edited again.
+
 ## Conventions
 
 - Code comments and user-facing strings mix Spanish and English. Match whatever the surrounding code uses; don't translate existing text, including when you move it into `uiStrings.js`.
 - Formatting comes from Prettier defaults (double quotes, trailing commas). Don't hand-format; run `npm run format`. Markdown files (`*.md`) and `.claude/` are excluded in `.prettierignore`; don't run Prettier on them.
-- Name branches `HTE-<n>-<short-name>`. Start commits and PR titles with `HTE-<n>: <description>`.
-- Each ticket ships a manual test plan at `docs/HTE-<n>-testing.md` with sections Issue, Test Cases (TC-01… with Steps and Expected), and Result. Add or update it alongside the feature.
+- `<TICKET>` below is the ticket or story ID exactly as the request gives it: Jira tickets (`HTE-<n>`) and story IDs from the backlog (`VCR-001`, `WFPR-003`, …).
+- Name branches `<TICKET>-<short-name>`. Start commits and PR titles with `<TICKET>: <description>`.
+- Each ticket ships a manual test plan at `docs/<TICKET>-testing.md` with sections Issue, Test Cases (TC-01… with Steps and Expected), and Result. Add or update it alongside the feature.
 - Never end a filename with a space or dot. It breaks checkout on Windows (this already happened with an HTE-89 doc).
 
 ## Watch out for
@@ -76,4 +131,17 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
 - `Dashboard.js` sees many parallel feature branches, so merge conflicts there are common. Past merges have left duplicated JSX fragments outside conflict markers. After resolving a conflict, check that the file still parses (`npm run build` or `npx eslint src/pages/Dashboard/Dashboard.js`).
 - Secrets: `server/.env`, `.env.local`, `server/serviceAccountKey.json` (legacy) and `server/node_modules/` are git-ignored; GitHub push protection rejects pushes that contain credentials. The Supabase service-role key belongs only in `server/.env` or the migration scripts' environment, never in the frontend. Never print, copy or commit secret values, and don't add credentials to tracked files.
 - Shared projects: don't run `supabase db push`, `supabase functions deploy` or write to Supabase, and don't run `firebase deploy` or write to Firestore (`xicotencatl`), unless the user explicitly asks.
+- Known defects and open decisions (record new ones here; fix them only in the ticket that owns them):
+
+  | Defect | Where |
+  | --- | --- |
+  | Connections aren't saved: only `canvasNodes` goes to `workflows.nodes`, so user-drawn edges are lost when a workflow is reopened (predates the Supabase migration) | `executeUpdateWorkflow`, `executeSaveAsNew`, `handleLoadWorkflow` in `Dashboard.js` |
+  | `OPERATIONS_BY_PHASE` nests Operations inside Phases, the reverse of ISA-88 (Phases inside Operations); VCR-001 proposes flipping it | `Dashboard.js` |
+  | Hierarchy panel expand state is keyed by label, so same-named rows expand together | `TreeViewExample` |
+  | Dragging a user-created definition sends no data: `handleDragStart` only runs for leaf rows | `TreeViewExample` |
+  | Neither compiler's output passes the deploy validator as-is: `compile-xml` wraps `<Workflow>` in `<Controller>`, and `/api/compile` emits nodes without `<Parameters>` | `compiler.mjs`, `compileRoutes.js`, `deployWorkflowRoutes.js` |
+  | `/api/compile` (`compileRoutes.js`) doesn't read flat parameter arrays; `compile-xml` does | `server/src/routes/compileRoutes.js` |
+  | `/api/deploy-workflow` doesn't require a signed-in deployer (follow-up from PR #1) | `deployWorkflowRoutes.js` |
+  | The Equipment tree is sample data (*Enterprise Node* → four machines) that doesn't follow the documented Equipment hierarchy; Assets has its two branches (Assets Definitions, Assets Instances) but nothing beneath them | `equipmentData.js`, `assetsNode` in `Dashboard.js` |
+
 - RLS gotchas: a client `insert … returning` on `workflows` fails because the read policy depends on `workflow_designers`, which the trigger fills after the insert. `createWorkflow` generates the id client-side and inserts without `returning`. An update that RLS filters out returns zero rows instead of an error, so `saveWorkflow` checks the row count.

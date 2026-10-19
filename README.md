@@ -39,6 +39,79 @@ draft ──submit_for_review / assign_reviewer──▶ pending_review ──ap
 
 Clients can only edit a workflow's `name` and `nodes`, and only while they are one of its designers and it is in `draft` or `changes_requested`. Every other change goes through a `security definer` RPC that rechecks the rules: `submit_for_review`, `assign_reviewer`, `approve_workflow`, `request_changes`, `add_designer`, `remove_designer` and `checkout_workflow`. Only the assigned reviewer can approve or request changes, and only while they still have the `reviewer` role. Choosing "-- Unassigned --" clears the reviewer without changing the status. Errors use fixed codes (`28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong status), which `mappers.js` turns into the app's codes.
 
+### Glossary
+
+| Term | Meaning |
+| --- | --- |
+| Workflow | A designed process: a row in `workflows`, whose `nodes` hold the canvas nodes. Its status moves `draft` → `pending_review` → `approved`, or from `pending_review` to `changes_requested` and back to editing (see "Workflow lifecycle") |
+| Node | One element on the canvas (`type`, `label`, position, and optionally `parameters` and `implementation`). Begin/Start and End are special node types |
+| Connection | A directed link `from` → `to` between two nodes. **Known limitation:** connections aren't saved with the workflow yet, so edges drawn by the user are lost when it's reopened |
+| Node definition | A reusable template placed on the canvas from the hierarchy panel. **Pre-defined** ones come from the built-in catalog; **user-created** ones come from the Create Node modal (name, version, implementation, parameters). **Known limitation:** user-created definitions can't be dragged onto the canvas yet, because their rows have child groups and the panel only starts a drag from leaf rows (fix specified in WFPR-003) |
+| ISA-88 levels | The procedural hierarchy definitions belong to, outermost first: Site Procedure, Area Procedure, Procedure, (Procedure) Unit Procedure, (Procedure) Operation, (Procedure) Phase |
+| Operation / Phase | The two lowest ISA-88 levels. **Intended rule:** a Phase (e.g. Add Ingredient) runs inside an Operation (e.g. Mixing). **Current catalog:** it's inverted: `PROCEDURE_PHASES` lists Mixing, Drying and Inspection as phases, and `OPERATIONS_BY_PHASE` lists Add Ingredient and the others as their operations. VCR-001 proposes flipping it |
+| Parameter | A named value on a node (`name`, `value` or `defaultValue`, units, data type). Deploy requires every non-Begin/End node to have at least one, and every `<Parameter>` to have a non-empty `name` and `value` (see "Ignition XML contract") |
+| Rule set | The version-controlled hierarchy rules proposed in VCR-001 (which levels and definitions may contain which) |
+| Roles | Flags in `profiles`: **designer** (creates and edits workflows), **reviewer** (approves or requests changes when assigned), **deployer** (sees approved workflows to deploy). VCR-001 proposes **rule_admin** |
+| Ignition | The Inductive Automation gateway that receives the compiled XML through its `recibirXML` webdev endpoint |
+
+### Equipment and Assets hierarchy
+
+The target structure for the **Equipment** root of the hierarchy panel, from the business's *Equipment and Assets Hierarchy* spreadsheet. Every element is user-defined, and each exists twice under the enterprise instance:
+- **Site Definitions:** the classes, e.g. *Site 1 Class*.
+- **Sites:** the instances built from them, e.g. *Site 1 Instance*.
+
+The two branches have the same shape. The tree shows one example path from the spreadsheet, with "User Defined" dropped and examples shortened. **The containment table below is the rule**; the tree only illustrates it.
+
+```
+Equipment
+└── Enterprise
+    └── Enterprise instance (e.g. Enterprise 1)
+        ├── Site Definitions                                  ← classes ("… Class")
+        │   └── Site Definition (e.g. Site 1 Class)
+        │       └── Area Definition (Area 1 Class)
+        │           ├── Work Center Definition (Work Center 1 Class)
+        │           │   └── Equipment Module 1
+        │           │       └── Sequencer 1
+        │           │           ├── Route 1
+        │           │           │   └── Control Module 1
+        │           │           │       ├── Device 1
+        │           │           │       └── Field IO 1
+        │           │           ├── Control Loops (Control Loop 1)
+        │           │           │   └── Control Module 1
+        │           │           │       ├── Device 1
+        │           │           │       └── Field IO 1
+        │           │           └── Control Module 2
+        │           │               ├── Device 2
+        │           │               ├── Field IO 2
+        │           │               └── Control Module 3
+        │           │                   ├── Device 3
+        │           │                   └── Field IO 3
+        │           └── …                                     other types an Area may hold directly: see the table
+        └── Sites                                             ← instances ("… Instance")
+            └── Site 1 → Area 1 → Work Center 1 → …           same shape as Site Definitions
+```
+
+**Containment rules (authoritative).** Each branch of the spreadsheet ends with blocks that repeat Equipment Module, Sequencer, Route, Control Module and Control Loops, one level deeper each time. Laid out as a tree, they'd look like Equipment Modules nested inside Control Loops. We read them as the types each level may contain directly, which matches the main chain, so the tree above leaves them out. This table is that reading, still to be confirmed with the business:
+
+| Level (Definition or Instance) | May contain |
+| --- | --- |
+| Enterprise instance | Site Definitions, Sites |
+| Site | Area |
+| Area | Work Center, Equipment Module, Sequencer, Route, Control Module, Control Loops |
+| Work Center | Equipment Module, Sequencer, Route, Control Module, Control Loops |
+| Equipment Module | Equipment Module, Sequencer, Route, Control Module, Control Loops |
+| Sequencer | Sequencer, Route, Control Module, Control Loops |
+| Route | Control Module |
+| Control Loops | Control Module |
+| Control Module | Device, Field IO, Control Module |
+| Device, Field IO | Nothing (leaves) |
+
+Levels may be skipped: an Area can hold a Control Module directly, without a Work Center, Equipment Module or Sequencer between them. Equipment Module, Sequencer and Control Module can nest inside their own type.
+
+**Not covered yet:**
+- **Assets:** the spreadsheet only details Equipment. The Assets root has its two branches, Assets Definitions and Assets Instances, but nothing defined beneath them.
+- **The app's Equipment tree:** today it's sample data in `src/pages/Dashboard/equipmentData.js` (*Enterprise Node* → four machines) and doesn't follow this hierarchy.
+
 ## Getting started
 
 ### Prerequisites
@@ -92,6 +165,38 @@ Endpoints:
 | GET | `/api/ignition-health` | Checks that the Ignition gateway is reachable and `RUNNING` |
 | POST | `/api/compile` | Validates a workflow JSON (`nodes`, `connections`; exactly one Begin and one End) and returns XML |
 | POST | `/api/deploy-workflow` | Validates workflow XML (`Content-Type: application/xml`) and forwards it to Ignition |
+
+### Ignition XML contract
+
+`/api/deploy-workflow` checks the XML (`validarWorkflow` in `server/src/routes/deployWorkflowRoutes.js`), then POSTs it unchanged to `http://<IP_IGNITION>:<PORT_IGNITION>/system/webdev/<PROJECT_NAME_IGNITION>/api/recibirXML` with basic auth. The XML it accepts:
+
+```xml
+<Workflow id="W-001" name="…" version="…">            <!-- root element; id required, non-empty -->
+  <Nodes>
+    <Node id="n1" type="BeginElement" name="Begin"/>   <!-- Begin/End: no parameters needed -->
+    <Node id="n2" type="NodeDefinitionName" name="Mixing">
+      <Parameters>                                    <!-- required on every other node -->
+        <Parameter name="Speed" value="10" unit="rpm"/> <!-- name and value required, non-empty -->
+      </Parameters>
+    </Node>
+    <Node id="n3" type="EndElement" name="End"/>
+  </Nodes>
+  <Connections>
+    <Connection from="n1" to="n2"/>                    <!-- from and to required -->
+  </Connections>
+</Workflow>
+```
+
+- Node types map to XML `type` differently in the two compilers:
+  - `compile-xml` (used by the app): Begin/Start → `BeginElement`, End → `EndElement`, and any other type passes through unchanged (an ISA-88 level stays e.g. `Procedure Phase`).
+  - `/api/compile` (`compileRoutes.js`): also maps the ISA-88 levels to `NodeDefinitionName`.
+
+  The deploy validator doesn't check `type`, so both pass it. What `recibirXML` expects for procedural nodes is unconfirmed.
+- Ignition answers with a JSON `status`/`message`. "The file already exists in the destination folder." means a workflow with that file name was already deployed.
+- **Known gap:** neither compiler's output passes this check as-is:
+  - `compile-xml` (used by the app) wraps `<Workflow>` in a `<Controller>`/`<Programs>`/`<SFCContent>` document for the PLC.
+  - `/api/compile` emits nodes without `<Parameters>`.
+- **Changing the contract:** any change (new elements such as nested nodes, new required attributes) needs the Ignition project's `recibirXML` script to change too. Specs treat it as a non-goal unless the story says otherwise.
 
 ### Database and Edge Function
 
@@ -216,13 +321,24 @@ supabase/functions/compile-xml Edge Function (compiler.mjs holds the XML logic)
 supabase/tests/                Node tests for the database and the compiler
 server/src/                    Express API (routes/, logger.js, supabaseAdmin.js)
 scripts/migration/             one-off Firebase → Supabase migration scripts
-docs/HTE-*-testing.md          manual test plans, one per Jira ticket
+docs/<TICKET>-testing.md       manual test plans, one per ticket or story (HTE-, VCR-, WFPR-…)
 ```
+
+## Specs
+
+Features are specified before they're built, as Claude Docs, using the section template in `CLAUDE.md` ("Writing specs"). Add each new spec here.
+
+| Ticket | Spec | Status |
+| --- | --- | --- |
+| Supabase migration (HTE-supabase-migration) | [Kukulcan: Firebase → Supabase Migration Spec](https://claude.ai/code/artifact/30984f03-013f-4dd7-a1ae-8fe059596380) | Implemented (PR #1) |
+| VCR-001 | [Version-Controlled Hierarchy Rules](https://claude.ai/code/artifact/b8a553aa-eeb5-4048-a173-d6b268216a3b) | Draft, partly written |
+| WFPR-003 | [Nested User Created Node Definitions](https://claude.ai/code/artifact/9753755e-5f4d-43bb-93af-e9e59d416800) | Draft, open questions pending |
+| WFPR-004 | [Expandable Pre-Defined Definitions](https://claude.ai/code/artifact/cf5b6f1e-aa6f-400f-bc6f-f425c4349488) | Draft, depends on VCR-001; open questions pending |
 
 ## Contributing
 
-- Name branches after the Jira ticket, e.g. `HTE-91-filtering`.
-- Start commit messages and PR titles with the ticket: `HTE-91: add hierarchy filtering by element type`.
-- Add a manual test plan for each ticket at `docs/HTE-<n>-testing.md` (issue, test cases with steps and expected results, outcome).
+- Name branches after the ticket or story ID, e.g. `HTE-91-filtering` or `WFPR-003-nested-definitions`.
+- Start commit messages and PR titles with it: `HTE-91: add hierarchy filtering by element type`.
+- Add a manual test plan for each ticket at `docs/<TICKET>-testing.md` (issue, test cases with steps and expected results, outcome).
 - Open PRs against `main`. Lint and Prettier must pass.
 - Don't put a trailing space or dot at the end of a filename. Windows can't check those files out.
