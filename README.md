@@ -102,6 +102,16 @@ supabase functions deploy compile-xml     # JWT verification stays on (supabase/
 
 Every schema change ships as a new file in `supabase/migrations/`. `npm run test:node` runs the migrations against an in-memory Postgres (PGlite) and checks the RLS and RPC rules, so you can test them without Docker.
 
+The project is `xiidwepvvjcqyhywmdrn`. Merges to `main` that touch `supabase/` deploy automatically: `.github/workflows/deploy_supabase.yaml` runs `supabase db push` and `supabase functions deploy compile-xml` (it can also be run by hand from the Actions tab). It needs three repository secrets (GitHub → Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+| --- | --- |
+| `SUPABASE_ACCESS_TOKEN` | A Supabase personal access token (Account → Access Tokens) from an account with access to the project |
+| `SUPABASE_DB_PASSWORD` | The project's database password |
+| `SUPABASE_PROJECT_ID` | The project ref, `xiidwepvvjcqyhywmdrn` |
+
+The workflow doesn't touch Auth settings: Site URL and redirect URLs are set in the dashboard. Don't run `supabase config push`, which would overwrite them with the local values in `supabase/config.toml`.
+
 ### Firebase → Supabase data migration
 
 One-off scripts in `scripts/migration/`, with their own `package.json`. Run every command below from that folder (`cd scripts/migration && npm install` first). They don't read `server/.env`: set these variables in the shell instead:

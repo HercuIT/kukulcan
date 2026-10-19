@@ -1,0 +1,36 @@
+name: Deploy Supabase
+
+# Applies new migrations and deploys the compile-xml Edge Function when supabase/ changes on main.
+# Repository secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, SUPABASE_PROJECT_ID.
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/**"]
+  workflow_dispatch:
+
+# One deploy at a time; a newer merge waits instead of pushing migrations in parallel.
+concurrency:
+  group: deploy-supabase
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      - name: Link project
+        run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+
+      - name: Apply migrations
+        run: supabase db push --yes
+
+      - name: Deploy compile-xml
+        run: supabase functions deploy compile-xml --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}

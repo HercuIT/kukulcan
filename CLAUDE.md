@@ -18,7 +18,7 @@ npm run test:node             # Node tests: migrations on PGlite, compile-xml, s
 cd server && node src/index.js    # local API on 127.0.0.1:3001
 ```
 
-CI runs lint, Prettier, the Jest unit tests and `npm run test:node`. Run all four before you call a change done. On Windows, check Prettier with `npx prettier --check --end-of-line auto <files>`: `core.autocrlf` checks files out with CRLF, which plain `format-check` reports as errors.
+CI runs lint, Prettier, the Jest unit tests and `npm run test:node`. Merges to `main` that change `supabase/` also run `.github/workflows/deploy_supabase.yaml`, which pushes migrations and deploys `compile-xml` to the live project (`xiidwepvvjcqyhywmdrn`), so a migration merged to `main` is a production change. Run all four before you call a change done. On Windows, check Prettier with `npx prettier --check --end-of-line auto <files>`: `core.autocrlf` checks files out with CRLF, which plain `format-check` reports as errors.
 
 ## Where things are
 
