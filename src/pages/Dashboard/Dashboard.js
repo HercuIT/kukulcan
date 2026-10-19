@@ -2286,6 +2286,35 @@ function MenuBar({
 //  HELPERS
 // =============================
 
+// Conexiones de un workflow abierto. Los guardados antes de WFPR-003 no tienen, así que se
+// regeneran las aristas por defecto Begin → Connection 1 → End, como hace el lienzo al montarse.
+export function connectionsForLoadedWorkflow(content) {
+  if (content?.connections?.length) return content.connections;
+  const nodes = content?.nodes || [];
+  const begin = nodes.find((n) => n.type === "start" || n.id === "begin");
+  const conn = nodes.find(
+    (n) => n.type === "connection" || n.id === "connection1",
+  );
+  const end = nodes.find((n) => n.type === "end" || n.id === "end");
+  if (!begin || !conn || !end) return [];
+  return [
+    {
+      id: "conn-init-1",
+      from: begin.id,
+      to: conn.id,
+      fromPort: "bottom",
+      toPort: "top",
+    },
+    {
+      id: "conn-init-2",
+      from: conn.id,
+      to: end.id,
+      fromPort: "bottom",
+      toPort: "top",
+    },
+  ];
+}
+
 function getDefaultWorkflowNodes() {
   const baseX = 140;
   const startY = 100;
@@ -2845,7 +2874,10 @@ export default function App({ user, userRoles }) {
       }
 
       // El trigger de la base sube la versión y sella fecha y autor
-      await saveWorkflow(currentWorkflowId, { nodes: canvasNodes });
+      await saveWorkflow(currentWorkflowId, {
+        nodes: canvasNodes,
+        connections: manualConnections,
+      });
 
       console.log("✅ Workflow actualizado");
       setIsDirty(false);
@@ -2877,6 +2909,7 @@ export default function App({ user, userRoles }) {
       const newId = await createWorkflow({
         name: workflowName,
         nodes: canvasNodes,
+        connections: manualConnections,
       });
       console.log("✅ Workflow guardado con ID:", newId);
       setSaveModalOpen(false);
@@ -2904,6 +2937,9 @@ export default function App({ user, userRoles }) {
       const workflowData = await getWorkflow(workflowId);
       if (workflowData) {
         setCanvasNodes(workflowData.content.nodes || []);
+        setManualConnections(
+          connectionsForLoadedWorkflow(workflowData.content),
+        );
 
         setCurrentWorkflowId(workflowId);
         setIsDirty(false);
@@ -4099,10 +4135,34 @@ function Canvas({
         y = snapToGrid(y);
       }
 
+      if (comp.kind === "userDefinition") {
+        // WFPR-003 (opción B): la definición y todos sus descendientes, conectados en cadena.
+        const stamp = Date.now();
+        const { nodes: added, connections } = expandForCanvas(comp.definition, {
+          x,
+          y,
+          basePath: comp.basePath || [],
+          makeId: (i) => `instancia-${stamp}-${i}`,
+        });
+        setUsedComponents((used) => [
+          ...new Set([...used, ...added.map((n) => n.label)]),
+        ]);
+        setNodes((prevNodes) => [...prevNodes, ...added]);
+        setManualConnections((prev) => [...prev, ...connections]);
+        if (added.length === 1 && typeof onNodeAdded === "function") {
+          onNodeAdded(nodes.length, added[0]);
+        }
+        if (onDirty) onDirty();
+        window._dragComponent = null;
+        return;
+      }
+
       setUsedComponents((used) => [...new Set([...used, comp.label])]);
 
+      // kind/predefinedKey solo sirven para soltar dentro del panel; no van al nodo.
+      const { kind, predefinedKey, ...dropped } = comp;
       const newNode = {
-        ...comp,
+        ...dropped,
         x,
         y,
         id: `instancia-${Date.now()}`,

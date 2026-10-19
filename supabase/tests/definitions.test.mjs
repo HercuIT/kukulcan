@@ -71,7 +71,10 @@ describe("user definitions: positive", () => {
       name: "Line 1",
       version: "2.0",
       description: "Main line",
-      implementation: { program: "MainProgram", routine: "SFC_Control_Routine" },
+      implementation: {
+        program: "MainProgram",
+        routine: "SFC_Control_Routine",
+      },
       parameters: [{ name: "Speed", dataType: "REAL", defaultValue: "10" }],
     });
     const mixer = await create(line, { name: "Mixer A" });
@@ -216,7 +219,7 @@ describe("user definitions: negative", () => {
   test("anon can't call the RPCs or read the table", async () => {
     await rejectsWith(
       as(null, () =>
-        q("select public.create_definition(null, '{\"name\":\"x\"}')"),
+        q('select public.create_definition(null, \'{"name":"x"}\')'),
       ),
       "42501",
     );
@@ -241,10 +244,7 @@ describe("user definitions: negative", () => {
   });
 
   test("unknown parent, missing name", async () => {
-    await rejectsWith(
-      create(crypto.randomUUID(), { name: "Orphan" }),
-      "P0002",
-    );
+    await rejectsWith(create(crypto.randomUUID(), { name: "Orphan" }), "P0002");
     await rejectsWith(create(null, { name: "   " }), "P0001", "name_required");
   });
 
@@ -273,7 +273,11 @@ describe("user definitions: negative", () => {
       key: "level:Procedure Phase",
       label: "Procedure Phase",
     });
-    await rejectsWith(create(ref, { name: "Inside" }), "P0001", "invalid_parent");
+    await rejectsWith(
+      create(ref, { name: "Inside" }),
+      "P0001",
+      "invalid_parent",
+    );
     await rejectsWith(move(ref, null), "P0001", "predefined_needs_parent");
     await rejectsWith(
       addPredefined(null, { key: "k", label: "L" }),
@@ -281,7 +285,10 @@ describe("user definitions: negative", () => {
       "predefined_needs_parent",
     );
     await rejectsWith(
-      addPredefined(parent, { key: "level:Procedure Phase", label: "Procedure Phase" }),
+      addPredefined(parent, {
+        key: "level:Procedure Phase",
+        label: "Procedure Phase",
+      }),
       "P0001",
       "duplicate_sibling",
     );

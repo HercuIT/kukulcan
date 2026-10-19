@@ -271,9 +271,7 @@ export default function UserDefinitionsTree({
         <span onClick={() => hasContent && toggle(node.id)}>
           {labelOf(node)}
           {node.kind === "predefined" && (
-            <em style={{ color: "#555", marginLeft: 6 }}>
-              {S.predefinedTag}
-            </em>
+            <em style={{ color: "#555", marginLeft: 6 }}>{S.predefinedTag}</em>
           )}
         </span>
       </div>
@@ -322,7 +320,9 @@ export default function UserDefinitionsTree({
 
   const topCount = tree.roots.length;
   const createParentPath =
-    createState?.parentId != null ? pathOf(tree.byId, createState.parentId) : null;
+    createState?.parentId != null
+      ? pathOf(tree.byId, createState.parentId)
+      : null;
 
   return (
     <>
@@ -463,7 +463,9 @@ export default function UserDefinitionsTree({
         tree={tree}
         onClose={() => setMoveTarget(null)}
         onMove={async (newParentId) => {
-          const ok = await run(() => moveDefinition(moveTarget.id, newParentId));
+          const ok = await run(() =>
+            moveDefinition(moveTarget.id, newParentId),
+          );
           if (ok) {
             setMoveTarget(null);
             expand(newParentId);

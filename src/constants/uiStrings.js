@@ -93,8 +93,15 @@ export const UI_STRINGS = {
       realPlaceholder: "0.0",
       errors: {
         porFavorCompletaTodosLos: "Por favor, completa todos los campos.",
+        invalidParameter: (name) =>
+          `Parámetro inválido: completa Name y Data Type (${name || "sin nombre"}).`,
+        defaultRequired: (name) => `Default Value requerido para ${name}.`,
+        invalidInt: (name) => `Default Value entero inválido en ${name}.`,
+        invalidReal: (name) => `Default Value real inválido en ${name}.`,
       },
       createNode: "Create Node",
+      titleEdit: (name) => `Edit “${name}”`,
+      insideOf: (path) => `Inside: ${path}`,
       nodeDefinitionName: "Node Definition Name",
       enterNodeName: "Enter node name",
       nodeVersion: "Node Version",
@@ -115,6 +122,56 @@ export const UI_STRINGS = {
       delete: "Delete",
       cancel: "Cancel",
       ok: "OK",
+    },
+    // WFPR-003: árbol de User Created Definitions y sus modales.
+    userDefinitionsTree: {
+      predefinedTag: "(pre-defined)",
+      menu: {
+        new: "New",
+        newInside: "New definition inside",
+        edit: "Edit",
+        moveUp: "Move up",
+        moveDown: "Move down",
+        moveTo: "Move to…",
+        delete: "Delete",
+      },
+      groups: {
+        parameters: "Parameters",
+        equipment: "Equipment",
+        material: "Material",
+        personnel: "Personnel",
+        elements: "Elements",
+      },
+      errors: {
+        cycle: "A definition can't be moved inside itself.",
+        duplicateSibling:
+          "A definition with this name and version already exists here.",
+        invalidParent:
+          "Pre-defined definitions can't contain other definitions.",
+        predefinedNeedsParent:
+          "Pre-defined definitions must stay inside a user definition.",
+        nameRequired: "The name is required.",
+        noPermission: "You need the Designer role to change definitions.",
+        generic: "The definitions couldn't be updated.",
+      },
+    },
+    moveDefinitionModal: {
+      title: (name) => `Move “${name}”`,
+      newParent: "New parent",
+      topLevel: "Top level",
+      noTargets: "There's nowhere else to move it.",
+      cancel: "Cancel",
+      move: "Move",
+    },
+    deleteDefinitionModal: {
+      title: (name) => `Delete “${name}”?`,
+      hasChildren: (count) =>
+        `It directly contains ${count} definition${count === 1 ? "" : "s"}.`,
+      keepChildren: "Keep children (move them up one level)",
+      deleteAll: (count) =>
+        `Delete with everything inside (${count} definitions)`,
+      delete: "Delete",
+      cancel: "Cancel",
     },
     contextMenu: {
       new: "New",
