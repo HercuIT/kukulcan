@@ -80,9 +80,7 @@ export default function Home({ user, userRoles }) {
   const [ignitionOnline, setIgnitionOnline] = useState(true);
 
   const handleLogout = () => {
-    signOut().catch((error) =>
-      console.error("Error al cerrar sesión:", error),
-    );
+    signOut().catch((error) => console.error("Error al cerrar sesión:", error));
   };
 
   // Reintenta la verificación del servidor cada 3 segundos si está caído

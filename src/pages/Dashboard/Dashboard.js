@@ -1308,7 +1308,6 @@ function TreeNode({
   setExpandedNodes,
   setInteractionMode, // ✅ agregado
 }) {
-
   const open = expandedNodes?.[label] || false;
   const nodeRef = useRef(null);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -1356,45 +1355,41 @@ function TreeNode({
 
     if (e.key === "Enter") {
       if (children) {
-        setExpandedNodes(prev => ({
+        setExpandedNodes((prev) => ({
           ...prev,
-          [label]: !prev[label]
+          [label]: !prev[label],
         }));
       }
     }
 
-  
     // ↓ bajar
     if (e.key === "ArrowDown") {
       const next = findNextNode();
       if (next) next.focus();
     }
 
-  
     // ↑ subir
     if (e.key === "ArrowUp") {
       const prev = findPrevNode();
       if (prev) prev.focus();
     }
 
-  
     // → abrir nodo
     if (e.key === "ArrowRight") {
       if (children && !open) {
-        setExpandedNodes(prev => ({
+        setExpandedNodes((prev) => ({
           ...prev,
-          [label]: true
+          [label]: true,
         }));
       }
     }
 
-  
     // ← cerrar nodo
     if (e.key === "ArrowLeft") {
       if (children && open) {
-        setExpandedNodes(prev => ({
+        setExpandedNodes((prev) => ({
           ...prev,
-          [label]: false
+          [label]: false,
         }));
       }
     }
@@ -1403,8 +1398,7 @@ function TreeNode({
   // Determina si este nodo está usado
   const isUsed = usedComponents.includes(label);
 
-
- return (
+  return (
     <div
       className={`tree-node ${isLastChild ? "last-child" : ""}`}
       style={{ position: "relative" }}
@@ -1434,7 +1428,7 @@ function TreeNode({
         onClick={() => {
           if (label === "User Created Definitions") return;
           if (children && children.length > 0) {
-            setExpandedNodes(prev => ({ ...prev, [label]: !prev[label] }));
+            setExpandedNodes((prev) => ({ ...prev, [label]: !prev[label] }));
           } else if (onClick) {
             onClick();
           }
@@ -1468,17 +1462,23 @@ function TreeNode({
       </div>
 
       {showTooltip && (
-        <div style={{
-          position: "fixed",
-          left: tooltipPos.x,
-          top: tooltipPos.y,
-          background: "#fff",
-          border: "1px solid #bbb",
-          padding: 8,
-          zIndex: 9999
-        }}>
-          <div><strong>Description:</strong> {desc}</div>
-          <div><strong>Abstract:</strong> {abstract}</div>
+        <div
+          style={{
+            position: "fixed",
+            left: tooltipPos.x,
+            top: tooltipPos.y,
+            background: "#fff",
+            border: "1px solid #bbb",
+            padding: 8,
+            zIndex: 9999,
+          }}
+        >
+          <div>
+            <strong>Description:</strong> {desc}
+          </div>
+          <div>
+            <strong>Abstract:</strong> {abstract}
+          </div>
         </div>
       )}
 
@@ -1495,21 +1495,14 @@ function TreeNode({
               isDesigner,
               expandedNodes,
               setExpandedNodes,
-              setInteractionMode
-            })
+              setInteractionMode,
+            }),
           )}
         </div>
       )}
     </div>
   );
 }
-       
-
-
-
-
-
-
 
 const PREDEFINED_PROCEDURE_LABELS = [
   "Procedure Phase",
@@ -1622,17 +1615,18 @@ function TreeViewExample({
     if (isUserCreated) {
       actualChildren = [
         ...userCreatedNodes
-          .filter(n => n && n.name)
+          .filter((n) => n && n.name)
           .map((n) => {
             const paramsChildren = Array.isArray(n.parameters)
               ? n.parameters
-                  .filter(p => p && typeof p === "object" && p.name)
-                  .map(p => ({
+                  .filter((p) => p && typeof p === "object" && p.name)
+                  .map((p) => ({
                     label: String(p.name),
                     type: "parameter",
                     desc: `Data Type: ${p?.dataType || "N/A"}`,
                     abstract: `Default: ${String(p?.defaultValue ?? "")}`,
-                    onClick: () => openParamDetails(p, `${n.name} v ${n.version}`),
+                    onClick: () =>
+                      openParamDetails(p, `${n.name} v ${n.version}`),
                   }))
               : [];
             return {
@@ -1640,7 +1634,12 @@ function TreeViewExample({
               desc: n.desc,
               abstract: n.abstract,
               color: "green",
-              details: { capacity: "NA", lastMaintenance: null, manufacturerModel: null, status: "Unknown" },
+              details: {
+                capacity: "NA",
+                lastMaintenance: null,
+                manufacturerModel: null,
+                status: "Unknown",
+              },
               implementation: n.implementation,
               isDraggable: true,
               type: n.name,
@@ -1654,15 +1653,17 @@ function TreeViewExample({
             };
           })
           .filter(Boolean),
-        ...(Array.isArray(children) ? children.filter(child => child && child.label) : []),
+        ...(Array.isArray(children)
+          ? children.filter((child) => child && child.label)
+          : []),
       ];
     }
 
     if (label === "Pre-Defined Definitions" && children) {
       actualChildren = [
         ...children
-          .filter(child => child && child.label)
-          .map(child => ({ ...child, color: "blue" })),
+          .filter((child) => child && child.label)
+          .map((child) => ({ ...child, color: "blue" })),
         // Nodos creados con el PredefinedNodeWizard
         ...preDefinedNodes.map((n) => ({
           label: `${n.procedurePhase} - ${n.operation}`,
@@ -1672,9 +1673,12 @@ function TreeViewExample({
       ];
     }
 
-    const childCount = isUserCreated ? userCreatedNodes.length : actualChildren.length;
+    const childCount = isUserCreated
+      ? userCreatedNodes.length
+      : actualChildren.length;
     const displayLabel = childCount > 0 ? `${label} (${childCount})` : label;
-    const hasChildren = Array.isArray(actualChildren) && actualChildren.length > 0;
+    const hasChildren =
+      Array.isArray(actualChildren) && actualChildren.length > 0;
 
     return (
       <>
@@ -1684,8 +1688,8 @@ function TreeViewExample({
             node?.label === "User Created Definitions"
               ? undefined
               : isEquipment && onEquipmentSelect
-              ? () => onEquipmentSelect(node)
-              : undefined
+                ? () => onEquipmentSelect(node)
+                : undefined
           }
           onContextMenu={
             isUserCreated || PREDEFINED_PROCEDURE_LABELS.includes(label)
@@ -1702,13 +1706,24 @@ function TreeViewExample({
               : undefined
           }
           draggable={isLeafNode || node.isDraggable}
-          onDragStart={(e) => { if (isLeafNode) handleDragStart(e, node); }}
-          style={{ marginLeft: level * 10, cursor: "pointer", color: node.color || "black" }}
+          onDragStart={(e) => {
+            if (isLeafNode) handleDragStart(e, node);
+          }}
+          style={{
+            marginLeft: level * 10,
+            cursor: "pointer",
+            color: node.color || "black",
+          }}
         >
           <div style={{ display: "flex", alignItems: "center" }}>
             {isUserCreated && userCreatedNodes.length > 0 && (
               <span
-                style={{ marginRight: 6, cursor: "pointer", fontWeight: "bold", color: "#1677ff" }}
+                style={{
+                  marginRight: 6,
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  color: "#1677ff",
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isDesigner) return alert("Acción no permitida.");
@@ -1723,7 +1738,10 @@ function TreeViewExample({
                 style={{ marginRight: 4, cursor: "pointer" }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setExpandedNodes(prev => ({ ...prev, [label]: !prev[label] }));
+                  setExpandedNodes((prev) => ({
+                    ...prev,
+                    [label]: !prev[label],
+                  }));
                 }}
               >
                 {isOpen ? "- " : "+ "}
@@ -1735,14 +1753,17 @@ function TreeViewExample({
                 e.stopPropagation();
                 setSelectedTreeNode(label);
                 if (hasChildren) {
-                  setExpandedNodes(prev => ({ ...prev, [label]: !prev[label] }));
+                  setExpandedNodes((prev) => ({
+                    ...prev,
+                    [label]: !prev[label],
+                  }));
                 }
               }}
               onMouseEnter={(e) => {
                 if (node.desc || node.abstract || node.details) {
                   const tooltip = document.createElement("div");
                   tooltip.id = "tree-tooltip";
-                  tooltip.style.cssText = `position:fixed;left:${e.clientX+12}px;top:${e.clientY+12}px;background:#fff;border:1px solid #bbb;box-shadow:0 2px 8px rgba(0,0,0,0.15);padding:8px 12px;z-index:9999;font-size:13px;max-width:280px;border-radius:4px;pointer-events:none;`;
+                  tooltip.style.cssText = `position:fixed;left:${e.clientX + 12}px;top:${e.clientY + 12}px;background:#fff;border:1px solid #bbb;box-shadow:0 2px 8px rgba(0,0,0,0.15);padding:8px 12px;z-index:9999;font-size:13px;max-width:280px;border-radius:4px;pointer-events:none;`;
                   tooltip.innerHTML = `
                     ${node.desc ? `<div><strong>Description:</strong> ${node.desc}</div>` : ""}
                     ${node.abstract ? `<div><strong>Abstract:</strong> ${node.abstract}</div>` : ""}
@@ -1756,7 +1777,10 @@ function TreeViewExample({
               }}
               onMouseMove={(e) => {
                 const tooltip = document.getElementById("tree-tooltip");
-                if (tooltip) { tooltip.style.left = `${e.clientX+12}px`; tooltip.style.top = `${e.clientY+12}px`; }
+                if (tooltip) {
+                  tooltip.style.left = `${e.clientX + 12}px`;
+                  tooltip.style.top = `${e.clientY + 12}px`;
+                }
               }}
               onMouseLeave={() => {
                 const tooltip = document.getElementById("tree-tooltip");
@@ -1773,7 +1797,8 @@ function TreeViewExample({
               {displayLabel}
             </div>
           </div>
-          {isOpen && Array.isArray(actualChildren) &&
+          {isOpen &&
+            Array.isArray(actualChildren) &&
             actualChildren.map((child, i) => renderTree(child, level + 1))}
         </div>
       </>
@@ -1816,8 +1841,16 @@ function TreeViewExample({
       {
         label: "Devices",
         children: [
-          { label: "Sensor de Temperatura", isDraggable: true, details: { tagPath: "/Linea1/Temp" } },
-          { label: "Sensor de Presión", isDraggable: true, details: { tagPath: "/Linea1/Presion" } },
+          {
+            label: "Sensor de Temperatura",
+            isDraggable: true,
+            details: { tagPath: "/Linea1/Temp" },
+          },
+          {
+            label: "Sensor de Presión",
+            isDraggable: true,
+            details: { tagPath: "/Linea1/Presion" },
+          },
         ],
       },
     ],
@@ -1860,7 +1893,6 @@ function TreeViewExample({
   // RETURN
   return (
     <div ref={treeContainerRef} className="tree-container">
-
       <input
         type="text"
         value={search}
@@ -1931,19 +1963,66 @@ function TreeViewExample({
       />
 
       {paramModal.open && (
-        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.30)",zIndex:10000,display:"flex",justifyContent:"center",alignItems:"center" }}>
-          <div style={{ width:420,background:"#fff",borderRadius:10,boxShadow:"0 8px 30px rgba(0,0,0,.25)" }}>
-            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid #e5e7eb" }}>
-              <h3 style={{ margin:0 }}>Parameter Properties</h3>
-              <button onClick={closeParamDetails} style={{ fontSize:22,background:"none",border:"none",cursor:"pointer" }}>×</button>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.30)",
+            zIndex: 10000,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 420,
+              background: "#fff",
+              borderRadius: 10,
+              boxShadow: "0 8px 30px rgba(0,0,0,.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "12px 16px",
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              <h3 style={{ margin: 0 }}>Parameter Properties</h3>
+              <button
+                onClick={closeParamDetails}
+                style={{
+                  fontSize: 22,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
             </div>
-            <div style={{ padding:16 }}>
-              <p><strong>Node:</strong> {paramModal?.nodeLabel || "N/A"}</p>
-              <p><strong>Name:</strong> {paramModal?.param?.name || "N/A"}</p>
-              <p><strong>Data Type:</strong> {paramModal?.param?.dataType || "N/A"}</p>
-              <p><strong>Default Value:</strong>{" "}{paramModal?.param?.defaultValue !== undefined ? String(paramModal.param.defaultValue) : "N/A"}</p>
+            <div style={{ padding: 16 }}>
+              <p>
+                <strong>Node:</strong> {paramModal?.nodeLabel || "N/A"}
+              </p>
+              <p>
+                <strong>Name:</strong> {paramModal?.param?.name || "N/A"}
+              </p>
+              <p>
+                <strong>Data Type:</strong>{" "}
+                {paramModal?.param?.dataType || "N/A"}
+              </p>
+              <p>
+                <strong>Default Value:</strong>{" "}
+                {paramModal?.param?.defaultValue !== undefined
+                  ? String(paramModal.param.defaultValue)
+                  : "N/A"}
+              </p>
             </div>
-            <div style={{ padding:10,textAlign:"right" }}>
+            <div style={{ padding: 10, textAlign: "right" }}>
               <button onClick={closeParamDetails}>Close</button>
             </div>
           </div>
@@ -1952,10 +2031,6 @@ function TreeViewExample({
     </div>
   );
 }
-
-
-
-
 
 //  MENU BAR
 
@@ -2017,11 +2092,7 @@ function MenuBar({
 
   return (
     <nav className="menu-bar" ref={menuRef}>
-      <img
-        src={Logo}
-        alt="Logo"
-        style={{ height: 40, marginRight: 16 }}
-      />
+      <img src={Logo} alt="Logo" style={{ height: 40, marginRight: 16 }} />
 
       {Object.keys(menuOptions).map((menu) => {
         const options = menu === "File" ? fileOptions : menuOptions[menu];
@@ -2036,10 +2107,7 @@ function MenuBar({
             </button>
 
             {openMenu === menu && (
-              <div
-                className="dropdown"
-                onMouseLeave={() => setOpenMenu(null)}
-              >
+              <div className="dropdown" onMouseLeave={() => setOpenMenu(null)}>
                 {options.map((option) => (
                   <div
                     key={option}
@@ -2068,7 +2136,6 @@ function MenuBar({
     </nav>
   );
 } // ← FIN MenuBar
-
 
 // =============================
 //  HELPERS
@@ -2104,7 +2171,7 @@ function buildCompileWorkflowFromCanvas(nodes, connections) {
   const nodeWithImpl = ordered.find(
     (n) =>
       n.implementation &&
-      (n.implementation.program || n.implementation.routine)
+      (n.implementation.program || n.implementation.routine),
   );
 
   const programName = nodeWithImpl?.implementation?.program || "MainProgram";
@@ -2225,9 +2292,7 @@ function validateWorkflow(nodes, connections) {
   }
 
   return errors;
-
 }
-
 
 export default function App({ user, userRoles }) {
   // Estado de si la sesión es de solo lectura
@@ -2283,7 +2348,8 @@ export default function App({ user, userRoles }) {
 
   const [isCheckoutModalOpen, setCheckoutModalOpen] = useState(false);
 
-  const [isVersionHistoryModalOpen, setVersionHistoryModalOpen] = useState(false);
+  const [isVersionHistoryModalOpen, setVersionHistoryModalOpen] =
+    useState(false);
 
   const [isLoadModalOpen, setLoadModalOpen] = useState(false);
 
@@ -2682,7 +2748,6 @@ export default function App({ user, userRoles }) {
     try {
       const workflowData = await getWorkflow(workflowId);
       if (workflowData) {
-
         setCanvasNodes(workflowData.content.nodes || []);
 
         setCurrentWorkflowId(workflowId);
@@ -2713,10 +2778,7 @@ export default function App({ user, userRoles }) {
 
       console.log("Connections:", manualConnections);
 
-      const wf = buildCompileWorkflowFromCanvas(
-        canvasNodes,
-        manualConnections
-      );
+      const wf = buildCompileWorkflowFromCanvas(canvasNodes, manualConnections);
 
       const connections = (manualConnections || []).map((c) => ({
         from: c.from,
@@ -2729,7 +2791,7 @@ export default function App({ user, userRoles }) {
       if (errors.length > 0) {
         setModalMsg(
           "❌ Error de validación:\n\n" +
-            errors.map((e) => "• " + e).join("\n")
+            errors.map((e) => "• " + e).join("\n"),
         );
         setIsCompiling(false);
         return;
@@ -3292,12 +3354,12 @@ export default function App({ user, userRoles }) {
           }}
         >
           <TreeViewExample
-  isDesigner={isDesigner}
-  usedComponents={usedComponents}
-  setDragComponent={(comp) => (window._dragComponent = comp)}
-  onEquipmentSelect={handleEquipmentSelect}
-  setInteractionMode={setInteractionMode} 
-/>
+            isDesigner={isDesigner}
+            usedComponents={usedComponents}
+            setDragComponent={(comp) => (window._dragComponent = comp)}
+            onEquipmentSelect={handleEquipmentSelect}
+            setInteractionMode={setInteractionMode}
+          />
         </div>
         <div
           ref={topRightRef}
@@ -3395,7 +3457,6 @@ export default function App({ user, userRoles }) {
     </div>
   );
 } // ← FIN App
-
 
 // =============================
 //  CANVAS
@@ -3733,7 +3794,7 @@ function Canvas({
 
     if (isReadOnly) {
       setModalMsg(
-        "Acción denegada: No se pueden agregar nuevos nodos en modo de solo lectura."
+        "Acción denegada: No se pueden agregar nuevos nodos en modo de solo lectura.",
       );
       window._dragComponent = null;
       return;
@@ -3784,7 +3845,9 @@ function Canvas({
 
         if (typeof onNodeAdded === "function") {
           const t = (newNode.type || "").toLowerCase();
-          const shouldOpen = !["begin", "end", "connection", "start"].includes(t);
+          const shouldOpen = !["begin", "end", "connection", "start"].includes(
+            t,
+          );
           if (shouldOpen) {
             onNodeAdded(indexForNewNode, newNode);
           }
@@ -3864,7 +3927,7 @@ function Canvas({
             c.from === newConnection.from &&
             c.to === node.id &&
             c.fromPort === newConnection.fromPort &&
-            c.toPort === port
+            c.toPort === port,
         );
 
         if (alreadyExists) {
@@ -3891,13 +3954,11 @@ function Canvas({
     const existing = (manualConnections || []).find(
       (c) =>
         (c.from === node.id && c.fromPort === port) ||
-        (c.to === node.id && c.toPort === port)
+        (c.to === node.id && c.toPort === port),
     );
 
     if (existing) {
-      setManualConnections((prev) =>
-        prev.filter((x) => x.id !== existing.id)
-      );
+      setManualConnections((prev) => prev.filter((x) => x.id !== existing.id));
       return;
     }
 
@@ -3929,7 +3990,7 @@ function Canvas({
     setUsedComponents((used) =>
       newNodes.some((n) => n.label === label)
         ? used
-        : used.filter((u) => u !== label)
+        : used.filter((u) => u !== label),
     );
   };
 
@@ -3961,7 +4022,6 @@ function Canvas({
 
       const ports = choosePortsForPair(fromNode, toNode);
 
-    
       const conn = {
         from: fromNode.id,
         to: toNode.id,
@@ -3981,7 +4041,7 @@ function Canvas({
             c.from === conn.from &&
             c.to === conn.to &&
             c.fromPort === conn.fromPort &&
-            c.toPort === conn.toPort
+            c.toPort === conn.toPort,
         );
 
         if (alreadyExists) {
@@ -4461,7 +4521,6 @@ function Canvas({
   );
 } // ← FIN Canvas
 
-
 // =============================
 //  BlinkingRedLine
 // =============================
@@ -4484,9 +4543,4 @@ function BlinkingRedLine({ from, to }) {
       opacity={0.8}
     />
   ) : null;
-} 
-
-
-
-
-
+}

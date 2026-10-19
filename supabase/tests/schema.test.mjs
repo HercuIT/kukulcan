@@ -35,9 +35,10 @@ const users = {};
 async function createUser(key, email, roles = {}) {
   const {
     rows: [{ id }],
-  } = await db.query("insert into auth.users (email) values ($1) returning id", [
-    email,
-  ]);
+  } = await db.query(
+    "insert into auth.users (email) values ($1) returning id",
+    [email],
+  );
   const sets = Object.keys(roles);
   if (sets.length) {
     await db.query(
@@ -67,7 +68,11 @@ const q = (sql, params) => db.query(sql, params);
 
 async function rejectsWith(promise, code) {
   await assert.rejects(promise, (err) => {
-    assert.equal(err.code, code, `esperaba ${code}, llegó ${err.code}: ${err.message}`);
+    assert.equal(
+      err.code,
+      code,
+      `esperaba ${code}, llegó ${err.code}: ${err.message}`,
+    );
     return true;
   });
 }
@@ -104,7 +109,9 @@ before(async () => {
 describe("positive", () => {
   test("sign-up creates a profile with every role off", async () => {
     const id = await createUser("fresh", "fresh@example.com");
-    const { rows } = await q("select * from public.profiles where id = $1", [id]);
+    const { rows } = await q("select * from public.profiles where id = $1", [
+      id,
+    ]);
     assert.equal(rows[0].email, "fresh@example.com");
     assert.deepEqual(
       [rows[0].designer, rows[0].reviewer, rows[0].deployer],
@@ -165,7 +172,9 @@ describe("positive", () => {
     await as(users.designer, () =>
       q("select public.assign_reviewer($1, $2)", [wf, users.reviewer]),
     );
-    await as(users.reviewer, () => q("select public.approve_workflow($1)", [wf]));
+    await as(users.reviewer, () =>
+      q("select public.approve_workflow($1)", [wf]),
+    );
     const { rows } = await q(
       "select status, approved_by from public.workflows where id = $1",
       [wf],
@@ -184,7 +193,9 @@ describe("positive", () => {
     assert.equal((await read(users.reviewer)).rows.length, 1);
     assert.equal((await read(users.deployer)).rows.length, 0);
 
-    await as(users.reviewer, () => q("select public.approve_workflow($1)", [wf]));
+    await as(users.reviewer, () =>
+      q("select public.approve_workflow($1)", [wf]),
+    );
     assert.equal((await read(users.deployer)).rows.length, 1);
   });
 
@@ -250,10 +261,9 @@ describe("negative", () => {
   test("a designer cannot create a workflow on someone else's behalf", async () => {
     await rejectsWith(
       as(users.designer, () =>
-        q(
-          "insert into public.workflows (name, created_by) values ('x', $1)",
-          [users.designer2],
-        ),
+        q("insert into public.workflows (name, created_by) values ('x', $1)", [
+          users.designer2,
+        ]),
       ),
       "42501",
     );
@@ -283,9 +293,10 @@ describe("negative", () => {
     );
     assert.equal(read.rows.length, 0);
     const upd = await as(users.designer2, () =>
-      q("update public.workflows set name = 'hack' where id = $1 returning id", [
-        wf,
-      ]),
+      q(
+        "update public.workflows set name = 'hack' where id = $1 returning id",
+        [wf],
+      ),
     );
     assert.equal(upd.rows.length, 0);
   });
@@ -339,7 +350,9 @@ describe("negative", () => {
       ),
       "P0001",
     );
-    await as(users.reviewer, () => q("select public.approve_workflow($1)", [wf]));
+    await as(users.reviewer, () =>
+      q("select public.approve_workflow($1)", [wf]),
+    );
     await rejectsWith(
       as(users.reviewer, () => q("select public.approve_workflow($1)", [wf])),
       "P0001",
@@ -481,7 +494,9 @@ describe("edge", () => {
   test("a blank checkout description is rejected", async () => {
     const wf = await newWorkflow(users.designer);
     await rejectsWith(
-      as(users.designer, () => q("select public.checkout_workflow($1, ' ')", [wf])),
+      as(users.designer, () =>
+        q("select public.checkout_workflow($1, ' ')", [wf]),
+      ),
       "P0001",
     );
   });
@@ -494,9 +509,10 @@ describe("edge", () => {
     await as(users.designer, () =>
       q("select public.submit_for_review($1, $2)", [wf, users.reviewer]),
     );
-    const { rows } = await q("select version from public.workflows where id = $1", [
-      wf,
-    ]);
+    const { rows } = await q(
+      "select version from public.workflows where id = $1",
+      [wf],
+    );
     assert.equal(rows[0].version, 1);
   });
 
@@ -511,7 +527,10 @@ describe("edge", () => {
       [wf],
     );
     assert.equal(rows[0].version, 1);
-    assert.equal(rows[0].last_modified_at.toISOString(), "2025-01-01T00:00:00.000Z");
+    assert.equal(
+      rows[0].last_modified_at.toISOString(),
+      "2025-01-01T00:00:00.000Z",
+    );
     assert.equal(rows[0].last_modified_by, users.designer2);
   });
 
@@ -528,9 +547,10 @@ describe("edge", () => {
         JSON.stringify(nodes),
       ]),
     );
-    const { rows } = await q("select nodes from public.workflows where id = $1", [
-      wf,
-    ]);
+    const { rows } = await q(
+      "select nodes from public.workflows where id = $1",
+      [wf],
+    );
     assert.equal(rows[0].nodes.length, 5000);
     assert.deepEqual(rows[0].nodes[4999], nodes[4999]);
   });
@@ -538,7 +558,9 @@ describe("edge", () => {
   test("deleting an auth user cascades to the profile", async () => {
     const id = await createUser("temp", "temp@example.com");
     await q("delete from auth.users where id = $1", [id]);
-    const { rows } = await q("select id from public.profiles where id = $1", [id]);
+    const { rows } = await q("select id from public.profiles where id = $1", [
+      id,
+    ]);
     assert.equal(rows.length, 0);
   });
 });

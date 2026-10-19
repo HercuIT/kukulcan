@@ -155,7 +155,10 @@ describe("transformLog", () => {
       request_id: "11111111-2222-3333-4444-555555555555",
       workflow_id: "W-1",
       user_id: UID_MAP.fbDesigner,
-      details: { status: 400, firestore_id: "11111111-2222-3333-4444-555555555555" },
+      details: {
+        status: 400,
+        firestore_id: "11111111-2222-3333-4444-555555555555",
+      },
       created_at: "2026-03-01T10:00:00.000Z",
     });
   });
@@ -168,7 +171,10 @@ describe("transformLog", () => {
   });
 
   test("edge: unmapped user ids such as 'unknown' are kept as text", () => {
-    assert.equal(transformLog("x", { userId: "unknown" }, UID_MAP).user_id, "unknown");
+    assert.equal(
+      transformLog("x", { userId: "unknown" }, UID_MAP).user_id,
+      "unknown",
+    );
     assert.equal(transformLog("x", {}, UID_MAP).user_id, null);
   });
 });
@@ -176,7 +182,10 @@ describe("transformLog", () => {
 describe("toIso and checksum", () => {
   test("toIso accepts every timestamp shape and rejects garbage", () => {
     assert.equal(toIso(ts("2026-01-01T00:00:00Z")), "2026-01-01T00:00:00.000Z");
-    assert.equal(toIso({ _seconds: 0, _nanoseconds: 0 }), "1970-01-01T00:00:00.000Z");
+    assert.equal(
+      toIso({ _seconds: 0, _nanoseconds: 0 }),
+      "1970-01-01T00:00:00.000Z",
+    );
     assert.equal(toIso("2026-01-01"), "2026-01-01T00:00:00.000Z");
     assert.equal(toIso(null), null);
     assert.equal(toIso("not a date"), null);

@@ -31,3 +31,6 @@ jobs:
         run: npm test -- --watchAll=false
         env:
           CI: true
+
+      - name: Run Node tests (database, Edge Function, server, migration)
+        run: npm run test:node

@@ -12,7 +12,10 @@ import {
   xmlFileName,
 } from "../functions/compile-xml/compiler.mjs";
 
-const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
+const fixtures = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+);
 const read = (f) =>
   readFileSync(path.join(fixtures, f), "utf8").replace(/\r\n/g, "\n");
 
@@ -36,7 +39,10 @@ describe("positive", () => {
   test("accepts an already-parsed object body", () => {
     const result = compileRequest(minimal({ name: "Linea 1" }));
     assert.equal(result.status, 200);
-    assert.match(result.xml, /<Node id="s" type="BeginElement" name="Begin"\/>/);
+    assert.match(
+      result.xml,
+      /<Node id="s" type="BeginElement" name="Begin"\/>/,
+    );
     assert.equal(result.filename, "Linea_1.xml");
   });
 });
@@ -52,7 +58,9 @@ describe("negative", () => {
   test("rejects a body without nodes or connections", () => {
     const result = compileRequest({ nodes: [] });
     assert.equal(result.status, 400);
-    assert.deepEqual(result.json.errors, ['Se esperan "nodes[]" y "connections[]"']);
+    assert.deepEqual(result.json.errors, [
+      'Se esperan "nodes[]" y "connections[]"',
+    ]);
   });
 
   test("reports every graph rule that is broken", () => {
@@ -96,9 +104,7 @@ describe("edge", () => {
   });
 
   test("escapes XML special characters in names and values", () => {
-    const { xml } = compileRequest(
-      minimal({ name: `A&B <"x">'` }),
-    );
+    const { xml } = compileRequest(minimal({ name: `A&B <"x">'` }));
     assert.match(xml, /name="A&amp;B &lt;&quot;x&quot;&gt;&apos;"/);
   });
 

@@ -114,7 +114,9 @@ async function main() {
   console.log(`${results.length} workflows migrados.`);
 
   if (!skipLogs) {
-    console.log(`${await migrateLogs(firestore, supabase, uidMap)} logs migrados.`);
+    console.log(
+      `${await migrateLogs(firestore, supabase, uidMap)} logs migrados.`,
+    );
   }
 }
 

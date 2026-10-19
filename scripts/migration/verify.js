@@ -67,7 +67,9 @@ async function main() {
     if (row.status !== t.workflow.status)
       problems.push(`${legacyId}: estado ${row.status} ≠ ${t.workflow.status}`);
     if (row.version !== t.workflow.version)
-      problems.push(`${legacyId}: versión ${row.version} ≠ ${t.workflow.version}`);
+      problems.push(
+        `${legacyId}: versión ${row.version} ≠ ${t.workflow.version}`,
+      );
     const team = row.workflow_designers.map((d) => d.user_id).sort();
     const expectedTeam = t.designers.map((d) => d.user_id).sort();
     if (team.join() !== expectedTeam.join())
@@ -81,8 +83,16 @@ async function main() {
   const migratedIds = rows.length;
   const counts = [
     ["workflows", snapshot.size, migratedIds],
-    ["workflow_designers", designerTotal, await count(supabase, "workflow_designers")],
-    ["workflow_history", historyTotal, await count(supabase, "workflow_history")],
+    [
+      "workflow_designers",
+      designerTotal,
+      await count(supabase, "workflow_designers"),
+    ],
+    [
+      "workflow_history",
+      historyTotal,
+      await count(supabase, "workflow_history"),
+    ],
     [
       "server_logs",
       (await firestore.collection("server_logs").count().get()).data().count,
@@ -100,7 +110,9 @@ async function main() {
   );
   counts
     .filter(([, a, b]) => a !== b)
-    .forEach(([table, a, b]) => problems.push(`${table}: ${a} en Firestore, ${b} en Postgres`));
+    .forEach(([table, a, b]) =>
+      problems.push(`${table}: ${a} en Firestore, ${b} en Postgres`),
+    );
 
   if (problems.length) {
     problems.forEach((p) => console.error(p));

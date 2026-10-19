@@ -90,7 +90,12 @@ describe("authApi", () => {
 
     test("getMyRoles reads the caller's profile", async () => {
       const chain = mockProfileQuery({
-        data: { email: "a@b.c", designer: true, reviewer: false, deployer: false },
+        data: {
+          email: "a@b.c",
+          designer: true,
+          reviewer: false,
+          deployer: false,
+        },
         error: null,
       });
       await expect(getMyRoles("u-1")).resolves.toEqual({

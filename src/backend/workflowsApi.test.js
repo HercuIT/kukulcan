@@ -32,7 +32,8 @@ function query(result) {
   for (const m of ["select", "insert", "update", "eq", "maybeSingle"]) {
     chain[m] = jest.fn(() => chain);
   }
-  chain.then = (resolve, reject) => Promise.resolve(result).then(resolve, reject);
+  chain.then = (resolve, reject) =>
+    Promise.resolve(result).then(resolve, reject);
   return chain;
 }
 
@@ -99,13 +100,37 @@ describe("workflowsApi", () => {
     });
 
     test.each([
-      [() => submitForReview("wf", "r"), "submit_for_review", { wf: "wf", reviewer: "r" }],
-      [() => assignReviewer("wf", "r"), "assign_reviewer", { wf: "wf", reviewer: "r" }],
+      [
+        () => submitForReview("wf", "r"),
+        "submit_for_review",
+        { wf: "wf", reviewer: "r" },
+      ],
+      [
+        () => assignReviewer("wf", "r"),
+        "assign_reviewer",
+        { wf: "wf", reviewer: "r" },
+      ],
       [() => approveWorkflow("wf"), "approve_workflow", { wf: "wf" }],
-      [() => requestChanges("wf", "c"), "request_changes", { wf: "wf", comment: "c" }],
-      [() => addDesigner("wf", "a@b.c"), "add_designer", { wf: "wf", email: "a@b.c" }],
-      [() => removeDesigner("wf", "u"), "remove_designer", { wf: "wf", member: "u" }],
-      [() => checkoutWorkflow("wf", "d"), "checkout_workflow", { wf: "wf", description: "d" }],
+      [
+        () => requestChanges("wf", "c"),
+        "request_changes",
+        { wf: "wf", comment: "c" },
+      ],
+      [
+        () => addDesigner("wf", "a@b.c"),
+        "add_designer",
+        { wf: "wf", email: "a@b.c" },
+      ],
+      [
+        () => removeDesigner("wf", "u"),
+        "remove_designer",
+        { wf: "wf", member: "u" },
+      ],
+      [
+        () => checkoutWorkflow("wf", "d"),
+        "checkout_workflow",
+        { wf: "wf", description: "d" },
+      ],
     ])("RPC wrapper calls %#", async (call, fn, args) => {
       supabase.rpc.mockResolvedValue({ data: null, error: null });
       await call();
@@ -114,7 +139,10 @@ describe("workflowsApi", () => {
 
     test("listUsers maps profiles", async () => {
       supabase.from.mockReturnValue(
-        query({ data: [{ id: "u", email: "a@b.c", reviewer: true }], error: null }),
+        query({
+          data: [{ id: "u", email: "a@b.c", reviewer: true }],
+          error: null,
+        }),
       );
       await expect(listUsers()).resolves.toEqual([
         { uid: "u", email: "a@b.c", isReviewer: true },
@@ -122,7 +150,10 @@ describe("workflowsApi", () => {
     });
 
     test("compileWorkflow returns the XML as a Blob", async () => {
-      supabase.functions.invoke.mockResolvedValue({ data: "<xml/>", error: null });
+      supabase.functions.invoke.mockResolvedValue({
+        data: "<xml/>",
+        error: null,
+      });
       const blob = await compileWorkflow({ nodes: [] });
       expect(blob).toBeInstanceOf(Blob);
       expect(blob.type).toBe("application/xml");
@@ -155,7 +186,9 @@ describe("workflowsApi", () => {
       supabase.from.mockReturnValue(
         query({ data: null, error: { code: "42501", message: "RLS" } }),
       );
-      await expect(createWorkflow({ name: "x", nodes: [] })).rejects.toMatchObject({
+      await expect(
+        createWorkflow({ name: "x", nodes: [] }),
+      ).rejects.toMatchObject({
         code: "permission-denied",
       });
     });
@@ -247,12 +280,17 @@ describe("workflowsApi", () => {
       const channel = { on: () => channel, subscribe: () => channel };
       supabase.channel.mockReturnValue(channel);
       supabase.from.mockReturnValue(
-        query({ data: null, error: { code: "PGRST301", message: "JWT expired" } }),
+        query({
+          data: null,
+          error: { code: "PGRST301", message: "JWT expired" },
+        }),
       );
       const onError = jest.fn();
       subscribeToWorkflow("wf-1", jest.fn(), onError);
       await new Promise((r) => setTimeout(r, 0));
-      expect(onError.mock.calls[0][0]).toMatchObject({ code: "unauthenticated" });
+      expect(onError.mock.calls[0][0]).toMatchObject({
+        code: "unauthenticated",
+      });
     });
   });
 });

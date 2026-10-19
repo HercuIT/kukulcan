@@ -3,10 +3,10 @@
 
 // Códigos que la UI ya conocía de Firebase (HttpsError) para los errores de las RPC.
 export const ERROR_CODES = {
-  "28000": "unauthenticated",
+  28000: "unauthenticated",
   PGRST301: "unauthenticated",
   PGRST303: "unauthenticated",
-  "42501": "permission-denied",
+  42501: "permission-denied",
   P0002: "not-found",
   P0001: "failed-precondition",
 };
@@ -65,9 +65,7 @@ export function rowToWorkflow(row) {
       approvedBy: row.approved_by ?? null,
       deployedBy: row.deployed_by ?? null,
       checkoutDescription: row.checkout_description ?? null,
-      history: history
-        .filter((h) => h.kind === "checkout")
-        .map(historyEntry),
+      history: history.filter((h) => h.kind === "checkout").map(historyEntry),
       changeRequests: history
         .filter((h) => h.kind === "changes_requested")
         .map(historyEntry),

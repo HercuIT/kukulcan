@@ -142,8 +142,9 @@ export default function OpenWorkflowModal({
                     <RoleIndicator role={workflow.userRole} />
                   </span>
                   <span className="workflow-date">
-                    {toDate(workflow.metadata?.lastModifiedAt)?.toLocaleString() ??
-                      "N/A"}
+                    {toDate(
+                      workflow.metadata?.lastModifiedAt,
+                    )?.toLocaleString() ?? "N/A"}
                   </span>
                 </div>
               ))

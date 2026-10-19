@@ -27,9 +27,11 @@ function silenceConsoleError(fn) {
   const original = console.error;
   const calls = [];
   console.error = (...args) => calls.push(args);
-  return Promise.resolve(fn()).finally(() => {
-    console.error = original;
-  }).then(() => calls);
+  return Promise.resolve(fn())
+    .finally(() => {
+      console.error = original;
+    })
+    .then(() => calls);
 }
 
 describe("logger", () => {
@@ -44,7 +46,10 @@ describe("logger", () => {
         userId: "u-1",
         method: "POST",
       });
-      await logger.warn({ requestId: "11111111-1111-1111-1111-111111111111", event: "BAD_REQUEST" });
+      await logger.warn({
+        requestId: "11111111-1111-1111-1111-111111111111",
+        event: "BAD_REQUEST",
+      });
       assert.equal(client.rows.length, 2);
       assert.deepEqual(client.rows[0], {
         table: "server_logs",
@@ -103,7 +108,10 @@ describe("getRequestUserId", () => {
   test("positive: returns the Supabase user id for a valid bearer token", async () => {
     const req = { headers: { authorization: "Bearer abc" } };
     assert.equal(
-      await getRequestUserId(req, client({ data: { user: { id: "u-9" } }, error: null })),
+      await getRequestUserId(
+        req,
+        client({ data: { user: { id: "u-9" } }, error: null }),
+      ),
       "u-9",
     );
   });
@@ -111,7 +119,10 @@ describe("getRequestUserId", () => {
   test("negative: an invalid token gives unknown", async () => {
     const req = { headers: { authorization: "Bearer bad" } };
     assert.equal(
-      await getRequestUserId(req, client({ data: { user: null }, error: { message: "invalid JWT" } })),
+      await getRequestUserId(
+        req,
+        client({ data: { user: null }, error: { message: "invalid JWT" } }),
+      ),
       "unknown",
     );
   });
@@ -122,11 +133,17 @@ describe("getRequestUserId", () => {
     };
     assert.equal(await getRequestUserId({ headers: {} }, throwing), "unknown");
     assert.equal(
-      await getRequestUserId({ headers: { authorization: "Basic xyz" } }, throwing),
+      await getRequestUserId(
+        { headers: { authorization: "Basic xyz" } },
+        throwing,
+      ),
       "unknown",
     );
     assert.equal(
-      await getRequestUserId({ headers: { authorization: "Bearer t" } }, throwing),
+      await getRequestUserId(
+        { headers: { authorization: "Bearer t" } },
+        throwing,
+      ),
       "unknown",
     );
   });

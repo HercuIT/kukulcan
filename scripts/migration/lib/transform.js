@@ -61,7 +61,9 @@ function transformWorkflow(legacyId, data, historyDocs, uidMap) {
     created_at: toIso(m.createdAt) || new Date(0).toISOString(),
     last_modified_by: uid(m.lastModifiedBy),
     last_modified_at:
-      toIso(m.lastModifiedAt) || toIso(m.createdAt) || new Date(0).toISOString(),
+      toIso(m.lastModifiedAt) ||
+      toIso(m.createdAt) ||
+      new Date(0).toISOString(),
   };
 
   const designerIds = [...new Set(m.designerIds || [])];

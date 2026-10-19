@@ -86,7 +86,12 @@ export function subscribeToWorkflow(id, callback, onError = console.error) {
     .channel(`workflow-${id}`)
     .on(
       "postgres_changes",
-      { event: "*", schema: "public", table: "workflows", filter: `id=eq.${id}` },
+      {
+        event: "*",
+        schema: "public",
+        table: "workflows",
+        filter: `id=eq.${id}`,
+      },
       load,
     )
     .subscribe();

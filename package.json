@@ -27,7 +27,8 @@
     "format": "prettier --write .",
     "format-check": "prettier --check .",
     "lint:css": "stylelint 'public/**/*.css'",
-    "lint:html": "htmlhint 'public/**/*.html'"
+    "lint:html": "htmlhint 'public/**/*.html'",
+    "test:node": "node --test supabase/tests/schema.test.mjs supabase/tests/compile-xml.test.mjs server/test/logger.test.js scripts/migration/test/transform.test.js"
   },
   "eslintConfig": {
     "extends": [

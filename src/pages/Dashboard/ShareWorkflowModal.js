@@ -243,9 +243,7 @@ export default function ShareWorkflowModal({
                 />
                 <button
                   onClick={handleAddDesigner}
-                  disabled={
-                    isLoading || !newUserEmail.trim() || !isSignedIn
-                  }
+                  disabled={isLoading || !newUserEmail.trim() || !isSignedIn}
                   className="add-button"
                 >
                   {isLoading ? "Adding..." : "Add Designer"}
