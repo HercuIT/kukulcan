@@ -39,7 +39,7 @@ async function main() {
   const delayMs = Number(delayValue);
   if (!/^\d+$/.test(delayValue) || !Number.isSafeInteger(delayMs)) {
     console.error(
-      "--delay-ms debe ser un número de milisegundos mayor o igual a 0.",
+      "--delay-ms debe ser un número entero de milisegundos mayor o igual a 0.",
     );
     process.exit(1);
   }
