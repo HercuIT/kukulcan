@@ -24,6 +24,18 @@ describe("connectionsForLoadedWorkflow", () => {
     expect(connectionsForLoadedWorkflow(undefined)).toEqual([]);
   });
 
+  test("negative: a saved empty list stays empty, so deleted edges don't come back", () => {
+    expect(
+      connectionsForLoadedWorkflow({ nodes: DEFAULT_NODES, connections: [] }),
+    ).toEqual([]);
+  });
+
+  test("edge: a workflow saved before WFPR-003 (connections null) gets the default edges", () => {
+    expect(
+      connectionsForLoadedWorkflow({ nodes: DEFAULT_NODES, connections: null }),
+    ).toHaveLength(2);
+  });
+
   test("edge: an older workflow (no saved connections) gets the default Begin → Connection 1 → End edges", () => {
     expect(
       connectionsForLoadedWorkflow({ nodes: DEFAULT_NODES }).map((c) => [

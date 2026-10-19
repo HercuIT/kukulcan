@@ -192,6 +192,11 @@ describe("definitionsApi", () => {
         parent: "p",
         predefined: { key: "k", label: "L" },
       });
+      await addPredefinedChild(undefined, { key: "k", label: "L" });
+      expect(supabase.rpc).toHaveBeenLastCalledWith("add_predefined_child", {
+        parent: null,
+        predefined: { key: "k", label: "L" },
+      });
       await updateDefinition("d", { name: "B" });
       expect(supabase.rpc).toHaveBeenLastCalledWith("update_definition", {
         def: "d",
@@ -307,6 +312,38 @@ describe("definitionsApi", () => {
       await new Promise((r) => setTimeout(r, 0));
       expect(cb).toHaveBeenCalledTimes(2);
       expect(supabase.removeChannel).toHaveBeenCalledWith(channel);
+    });
+
+    test("subscribeToDefinitions ignores a slower, older reload that answers last", async () => {
+      let onChange;
+      const channel = {
+        on: jest.fn((_t, _f, cb) => {
+          onChange = cb;
+          return channel;
+        }),
+        subscribe: jest.fn(() => channel),
+      };
+      supabase.channel.mockReturnValue(channel);
+      const pending = [];
+      supabase.from.mockImplementation(() => {
+        const chain = {};
+        for (const m of ["select", "order"]) chain[m] = jest.fn(() => chain);
+        const p = new Promise((resolve) => pending.push(resolve));
+        chain.then = (res, rej) => p.then(res, rej);
+        return chain;
+      });
+      const cb = jest.fn();
+      const onError = jest.fn();
+      subscribeToDefinitions(cb, onError);
+      onChange();
+      // La segunda (más nueva) responde primero; la primera llega tarde y se descarta.
+      pending[1]({ data: [def("new", null, "New")], error: null });
+      await new Promise((r) => setTimeout(r, 0));
+      pending[0]({ data: [def("old", null, "Old")], error: null });
+      await new Promise((r) => setTimeout(r, 0));
+      expect(cb).toHaveBeenCalledTimes(1);
+      expect(cb.mock.calls[0][0].map((d) => d.id)).toEqual(["new"]);
+      expect(onError).not.toHaveBeenCalled();
     });
   });
 });
