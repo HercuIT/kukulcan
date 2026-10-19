@@ -8,6 +8,10 @@ on:
     paths: ["supabase/**"]
   workflow_dispatch:
 
+# The deploy authenticates to Supabase with its own secrets; the GITHUB_TOKEN only checks out code.
+permissions:
+  contents: read
+
 # One deploy at a time; a newer merge waits instead of pushing migrations in parallel.
 concurrency:
   group: deploy-supabase
