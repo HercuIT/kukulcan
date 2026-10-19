@@ -66,7 +66,7 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
 ## Conventions
 
 - Code comments and user-facing strings mix Spanish and English. Match whatever the surrounding code uses; don't translate existing text, including when you move it into `uiStrings.js`.
-- Formatting comes from Prettier defaults (double quotes, trailing commas). Don't hand-format; run `npm run format`.
+- Formatting comes from Prettier defaults (double quotes, trailing commas). Don't hand-format; run `npm run format`. Markdown files (`*.md`) and `.claude/` are excluded in `.prettierignore`; don't run Prettier on them.
 - Name branches `HTE-<n>-<short-name>`. Start commits and PR titles with `HTE-<n>: <description>`.
 - Each ticket ships a manual test plan at `docs/HTE-<n>-testing.md` with sections Issue, Test Cases (TC-01… with Steps and Expected), and Result. Add or update it alongside the feature.
 - Never end a filename with a space or dot. It breaks checkout on Windows (this already happened with an HTE-89 doc).

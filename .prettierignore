@@ -1,0 +1,5 @@
+# Markdown (README, CLAUDE.md/AGENTS.md, docs/) is written by hand; Prettier doesn't check it.
+*.md
+
+# Local Claude Code settings (git-ignored globally, not part of the repo)
+.claude/
