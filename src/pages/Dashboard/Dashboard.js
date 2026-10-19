@@ -24,7 +24,8 @@ import {
 } from "../../backend/workflowsApi";
 import ModalMessage from "../../components/ModalMessage";
 import Selecto from "react-selecto";
-import Logo from "../../assets/Logofinal.png";
+import Logo from "../../components/Logo/Logo";
+import { useTheme } from "../../theme/ThemeContext";
 import { UI_STRINGS } from "../../constants/uiStrings";
 
 // === Helpers para normalizar nodos y generar IDs cortos ===
@@ -2197,8 +2198,22 @@ const menuOptions = {
   TMApp: ["Home", "Settings", "Profile"],
   File: ["New", "Open", "Save", "Save As", "Exit"],
   Edit: ["Undo", "Redo", "Cut", "Copy", "Paste"],
-  View: ["Zoom In", "Zoom Out", "Full Screen"],
+  View: [
+    "Zoom In",
+    "Zoom Out",
+    "Full Screen",
+    "Light Theme",
+    "Dark Theme",
+    "System Theme",
+  ],
   Help: ["Documentation", "About", "Contact"],
+};
+
+// Opciones del menú View que cambian el tema (HTE-111) → modo de ThemeContext.
+const THEME_OPTIONS = {
+  "Light Theme": "light",
+  "Dark Theme": "dark",
+  "System Theme": "system",
 };
 
 function MenuBar({
@@ -2218,6 +2233,7 @@ function MenuBar({
   const [openMenu, setOpenMenu] = useState(null);
   const menuRef = useRef(null);
   const navigate = useNavigate();
+  const { mode, setMode } = useTheme();
 
   const handleOptionClick = (menu, option) => {
     setOpenMenu(null);
@@ -2235,6 +2251,9 @@ function MenuBar({
     if (menu === "File" && option === "Version History")
       return onVersionHistory?.();
     if (menu === "TMApp" && option === "Home") return navigate("/");
+    if (menu === "View" && THEME_OPTIONS[option]) {
+      return setMode(THEME_OPTIONS[option]);
+    }
 
     alert(UI_STRINGS.dashboard.menuBar.alerts.seleccionaste(menu, option));
   };
@@ -2251,11 +2270,7 @@ function MenuBar({
 
   return (
     <nav className="menu-bar" ref={menuRef}>
-      <img
-        src={Logo}
-        alt={UI_STRINGS.dashboard.menuBar.logo}
-        style={{ height: 40, marginRight: 16 }}
-      />
+      <Logo size="sm" to="/" />
 
       {Object.keys(menuOptions).map((menu) => {
         const options = menu === "File" ? fileOptions : menuOptions[menu];
@@ -2271,15 +2286,36 @@ function MenuBar({
 
             {openMenu === menu && (
               <div className="dropdown" onMouseLeave={() => setOpenMenu(null)}>
-                {options.map((option) => (
-                  <div
-                    key={option}
-                    className="dropdown-option"
-                    onClick={() => handleOptionClick(menu, option)}
-                  >
-                    {UI_STRINGS.dashboard.menuBar.menuLabels[option] ?? option}
-                  </div>
-                ))}
+                {options.map((option) => {
+                  const isActive =
+                    menu === "View" && THEME_OPTIONS[option] === mode;
+                  return (
+                    <div
+                      key={option}
+                      className="dropdown-option"
+                      role={
+                        THEME_OPTIONS[option] ? "menuitemradio" : undefined
+                      }
+                      aria-checked={
+                        THEME_OPTIONS[option] ? isActive : undefined
+                      }
+                      onClick={() => handleOptionClick(menu, option)}
+                    >
+                      {isActive && (
+                        <>
+                          <span aria-hidden="true">
+                            {UI_STRINGS.dashboard.menuBar.activeMark}
+                          </span>
+                          <span className="visually-hidden">
+                            {UI_STRINGS.dashboard.menuBar.activeOption}
+                          </span>
+                        </>
+                      )}
+                      {UI_STRINGS.dashboard.menuBar.menuLabels[option] ??
+                        option}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

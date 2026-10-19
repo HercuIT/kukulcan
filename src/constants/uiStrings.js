@@ -192,6 +192,7 @@ export const UI_STRINGS = {
         seleccionaste: (menu, option) => `Seleccionaste: ${menu} > ${option}`,
       },
       activeOption: "(active)",
+      activeMark: "✓ ",
       newWorkflow: "New Workflow",
       workflowActions: "Workflow Actions",
       reviewWorkflow: "Review Workflow",
@@ -456,7 +457,6 @@ export const UI_STRINGS = {
       alerts: {
         seleccionaste: (menu, option) => `Seleccionaste: ${menu} > ${option}`,
       },
-      logoDeLaEmpresa: "Logo de la empresa",
     },
     page: {
       loading: "Loading...",

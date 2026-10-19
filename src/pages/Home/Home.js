@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../styles/HomeStyle/HomeStyle.css";
 import { signOut } from "../../backend/authApi";
-import Logo from "../../assets/Logofinal.png";
+import Logo from "../../components/Logo/Logo";
 import { UI_STRINGS } from "../../constants/uiStrings";
 
 const menuOptions = {
@@ -35,14 +35,7 @@ function MenuBar() {
 
   return (
     <nav className="menu-bar">
-      <img
-        src={Logo}
-        alt={UI_STRINGS.home.menuBar.logoDeLaEmpresa}
-        style={{
-          height: "42px",
-          marginRight: "16px",
-        }}
-      />
+      <Logo size="sm" to="/" />
       {availableMenus.map((menu) => (
         <div key={menu} className="menu-item">
           <button
@@ -178,7 +171,7 @@ export default function Home({ user, userRoles }) {
               <a
                 href="URL_DE_DESCARGA_DEL_INSTALADOR.exe"
                 download
-                style={{ color: "#3498db", fontWeight: "bold" }}
+                style={{ color: "var(--kk-mint-text)", fontWeight: "bold" }}
               >
                 {UI_STRINGS.home.page.descargarServidor}
               </a>
@@ -227,6 +220,7 @@ export default function Home({ user, userRoles }) {
             </div>
           </div>
           <div style={{ padding: 32 }}>
+            <Logo size="lg" />
             <h1>{UI_STRINGS.home.page.bienvenidoALaPaginaPrincipal}</h1>
             <p>{UI_STRINGS.home.page.estaEsLaNuevaPagina}</p>
             <h3>{UI_STRINGS.home.page.tusRoles}</h3>

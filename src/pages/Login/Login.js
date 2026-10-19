@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { signIn, signUp } from "../../backend/authApi";
 import "../../styles/LoginStyle/LoginStyle.css";
 import { UI_STRINGS } from "../../constants/uiStrings";
+import Logo from "../../components/Logo/Logo";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -73,6 +74,7 @@ export default function Login() {
   return (
     <div className="login-container">
       <div className="login-box">
+        <Logo size="lg" />
         <h2>{UI_STRINGS.login.iniciarSesion}</h2>
         <input
           type="email"
