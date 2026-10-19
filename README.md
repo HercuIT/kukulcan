@@ -60,7 +60,7 @@ The target structure for the **Equipment** root of the hierarchy panel, from the
 - **Site Definitions:** the classes, e.g. *Site 1 Class*.
 - **Sites:** the instances built from them, e.g. *Site 1 Instance*.
 
-The two branches have the same shape. The spreadsheet's outline, with "User Defined" dropped and examples shortened:
+The two branches have the same shape. The tree shows one example path from the spreadsheet, with "User Defined" dropped and examples shortened. **The containment table below is the rule**; the tree only illustrates it.
 
 ```
 Equipment
@@ -86,30 +86,12 @@ Equipment
         │           │               └── Control Module 3
         │           │                   ├── Device 3
         │           │                   └── Field IO 3
-        │           ├── Equipment Module 1
-        │           ├── Sequencer 1
-        │           ├── Route 1
-        │           ├── Control Module 1
-        │           └── Control Loops
-        │               ├── Equipment Module 1
-        │               ├── Sequencer 1
-        │               ├── Route 1
-        │               ├── Control Module 1
-        │               └── Control Loops
-        │                   ├── Equipment Module 2
-        │                   ├── Sequencer 1
-        │                   ├── Route 1
-        │                   ├── Control Module 1
-        │                   └── Control Loops
-        │                       ├── Sequencer 2
-        │                       ├── Route 1
-        │                       ├── Control Module 1
-        │                       └── Control Loops
+        │           └── …                                     other types an Area may hold directly: see the table
         └── Sites                                             ← instances ("… Instance")
             └── Site 1 → Area 1 → Work Center 1 → …           same shape as Site Definitions
 ```
 
-**Containment rules.** This is our reading of the spreadsheet, to be confirmed. The blocks at the bottom of the tree (Equipment Module, Sequencer, Route, Control Module, Control Loops, each repeated one level deeper) list the types each level may contain directly. They aren't Equipment Modules nested inside Control Loops. Read that way, it matches the main chain above them:
+**Containment rules (authoritative).** Each branch of the spreadsheet ends with blocks that repeat Equipment Module, Sequencer, Route, Control Module and Control Loops, one level deeper each time. Laid out as a tree, they'd look like Equipment Modules nested inside Control Loops. We read them as the types each level may contain directly, which matches the main chain, so the tree above leaves them out. This table is that reading, still to be confirmed with the business:
 
 | Level (Definition or Instance) | May contain |
 | --- | --- |
@@ -127,7 +109,7 @@ Equipment
 Levels may be skipped: an Area can hold a Control Module directly, without a Work Center, Equipment Module or Sequencer between them. Equipment Module, Sequencer and Control Module can nest inside their own type.
 
 **Not covered yet:**
-- **Assets:** the spreadsheet only details Equipment; the Assets root (Assets Definitions / Assets Instances) has no structure yet.
+- **Assets:** the spreadsheet only details Equipment. The Assets root has its two branches, Assets Definitions and Assets Instances, but nothing defined beneath them.
 - **The app's Equipment tree:** today it's sample data in `src/pages/Dashboard/equipmentData.js` (*Enterprise Node* → four machines) and doesn't follow this hierarchy.
 
 ## Getting started

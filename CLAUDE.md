@@ -142,6 +142,6 @@ Both the Supabase migration and later specs follow the same pattern. A new table
   | Neither compiler's output passes the deploy validator as-is: `compile-xml` wraps `<Workflow>` in `<Controller>`, and `/api/compile` emits nodes without `<Parameters>` | `compiler.mjs`, `compileRoutes.js`, `deployWorkflowRoutes.js` |
   | `/api/compile` (`compileRoutes.js`) doesn't read flat parameter arrays; `compile-xml` does | `server/src/routes/compileRoutes.js` |
   | `/api/deploy-workflow` doesn't require a signed-in deployer (follow-up from PR #1) | `deployWorkflowRoutes.js` |
-  | The Equipment tree is sample data (*Enterprise Node* → four machines) that doesn't follow the documented Equipment hierarchy; Assets has no structure at all | `equipmentData.js`, `assetsNode` in `Dashboard.js` |
+  | The Equipment tree is sample data (*Enterprise Node* → four machines) that doesn't follow the documented Equipment hierarchy; Assets has its two branches (Assets Definitions, Assets Instances) but nothing beneath them | `equipmentData.js`, `assetsNode` in `Dashboard.js` |
 
 - RLS gotchas: a client `insert … returning` on `workflows` fails because the read policy depends on `workflow_designers`, which the trigger fills after the insert. `createWorkflow` generates the id client-side and inserts without `returning`. An update that RLS filters out returns zero rows instead of an error, so `saveWorkflow` checks the row count.
