@@ -5,17 +5,26 @@ import { UI_STRINGS } from "../../constants/uiStrings";
 
 const StatusIndicator = ({ status }) => {
   const statusInfo = {
-    draft: { label: "Draft", className: "status-draft" },
+    draft: {
+      label: UI_STRINGS.dashboard.openWorkflowModal.statuses.draft,
+      className: "status-draft",
+    },
     pending_review: {
-      label: "Pending Review",
+      label: UI_STRINGS.dashboard.openWorkflowModal.statuses.pending_review,
       className: "status-pending_review",
     },
     changes_requested: {
-      label: "Changes Requested",
+      label: UI_STRINGS.dashboard.openWorkflowModal.statuses.changes_requested,
       className: "status-changes_requested",
     },
-    approved: { label: "Approved", className: "status-approved" },
-    deployed: { label: "Deployed", className: "status-deployed" },
+    approved: {
+      label: UI_STRINGS.dashboard.openWorkflowModal.statuses.approved,
+      className: "status-approved",
+    },
+    deployed: {
+      label: UI_STRINGS.dashboard.openWorkflowModal.statuses.deployed,
+      className: "status-deployed",
+    },
   };
 
   const currentStatus = statusInfo[status] || {

@@ -15,11 +15,22 @@ export const UI_STRINGS = {
       unknown: "Unknown",
     },
     modalMessage: {
+      defaultTitle: "Result",
       cancel: "Cancel",
       ok: "OK",
     },
   },
   dashboard: {
+    // Errores de validateWorkflow (validación del grafo antes de compilar)
+    validation: {
+      emptyWorkflow: "El workflow está vacío.",
+      missingStart: "Debe existir un nodo START.",
+      multipleStart: "Solo puede existir un nodo START.",
+      missingEnd: "Debe existir al menos un nodo END.",
+      disconnectedNode: (label) => `Nodo "${label}" está desconectado.`,
+      unreachableNode: (label) =>
+        `Nodo "${label}" no es alcanzable desde START.`,
+    },
     checkoutModal: {
       alerts: {
         descriptionCannotBeEmpty: "Description cannot be empty.",
@@ -137,6 +148,35 @@ export const UI_STRINGS = {
       close: "Close",
     },
     menuBar: {
+      // Texto visible de cada menú y opción; las claves son los ids que usa la lógica.
+      menuLabels: {
+        TMApp: "TMApp",
+        Home: "Home",
+        Settings: "Settings",
+        Profile: "Profile",
+        File: "File",
+        New: "New",
+        Open: "Open",
+        Save: "Save",
+        "Save As": "Save As",
+        Exit: "Exit",
+        Checkout: "Checkout",
+        "Version History": "Version History",
+        Edit: "Edit",
+        Undo: "Undo",
+        Redo: "Redo",
+        Cut: "Cut",
+        Copy: "Copy",
+        Paste: "Paste",
+        View: "View",
+        "Zoom In": "Zoom In",
+        "Zoom Out": "Zoom Out",
+        "Full Screen": "Full Screen",
+        Help: "Help",
+        Documentation: "Documentation",
+        About: "About",
+        Contact: "Contact",
+      },
       alerts: {
         accionNoPermitida: "Acción no permitida.",
         seleccionaste: (menu, option) => `Seleccionaste: ${menu} > ${option}`,
@@ -148,6 +188,8 @@ export const UI_STRINGS = {
       logout: "LOGOUT",
     },
     page: {
+      unsavedWorkflowTitle: "New Workflow(Without save)",
+      compileSuccess: "Flujo válido y compilado. ¡Descargue su XML!",
       alerts: {
         noWorkflowSelected: "No workflow selected.",
         workflowApproved: "Workflow aprobado.",
@@ -177,6 +219,8 @@ export const UI_STRINGS = {
         errorAlGuardarLosCambios: "Error al guardar los cambios: ",
       },
       errors: {
+        designerRoleRequired:
+          "No tienes permisos para realizar esta acción. Se requiere el rol de 'Designer'.",
         errorEnServidor: "Error en servidor",
         compileConnectionError:
           "Error de compilación: no se pudo conectar con el servicio en la nube.\n",
@@ -261,6 +305,13 @@ export const UI_STRINGS = {
       leftPort: "left port",
     },
     openWorkflowModal: {
+      statuses: {
+        draft: "Draft",
+        pending_review: "Pending Review",
+        changes_requested: "Changes Requested",
+        approved: "Approved",
+        deployed: "Deployed",
+      },
       roles: {
         designer: "Designer",
         reviewer: "Reviewer",
@@ -311,7 +362,7 @@ export const UI_STRINGS = {
         cannotRemoveTheLastDesigner:
           "Cannot remove the last designer from the workflow",
       },
-      workflowActions: 'Workflow Actions - "',
+      title: (name) => `Workflow Actions - "${name}"`,
       shareAssign: "Share & Assign",
       reviewActions: "Review Actions",
       loginRequiredWarning: "⚠️ You must be logged in to use this function",
@@ -366,6 +417,32 @@ export const UI_STRINGS = {
   },
   home: {
     menuBar: {
+      // Texto visible de cada menú y opción; las claves son los ids que usa la lógica.
+      menuLabels: {
+        TMApp: "TMApp",
+        Home: "Home",
+        Settings: "Settings",
+        Profile: "Profile",
+        File: "File",
+        New: "New",
+        Open: "Open",
+        Save: "Save",
+        Exit: "Exit",
+        Edit: "Edit",
+        Undo: "Undo",
+        Redo: "Redo",
+        Cut: "Cut",
+        Copy: "Copy",
+        Paste: "Paste",
+        View: "View",
+        "Zoom In": "Zoom In",
+        "Zoom Out": "Zoom Out",
+        "Full Screen": "Full Screen",
+        Help: "Help",
+        Documentation: "Documentation",
+        About: "About",
+        Contact: "Contact",
+      },
       alerts: {
         seleccionaste: (menu, option) => `Seleccionaste: ${menu} > ${option}`,
       },

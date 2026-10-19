@@ -1,7 +1,11 @@
 import ReactDOM from "react-dom";
 import { UI_STRINGS } from "../constants/uiStrings";
 
-export default function ModalMessage({ title = "Result", message, onClose }) {
+export default function ModalMessage({
+  title = UI_STRINGS.components.modalMessage.defaultTitle,
+  message,
+  onClose,
+}) {
   // Render al body para evitar que estilos del contenedor lo tapen
   return ReactDOM.createPortal(
     <div

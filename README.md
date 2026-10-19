@@ -157,6 +157,7 @@ src/
   backend/authApi.js           sign-in/up/out, session listener, roles
   backend/workflowsApi.js      workflows CRUD, Realtime subscription, RPC wrappers, compile
   backend/mappers.js           row ↔ legacy shape, error codes
+  constants/uiStrings.js       every user-facing string, grouped by page and component (UI_STRINGS)
   pages/
     Login/, Home/              login and landing pages
     Dashboard/Dashboard.js     the workflow designer: hierarchy tree, canvas, menu bar, node modals

@@ -171,8 +171,7 @@ export default function ShareWorkflowModal({
       <div className="modal-content share-modal">
         <div className="modal-header">
           <h2>
-            {UI_STRINGS.dashboard.shareWorkflowModal.workflowActions}
-            {workflow.name}&quot;
+            {UI_STRINGS.dashboard.shareWorkflowModal.title(workflow.name)}
           </h2>
           <button
             className="close-button"

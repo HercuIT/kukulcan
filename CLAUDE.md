@@ -53,10 +53,14 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
   - **Edge:** empty, boundary, duplicate or unusually large inputs.
 
   Put automated tests next to the code where practical (Jest, `*.test.js`). Always list the scenarios in the ticket's `docs/HTE-<n>-testing.md`.
+
 - **Keep all UI strings in one place.** Every user-facing string (labels, buttons, menus, tooltips, messages, errors, alerts) lives in `src/constants/uiStrings.js`, never inline in JSX or component logic. Group keys by page and component so each key shows where it's used, e.g. `UI_STRINGS.dashboard.menuBar.save` or `UI_STRINGS.login.errors.missingFields`. Components import `UI_STRINGS` and reference the key.
   - **Finding code from visible text:** to locate the code behind a piece of text on screen, search `uiStrings.js` for the text, take its key, then search `src/` for that key to reach the component to change.
-  - **Migrating:** many strings are still inline, and `uiStrings.js` doesn't exist yet. Create it with the first change that needs it. When you touch a component, move its strings into `uiStrings.js` as part of the change, keeping the existing wording and language.
-- **Keep the docs current.** When new code changes something either file describes, update `CLAUDE.md` or `README.md` in the same change. That includes commands, setup, environment variables, endpoints, Cloud Functions, Firestore paths, roles, workflow rules, project layout and conventions.
+  - **Layout:** `UI_STRINGS.<page>.<component>.<key>`, with `errors`, `alerts` and `messages` sub-groups for `setError`, `alert` and `setModalMsg` text (`UI_STRINGS.dashboard.page` is the dashboard's `App` component). Text with values in it is a function: `UI_STRINGS.dashboard.shareWorkflowModal.title(workflow.name)`.
+  - **Ids vs. labels:** when the code compares a value as an id (menu ids like `"File"`/`"Save"`), keep the id in code and render its label through a map: `UI_STRINGS.dashboard.menuBar.menuLabels[option] ?? option`.
+  - **Not UI strings:** catalog and domain data (`equipmentData.js`, `MaterialData.js`, node definition names, hierarchy-tree labels, PLC types and program names) and `console.*` messages stay where they are.
+  - `src/constants/uiStrings.test.js` fails if any `UI_STRINGS.…` key used in `src/` doesn't exist.
+- **Keep the docs current.** When new code changes something either file describes, update `CLAUDE.md` or `README.md` in the same change. That includes commands, setup, environment variables, endpoints, database tables and functions, roles, workflow rules, project layout and conventions.
 
 ## Conventions
 

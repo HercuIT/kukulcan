@@ -49,7 +49,7 @@ function MenuBar() {
             className="menu-btn"
             onClick={() => setOpenMenu(openMenu === menu ? null : menu)}
           >
-            {menu}
+            {UI_STRINGS.home.menuBar.menuLabels[menu] ?? menu}
           </button>
           {openMenu === menu && (
             <div
@@ -63,7 +63,7 @@ function MenuBar() {
                   className="dropdown-option"
                   onClick={() => handleOptionClick(menu, option)}
                 >
-                  {option}
+                  {UI_STRINGS.home.menuBar.menuLabels[option] ?? option}
                 </div>
               ))}
             </div>

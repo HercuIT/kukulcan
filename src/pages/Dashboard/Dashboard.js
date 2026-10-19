@@ -2262,7 +2262,7 @@ function MenuBar({
               className="menu-btn"
               onClick={() => setOpenMenu(openMenu === menu ? null : menu)}
             >
-              {menu}
+              {UI_STRINGS.dashboard.menuBar.menuLabels[menu] ?? menu}
             </button>
 
             {openMenu === menu && (
@@ -2273,7 +2273,7 @@ function MenuBar({
                     className="dropdown-option"
                     onClick={() => handleOptionClick(menu, option)}
                   >
-                    {option}
+                    {UI_STRINGS.dashboard.menuBar.menuLabels[option] ?? option}
                   </div>
                 ))}
               </div>
@@ -2413,16 +2413,19 @@ function validateWorkflow(nodes, connections) {
   const errors = [];
 
   if (!nodes.length) {
-    errors.push("El workflow está vacío.");
+    errors.push(UI_STRINGS.dashboard.validation.emptyWorkflow);
     return errors;
   }
 
   const startNodes = nodes.filter((n) => n.type === "start");
-  if (startNodes.length === 0) errors.push("Debe existir un nodo START.");
-  if (startNodes.length > 1) errors.push("Solo puede existir un nodo START.");
+  if (startNodes.length === 0)
+    errors.push(UI_STRINGS.dashboard.validation.missingStart);
+  if (startNodes.length > 1)
+    errors.push(UI_STRINGS.dashboard.validation.multipleStart);
 
   const endNodes = nodes.filter((n) => n.type === "end");
-  if (endNodes.length === 0) errors.push("Debe existir al menos un nodo END.");
+  if (endNodes.length === 0)
+    errors.push(UI_STRINGS.dashboard.validation.missingEnd);
 
   const map = {};
   nodes.forEach((n) => (map[n.id] = []));
@@ -2436,7 +2439,9 @@ function validateWorkflow(nodes, connections) {
     const hasIn = connections.some((c) => c.to === n.id);
 
     if (!hasOut && !hasIn) {
-      errors.push(`Nodo "${n.label || n.id}" está desconectado.`);
+      errors.push(
+        UI_STRINGS.dashboard.validation.disconnectedNode(n.label || n.id),
+      );
     }
   });
 
@@ -2453,7 +2458,9 @@ function validateWorkflow(nodes, connections) {
 
     nodes.forEach((n) => {
       if (!visited.has(n.id)) {
-        errors.push(`Nodo "${n.label || n.id}" no es alcanzable desde START.`);
+        errors.push(
+          UI_STRINGS.dashboard.validation.unreachableNode(n.label || n.id),
+        );
       }
     });
   }
@@ -2674,7 +2681,7 @@ export default function App({ user, userRoles }) {
   }, [topRightRef.current]);
 
   const PERMISSION_ERROR_MSG =
-    "No tienes permisos para realizar esta acción. Se requiere el rol de 'Designer'.";
+    UI_STRINGS.dashboard.page.errors.designerRoleRequired;
 
   useEffect(() => {
     if (!currentWorkflowId) {
@@ -2936,7 +2943,7 @@ export default function App({ user, userRoles }) {
 
   const workflowTitle = currentWorkflow
     ? currentWorkflow.name
-    : "New Workflow(Without save)";
+    : UI_STRINGS.dashboard.page.unsavedWorkflowTitle;
 
   const [isCompiling, setIsCompiling] = React.useState(false);
   const [modalMsg, setModalMsg] = useState(null);
@@ -2992,7 +2999,7 @@ export default function App({ user, userRoles }) {
         open: true,
         url,
         filename,
-        message: "Flujo válido y compilado. ¡Descargue su XML!",
+        message: UI_STRINGS.dashboard.page.compileSuccess,
       });
     } catch (err) {
       console.error(err);
