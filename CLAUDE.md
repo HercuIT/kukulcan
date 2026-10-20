@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for AI coding agents working in this repo. `AGENTS.md` is a symlink to this file. Read `README.md` for the architecture, setup and endpoints.
+Guidance for AI coding agents working in this repo. `AGENTS.md` is meant to point to this file, and `GEMINI.md` imports it for Gemini CLI (adding only Gemini-specific notes), so rules belong here, not in those files. Read `README.md` for the architecture, setup and endpoints.
 
 ## What this is
 
