@@ -38,11 +38,12 @@ CI runs lint, Prettier, the typecheck, the Jest unit tests and `npm run test:nod
 
 ## MCP servers
 
-`.mcp.json` registers three MCP servers for this repo:
+`.mcp.json` registers four MCP servers for this repo:
 
 - `firebase`: the Firebase CLI's MCP server (`firebase-tools mcp`), limited to the `auth` and `firestore` tools. It acts as whoever is logged into the Firebase CLI, against the shared `xicotencatl` project. The app no longer uses Firebase; keep this only to inspect the old data until the project is deleted. Writes and deletes follow the Firebase rule under "Watch out for".
 - `supabase`: Supabase's hosted MCP server in read-only mode. Once the Supabase project exists, add `&project_ref=<ref>` to its URL. Keep `read_only=true` unless the user asks for write access.
 - `linear`: Linear's hosted MCP server (`https://mcp.linear.app/mcp`), acting as whoever signs in, in the Linear workspace (team HTE, project TW_Manufacturing). It can write: post only what a rule here asks for (the spec-link comment under "Writing specs") or what the user asks for, and don't change issue status, assignees or other fields unless asked. If you already added Linear at user scope under another name, remove one of the two so its tools aren't listed twice.
+- `context7`: `https://mcp.context7.com/mcp`, a public library/framework/API documentation lookup (React, Next.js, Prisma, Express, and so on). No repo access and no sign-in; it only fetches public docs, so prefer it over a web search for library-specific syntax, configuration or version-migration questions.
 
 Never put tokens or other secrets in `.mcp.json`. Each server signs in on its own: Firebase through `firebase login`, Supabase and Linear through OAuth in the browser.
 
