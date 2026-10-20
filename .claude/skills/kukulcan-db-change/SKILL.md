@@ -5,7 +5,7 @@ description: Make a Supabase database change in Kukulcan — a new migration (ta
 
 # Kukulcan database change
 
-The database is Supabase Postgres, project `xiidwepvvjcqyhywmdrn`. Every merge to `main` that touches `supabase/` runs `supabase db push` automatically, so a migration that merges reaches production.
+The database is Supabase Postgres, project `xiidwepvvjcqyhywmdrn`. Every merge to `main` that touches `supabase/` runs `supabase db push` automatically, so a migration that merges reaches production. Follow `CLAUDE.md` ("Recipe: adding a persisted feature", "Watch out for") wherever it is more specific than this.
 
 ## 1. Inspect first
 
@@ -14,7 +14,7 @@ The database is Supabase Postgres, project `xiidwepvvjcqyhywmdrn`. Every merge t
 
 ## 2. Write a new migration
 
-- Always add a new file in `supabase/migrations/` (timestamped, with a descriptive name such as `hte_107_profile_on_confirm`). Never edit a migration that has already been applied.
+- Always add a new file with `npx supabase migration new <name>`, using a descriptive name such as `hte_107_profile_on_confirm`. Never hand-pick the timestamp: one in the future makes later migrations run before it. Never edit a migration that has already been applied.
 - Make it safe on live data. If it relies on a condition about existing rows, check that condition and `raise exception` when it fails (as HTE-107's migration refuses to run while unconfirmed users exist). Backfill or default new columns, and handle old rows (for example `connections` is `null` on older workflows).
 - Turn on RLS on every new table. Write policies per operation (`select`/`insert`/`update`/`delete`) and use `auth.uid()`.
 
@@ -22,12 +22,12 @@ The database is Supabase Postgres, project `xiidwepvvjcqyhywmdrn`. Every merge t
 
 - Clients may update only a workflow's `name`, `nodes` and `connections`, and only while they are one of its designers (`workflow_designers`) and its status is `draft` or `changes_requested`. Enforce that with RLS and column grants. Don't widen it unless the spec says so.
 - Every other state change is a `security definer` RPC that rechecks the rules inside: the caller's session, role (from `profiles`: `designer`, `reviewer`, `deployer`) and the workflow's status. Set `search_path` on these functions, and grant `execute` only to the roles that need it.
-- Raise the fixed error codes only: `28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong status. Map any new case to one of these in `src/backend/mappers.js`.
+- Raise the fixed error codes only: `28000` no session, `42501` no permission, `P0002` not found, `P0001` wrong status. Map any new case to one of these in `src/backend/mappers.js`. When one code covers several rules, add a short snake_case `hint` (`using errcode = 'P0001', hint = 'duplicate_sibling'`); `mappers.js` keeps it on `error.hint` and the UI picks its message from it.
 - Clients never change roles. Service-role-only functions (like `migrate_workflow`) revoke `execute` from `anon` and `authenticated`.
 
 ## 4. Test it with PGlite (no Docker)
 
-Add tests in `supabase/tests/` and run `npm run test:node`. Cover at least:
+Add `supabase/tests/<ticket>.test.mjs`, add it to the `test:node` script in `package.json` (only listed files run), and run `npm run test:node`. Use the helpers in `supabase/tests/helpers.mjs`: `createTestDb()` loads every migration, `createUser(email, roles)` makes a user, `as(uid, fn)` runs as `authenticated` (or `anon` with `null`), `asServiceRole(fn)` runs as `service_role`, and `rejectsWith(promise, code, hint)` checks the error. Cover at least:
 - the allowed path for the right role and status;
 - each denial: no session, wrong role, not a designer or not the assigned reviewer, wrong status, and editing a column that isn't allowed;
 - the error code each denial returns;
@@ -35,8 +35,8 @@ Add tests in `supabase/tests/` and run `npm run test:node`. Cover at least:
 
 ## 5. Wire it into the app
 
-- Add RPC wrappers and queries in `src/backend/workflowsApi.js` or `definitionsApi.js`. Components never call Supabase directly.
-- Keep the shape the UI expects (`{ id, name, content: { nodes }, metadata: { … } }`) by mapping in `mappers.js`.
+- Add RPC wrappers and queries in `src/backend/workflowsApi.js` or `definitionsApi.js`, or in a new `src/backend/<feature>Api.js` for a new feature. Components never call Supabase directly.
+- Keep the shape the UI expects (`{ id, name, content: { nodes, connections }, metadata: { … } }`) by mapping in `mappers.js`.
 - If the change affects Realtime, check the subscription in the same API module.
 
 ## 6. Docs and deploy
