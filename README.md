@@ -163,12 +163,12 @@ Endpoints:
 | --- | --- | --- |
 | GET | `/api/health` | Liveness check |
 | GET | `/api/ignition-health` | Checks that the Ignition gateway is reachable and `RUNNING` |
-| POST | `/api/compile` | Validates a workflow JSON (`nodes`, `connections`; exactly one Begin and one End) and returns XML |
-| POST | `/api/deploy-workflow` | Validates workflow XML (`Content-Type: application/xml`) and forwards it to Ignition |
+| POST | `/api/compile` | Compiles a workflow JSON with the same compiler as `compile-xml` (`supabase/functions/compile-xml/compiler.mjs`; the server must run from a checkout that includes `supabase/`). Target `ignition` by default: returns the `<Workflow>` document `/api/deploy-workflow` accepts, or 400 naming each node/parameter that would fail deploy. Send `"target": "controller"` for the PLC document. Bodies up to 5 MB |
+| POST | `/api/deploy-workflow` | Validates workflow XML (`Content-Type: application/xml`, up to 5 MB) and forwards it to Ignition |
 
 ### Ignition XML contract
 
-`/api/deploy-workflow` checks the XML (`validarWorkflow` in `server/src/routes/deployWorkflowRoutes.js`), then POSTs it unchanged to `http://<IP_IGNITION>:<PORT_IGNITION>/system/webdev/<PROJECT_NAME_IGNITION>/api/recibirXML` with basic auth. The XML it accepts:
+`/api/deploy-workflow` checks the XML (`validarWorkflow` in `server/src/validarWorkflow.js`, used by `server/src/routes/deployWorkflowRoutes.js`), then POSTs it unchanged to `http://<IP_IGNITION>:<PORT_IGNITION>/system/webdev/<PROJECT_NAME_IGNITION>/api/recibirXML` with basic auth. The XML it accepts:
 
 ```xml
 <Workflow id="W-001" name="…" version="…">            <!-- root element; id required, non-empty -->
@@ -187,15 +187,13 @@ Endpoints:
 </Workflow>
 ```
 
-- Node types map to XML `type` differently in the two compilers:
-  - `compile-xml` (used by the app): Begin/Start → `BeginElement`, End → `EndElement`, and any other type passes through unchanged (an ISA-88 level stays e.g. `Procedure Phase`).
-  - `/api/compile` (`compileRoutes.js`): also maps the ISA-88 levels to `NodeDefinitionName`.
-
-  The deploy validator doesn't check `type`, so both pass it. What `recibirXML` expects for procedural nodes is unconfirmed.
+- **One builder, two targets.** There is one compiler, `supabase/functions/compile-xml/compiler.mjs`, used by the `compile-xml` Edge Function and by `POST /api/compile`. `buildWorkflowXml(wf)` renders the `<Workflow>` element above; the body's `target` picks the document:
+  - `controller` (the default for `compile-xml`, unchanged): the PLC document, which embeds that `<Workflow>` inside `<Controller>`/`<Programs>`/`<SFCContent>`. It is what the app's Compile button downloads, and it is **not** deployable (no `<Workflow>` root).
+  - `ignition` (the default for `/api/compile`; `compileWorkflow(workflow, { target: "ignition" })` in the app): exactly the document above. Before building it, `validateDeployable` applies the deploy validator's node rules to the JSON, so an incomplete workflow fails at compile time with `400 Fallo de compilación` and one error per node or parameter (`El nodo '<name>' debe tener al menos un parámetro.`, `El nodo '<name>' tiene un parámetro sin nombre.`, `El nodo '<name>' requiere un valor para el parámetro '<param>'.`). An unknown target returns `400 Target desconocido: '<value>'. Usa 'controller' o 'ignition'.`
+- `supabase/tests/xml-contract.test.mjs` (in `npm run test:node`) compiles shared fixtures through both paths and feeds every result to `validarWorkflow`, so the compilers and the deploy contract can't drift apart.
+- Node types: Begin/Start → `BeginElement`, End → `EndElement`, and any other type passes through unchanged (an ISA-88 level stays e.g. `Procedure Phase`; node ids stay the canvas ids). The deploy validator doesn't check `type`. What `recibirXML` expects for procedural nodes is unconfirmed.
+- Parameters come from grouped (`{ group: [...] }`) or flat (`[{ name, dataType, defaultValue }]`) arrays; `value` falls back to `defaultValue` only when it's missing, and rows with no name, value or units are skipped.
 - Ignition answers with a JSON `status`/`message`. "The file already exists in the destination folder." means a workflow with that file name was already deployed.
-- **Known gap:** neither compiler's output passes this check as-is:
-  - `compile-xml` (used by the app) wraps `<Workflow>` in a `<Controller>`/`<Programs>`/`<SFCContent>` document for the PLC.
-  - `/api/compile` emits nodes without `<Parameters>`.
 - **Changing the contract:** any change (new elements such as nested nodes, new required attributes) needs the Ignition project's `recibirXML` script to change too. Specs treat it as a non-goal unless the story says otherwise.
 
 ### Database and Edge Function
@@ -268,7 +266,7 @@ Claude Code asks you to approve project servers the first time you run `claude` 
 | `npm start` | Start the dev server |
 | `npm run build` | Build for production into `build/` |
 | `npm test` | Run Jest in watch mode |
-| `npm run test:node` | Run the Node tests: database (PGlite), `compile-xml`, server logger, migration transforms |
+| `npm run test:node` | Run the Node tests: database (PGlite), `compile-xml`, the XML deploy contract, server logger, migration transforms. The contract test needs `server/`'s dependencies: run `npm ci --prefix server` once (CI does) |
 | `npm run lint` | Run ESLint |
 | `npm run format` / `npm run format-check` | Run Prettier (write / check) |
 | `npm run lint:css` / `npm run lint:html` | Run Stylelint / HTMLHint on `public/` |
@@ -333,7 +331,7 @@ src/
 public/brand/                  Kukulcan logo SVGs
 public/ICONOSPNG/              toolbar icons
 supabase/migrations/           schema, RLS, triggers and RPC functions
-supabase/functions/compile-xml Edge Function (compiler.mjs holds the XML logic)
+supabase/functions/compile-xml Edge Function (compiler.mjs holds the XML logic; /api/compile uses it too)
 supabase/tests/                Node tests for the database and the compiler
 server/src/                    Express API (routes/, logger.js, supabaseAdmin.js)
 scripts/migration/             one-off Firebase → Supabase migration scripts
@@ -352,7 +350,7 @@ Features are specified before they're built, as Claude Docs, using the section t
 | WFPR-004 | [Expandable Pre-Defined Definitions](https://claude.ai/code/artifact/cf5b6f1e-aa6f-400f-bc6f-f425c4349488) | Draft, depends on VCR-001; open questions pending |
 | HTE-111 | [Spec: Theme and logo](https://claude.ai/code/artifact/bbc1a1f8-71e3-4839-834b-d630c81cae85) | Implemented on `feat/HTE-111` (PR #7); test plan `docs/HTE-111-testing.md` |
 | HTE-107 | [HTE-107: Email confirmation and registration form](https://claude.ai/code/artifact/6b732d1e-e3b8-461c-8c72-2d61864a50d0) | Draft, open questions pending |
-| Compiled XML can't be deployed (no ticket yet) | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Draft, open questions pending |
+| XML-DEPLOY (no Jira ticket yet) | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Implemented on `XML-DEPLOY-compile-targets` (Option A); test plan `docs/XML-DEPLOY-testing.md` |
 
 ## Contributing
 

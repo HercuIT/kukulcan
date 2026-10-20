@@ -15,7 +15,7 @@ npm run format-check          # Prettier (CI); run `npm run format` to fix
 npm run build                 # production build
 npm run theme                 # regenerate src/styles/theme.css from src/styles/tokens.json
 npm test                      # Jest watch mode (CI); `CI=true npm test` runs once
-npm run test:node             # Node tests: migrations on PGlite, compile-xml, server logger, migration scripts (CI)
+npm run test:node             # Node tests: migrations on PGlite, compile-xml, XML deploy contract, server logger, migration scripts (CI; the contract test needs `npm ci --prefix server`)
 cd server && node src/index.js    # local API on 127.0.0.1:3001
 ```
 
@@ -27,7 +27,7 @@ CI runs lint, Prettier, the Jest unit tests and `npm run test:node`. Merges to `
 - `src/pages/Dashboard/*Modal.js`: the save, open, share, version-history, checkout and unsaved-changes dialogs.
 - `src/backend/`: the only code that talks to Supabase. `supabaseClient.js` (client from `REACT_APP_SUPABASE_URL` / `REACT_APP_SUPABASE_PUBLISHABLE_KEY`), `authApi.js` (sign-in/up/out, `onSessionChange`, `getMyRoles`), `workflowsApi.js` (workflow CRUD, `subscribeToWorkflow`, `listMyWorkflows`, `listUsers`, one wrapper per RPC, `compileWorkflow`), `definitionsApi.js` (the User Created Definitions tree: RPC wrappers, `subscribeToDefinitions`, iterative tree helpers `buildDefinitionTree` / `visibleRows` / `expandForCanvas`), `mappers.js` (rows ↔ the legacy `{ id, name, content: { nodes, connections }, metadata }` shape, error codes; RPC rule hints are kept on `error.hint`). Components import these, never `@supabase/supabase-js`. The `user` prop is `{ uid, email }`.
 - `supabase/migrations/`: schema, RLS policies, triggers and the RPC functions (`submit_for_review`, `assign_reviewer`, `approve_workflow`, `request_changes`, `add_designer`, `remove_designer`, `checkout_workflow`, `my_workflows`; WFPR-003: `create_definition`, `add_predefined_child`, `update_definition`, `move_definition`, `delete_definition`), plus `migrate_workflow` (service role only, used by `scripts/migration/migrate-data.js`). Every schema change is a new migration file, created with `npx supabase migration new <name>` (UTC timestamp). Never hand-pick a timestamp: one in the future makes later CLI-created migrations run before it. Once a migration is on the Supabase project, don't rename or edit it; add a new one.
-- `supabase/functions/compile-xml/`: the Edge Function; `compiler.mjs` holds the validation and XML code (a second copy lives in `server/src/routes/compileRoutes.js`).
+- `supabase/functions/compile-xml/`: the Edge Function; `compiler.mjs` is the only compiler (validation, `buildWorkflowXml`, the `controller` and `ignition` targets, `validateDeployable`). `server/src/routes/compileRoutes.js` loads it with a dynamic `import()` (the server must run from a checkout that includes `supabase/`). The deploy validator is `server/src/validarWorkflow.js`; `supabase/tests/xml-contract.test.mjs` runs both compile paths through it.
 - `server/src/routes/`: `health`, `ignitionHealth`, `compile` (JSON→XML), `deployWorkflow` (XML→Ignition). `server/src/logger.js` inserts one Supabase `server_logs` row per event through `supabaseAdmin.js` (service role).
 - `scripts/migration/`: one-off Firebase → Supabase scripts (`import-users.js`, `migrate-data.js`, `verify.js`, `send-password-resets.js`) with their own `package.json`.
 - `src/pages/SetPassword/`: the `/set-password` page that the password email links to (imported users have no password until they set one there).
@@ -46,7 +46,7 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
 
 - Tables: `profiles` (one per `auth.users` row; role flags `designer`, `reviewer`, `deployer`, created by a sign-up trigger), `workflows` (canvas nodes in `nodes` jsonb, canvas edges in `connections` jsonb), `user_definitions` (the shared User Created Definitions tree: `parent_id`, manual `position` among siblings, `kind` = `user` or `predefined` for a reference to a pre-defined element; no depth limit; changed only through the WFPR-003 RPCs, which raise `P0001` with a `hint` such as `cycle` or `duplicate_sibling`), `workflow_designers`, `workflow_history` (`kind` = `checkout` or `changes_requested`), `server_logs` (service role only).
 - Workflow `status`: `draft` → `pending_review` → `approved`, or `pending_review` → `changes_requested` → back to editing. Clients may only update `name`, `nodes` and `connections` (column grants + RLS; `checkout_description` is set by `checkout_workflow`); status, reviewer and collaborator changes go through the RPC functions, which check `assigned_reviewer_id` and `workflow_designers`. A trigger bumps `version` when `name`, `nodes` or `connections` change and stamps `last_modified_*` for user writes (service-role writes keep their values).
-- A valid workflow has exactly one Begin/Start node with no inputs and one End node with no outputs. In XML, node types map to `BeginElement`, `EndElement`, `NodeDefinitionName`, etc. (`TYPE_TO_XML` in `server/src/routes/compileRoutes.js`). Deploy requires every non-Begin/End node to have at least one `<Parameter>` with a non-empty value.
+- A valid workflow has exactly one Begin/Start node with no inputs and one End node with no outputs. In XML, Begin/Start → `BeginElement`, End → `EndElement`, other types pass through (`TYPE_TO_XML` in `compiler.mjs`). Anything bound for Ignition is compiled with `target: "ignition"`; the default `controller` document is the PLC download and isn't deployable. Deploy requires every non-Begin/End node to have at least one `<Parameter>` with a non-empty value.
 
 ## Editor domain model
 
@@ -73,9 +73,9 @@ What specs and features in the designer have to work with (all in `src/pages/Das
   | --- | --- | --- |
   | Editing (live) and before compiling | `validateWorkflow` in `Dashboard.js` | Graph shape in the editor: one START, at least one END, no disconnected or unreachable nodes |
   | Saving, sharing, status changes | RLS, column grants and RPC functions in the database | Who may change what, and the workflow status rules |
-  | Compiling in the app | `validateWorkflow` in `supabase/functions/compile-xml/compiler.mjs` | Structure, node ids, Begin/End, connections, size limits |
-  | Compiling through the local server (`POST /api/compile`) | `validateWorkflow` in `server/src/routes/compileRoutes.js` | A separate, older copy of the same graph checks: it must mirror `compiler.mjs` when either changes |
-  | Deploying (`POST /api/deploy-workflow`) | `validarWorkflow` in `server/src/routes/deployWorkflowRoutes.js` | The Ignition XML contract (see `README.md`) |
+  | Compiling in the app | `validateWorkflow` in `supabase/functions/compile-xml/compiler.mjs`; plus `validateDeployable` for `target: "ignition"` | Structure, node ids, Begin/End, connections, size limits; for Ignition, every non-Begin/End node has named parameters with values |
+  | Compiling through the local server (`POST /api/compile`) | The same `compiler.mjs` (target `ignition` by default) | Same as above |
+  | Deploying (`POST /api/deploy-workflow`) | `validarWorkflow` in `server/src/validarWorkflow.js` | The Ignition XML contract (see `README.md`); `supabase/tests/xml-contract.test.mjs` keeps both compile paths passing it |
 
 ## Rules for new code
 
@@ -141,8 +141,6 @@ Both the Supabase migration and later specs follow the same pattern. A new table
   | --- | --- |
   | `OPERATIONS_BY_PHASE` nests Operations inside Phases, the reverse of ISA-88 (Phases inside Operations); VCR-001 proposes flipping it | `Dashboard.js` |
   | Hierarchy panel expand state is keyed by label, so same-named rows expand together (fixed for User Created Definitions, which key by id) | `TreeViewExample` |
-  | Neither compiler's output passes the deploy validator as-is: `compile-xml` wraps `<Workflow>` in `<Controller>`, and `/api/compile` emits nodes without `<Parameters>` | `compiler.mjs`, `compileRoutes.js`, `deployWorkflowRoutes.js` |
-  | `/api/compile` (`compileRoutes.js`) doesn't read flat parameter arrays; `compile-xml` does | `server/src/routes/compileRoutes.js` |
   | `/api/deploy-workflow` doesn't require a signed-in deployer (follow-up from PR #1) | `deployWorkflowRoutes.js` |
   | The Equipment tree is sample data (*Enterprise Node* → four machines) that doesn't follow the documented Equipment hierarchy; Assets has its two branches (Assets Definitions, Assets Instances) but nothing beneath them | `equipmentData.js`, `assetsNode` in `Dashboard.js` |
 
