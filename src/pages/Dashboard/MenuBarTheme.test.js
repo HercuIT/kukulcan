@@ -82,10 +82,37 @@ describe("MenuBar theme options (HTE-111)", () => {
       renderMenu();
       openView();
       const zoom = option(M.menuLabels["Zoom In"] ?? "Zoom In");
-      expect(zoom).not.toHaveAttribute("role");
+      expect(zoom).toHaveAttribute("role", "menuitem");
       expect(zoom).not.toHaveAttribute("aria-checked");
       fireEvent.click(zoom);
       expect(window.alert).toHaveBeenCalled();
+    });
+  });
+
+  describe("keyboard", () => {
+    test("theme options are focusable and Enter or Space applies them", () => {
+      renderMenu();
+      openView();
+      const dark = option(LABEL.dark);
+      expect(dark).toHaveAttribute("tabindex", "0");
+      dark.focus();
+      expect(dark).toHaveFocus();
+      fireEvent.keyDown(dark, { key: "Enter" });
+      expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+      openView();
+      fireEvent.keyDown(option(LABEL.light), { key: " " });
+      expect(document.documentElement).toHaveAttribute("data-theme", "light");
+    });
+
+    test("other keys do nothing", () => {
+      renderMenu();
+      openView();
+      fireEvent.keyDown(option(LABEL.dark), { key: "a" });
+      expect(document.documentElement).not.toHaveAttribute(
+        "data-theme",
+        "dark",
+      );
+      expect(option(LABEL.system)).toHaveAttribute("aria-checked", "true");
     });
   });
 
