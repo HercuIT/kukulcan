@@ -14,12 +14,8 @@
   height: 28px;
 }
 
+/* Tamaño y familia: clases generadas .kk-text-wordmark (sm) y .kk-text-display (lg). */
 .kk-logo__name {
-  font-family: var(--kk-font-display);
-  font-size: 20px;
-  line-height: 24px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--kk-ink);
 }
@@ -35,8 +31,7 @@
   height: 72px;
 }
 
+/* El design system pide el nombre en mayúsculas con algo de aire, también en tamaño display. */
 .kk-logo--lg .kk-logo__name {
-  font-size: 40px;
-  line-height: 44px;
   letter-spacing: 0.02em;
 }

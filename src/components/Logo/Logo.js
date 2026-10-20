@@ -24,7 +24,11 @@ export default function Logo({ size = "sm", to }) {
           onError={() => setMarkFailed(true)}
         />
       )}
-      <span className="kk-logo__name">{UI_STRINGS.components.logo.name}</span>
+      <span
+        className={`kk-logo__name ${size === "lg" ? "kk-text-display" : "kk-text-wordmark"}`}
+      >
+        {UI_STRINGS.components.logo.name}
+      </span>
     </>
   );
   const className = `kk-logo kk-logo--${size === "lg" ? "lg" : "sm"}`;

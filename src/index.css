@@ -11,13 +11,11 @@
   --kk-hover-overlay: color-mix(in srgb, var(--kk-on-brand) 8%, transparent);
 }
 
+/* Body type comes from the generated .kk-text-body class on <body> (public/index.html). */
 body {
   margin: 0;
   background: var(--kk-bg);
   color: var(--kk-ink);
-  font-family: var(--kk-font-sans);
-  font-size: 14px;
-  line-height: 20px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

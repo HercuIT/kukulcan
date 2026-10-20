@@ -25,9 +25,15 @@ describe("Logo", () => {
       expect(link).toHaveAttribute("href", "/");
     });
 
-    test("size lg gets the large modifier class", () => {
+    test("size lg gets the large modifier class and the display type style", () => {
       const { container } = render(<Logo size="lg" />);
       expect(container.firstChild).toHaveClass("kk-logo", "kk-logo--lg");
+      expect(screen.getByText(S.name)).toHaveClass("kk-text-display");
+    });
+
+    test("size sm sets the name in the wordmark type style", () => {
+      render(<Logo size="sm" />);
+      expect(screen.getByText(S.name)).toHaveClass("kk-text-wordmark");
     });
   });
 
