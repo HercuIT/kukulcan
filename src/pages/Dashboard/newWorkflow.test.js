@@ -551,6 +551,8 @@ describe("File -> New workflow and unsaved changes guard", () => {
   });
 
   test("Session expiry guard: Save now succeeds saves W1 then signs out", async () => {
+    // CRA resets mock implementations before each test.
+    authApi.signOut.mockResolvedValue();
     const { container } = renderDashboard();
 
     await openWorkflowViaModal(container, sampleWorkflowDraft.name);
