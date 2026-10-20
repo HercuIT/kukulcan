@@ -1,6 +1,10 @@
 # Markdown (README, CLAUDE.md/AGENTS.md, docs/) is written by hand; Prettier doesn't check it.
 *.md
 
+# YAML (GitHub workflows, Supabase config) isn't formatted or linted; ESLint only reads .js anyway.
+*.yml
+*.yaml
+
 # Local Claude Code settings (git-ignored globally, not part of the repo)
 .claude/
 
