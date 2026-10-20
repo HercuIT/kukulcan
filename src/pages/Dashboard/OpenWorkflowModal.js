@@ -53,6 +53,10 @@ const RoleIndicator = ({ role }) => {
   );
 };
 
+/**
+ * @param {{ [prop: string]: any }} props open, onClose, user, userRoles, onSelect. Dashboard también
+ *   pasa `workflows`, que este modal no usa: carga su propia lista (CLAUDE.md → defectos conocidos).
+ */
 export default function OpenWorkflowModal({
   open,
   onClose,
@@ -115,8 +119,8 @@ export default function OpenWorkflowModal({
 
   const sortedWorkflows = [...workflows].sort(
     (a, b) =>
-      (toDate(b.metadata?.lastModifiedAt) || 0) -
-      (toDate(a.metadata?.lastModifiedAt) || 0),
+      (toDate(b.metadata?.lastModifiedAt)?.getTime() || 0) -
+      (toDate(a.metadata?.lastModifiedAt)?.getTime() || 0),
   );
 
   return (

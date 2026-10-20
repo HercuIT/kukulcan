@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const axios = require("axios");
+// .default: la exportación que describen los tipos de axios (en CommonJS es el mismo objeto).
+const axios = require("axios").default;
 const { XMLParser } = require("fast-xml-parser");
 const logger = require("../logger");
 const { summarizeBody } = require("../logger");

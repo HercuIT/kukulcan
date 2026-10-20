@@ -186,6 +186,7 @@ function flattenParams(n) {
   }
   return out;
 }
+/** @param {unknown} s */
 const esc = (s = "") =>
   String(s)
     .replaceAll("&", "&amp;")

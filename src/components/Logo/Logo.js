@@ -12,6 +12,7 @@ const MARK_SRC = `${process.env.PUBLIC_URL || ""}/brand/kukulcan-mark.svg`;
  * La imagen lleva alt="" porque el nombre visible ya da nombre al enlace; si la marca no carga,
  * se oculta y queda el nombre.
  */
+/** @param {{ size?: "sm" | "lg", to?: string }} props */
 export default function Logo({ size = "sm", to }) {
   const [markFailed, setMarkFailed] = useState(false);
   const content = (
