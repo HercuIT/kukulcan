@@ -77,6 +77,18 @@ describe("App routes for sign-up and email confirmation (HTE-107)", () => {
     expect(screen.getByTestId("auth-confirm")).toBeInTheDocument();
   });
 
+  test("positive: a confirmation link that fell back to the Site URL root is forwarded to /auth/confirm", async () => {
+    await renderAt("/?token_hash=abc123&type=email", null);
+    expect(screen.getByTestId("auth-confirm")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/auth/confirm");
+    expect(window.location.search).toBe("?token_hash=abc123&type=email");
+  });
+
+  test("edge: other query strings on a signed-out path still show Login", async () => {
+    await renderAt("/?foo=1", null);
+    expect(screen.getByTestId("login")).toBeInTheDocument();
+  });
+
   test("negative: signed out, any other path shows Login", async () => {
     await renderAt("/anything", null);
     expect(screen.getByTestId("login")).toBeInTheDocument();
