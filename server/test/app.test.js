@@ -98,3 +98,57 @@ describe("server app", () => {
     assert.equal(LIMITS.jsonBytes, compilerLimits.maxBodyBytes);
   });
 });
+
+describe("server app: /api/deploy-siemens (stub, HTE-110)", () => {
+  // No TIA Portal Openness server exists yet (see HTE-110): this route never contacts
+  // anything and always answers 501, so a caller can't mistake it for a working deploy.
+  test("positive: well-formed XML gets a 501 NOT_CONFIGURED, not a fake success", async () => {
+    const res = await post(
+      "/api/deploy-siemens",
+      '<Workflow id="W-SIEMENS"></Workflow>',
+      "application/xml",
+    );
+    assert.equal(res.status, 501);
+    const json = await res.json();
+    assert.equal(json.status, "NOT_CONFIGURED");
+    assert.match(json.message, /TIA Portal Openness/);
+  });
+
+  test("negative: missing body gets a 400, not a 501", async () => {
+    const res = await post("/api/deploy-siemens", "", "application/xml");
+    assert.equal(res.status, 400);
+    assert.deepEqual(await res.json(), {
+      status: "ERROR",
+      message: "Bad Request. Missing workflow data",
+    });
+  });
+
+  test("negative: a JSON body (wrong content type) is rejected, not deployed", async () => {
+    // app.js only parses a string body for application/xml or text/xml, so a JSON content
+    // type never reaches the route as a string; it's rejected the same way as a missing body.
+    const res = await post(
+      "/api/deploy-siemens",
+      JSON.stringify({ id: "W-SIEMENS" }),
+      "application/json",
+    );
+    assert.equal(res.status, 400);
+  });
+
+  test("negative: a method other than POST gets a 405 naming the allowed method", async () => {
+    const res = await fetch(`${baseUrl}/api/deploy-siemens`, {
+      method: "GET",
+    });
+    assert.equal(res.status, 405);
+    assert.equal(res.headers.get("allow"), "POST");
+  });
+
+  test("edge: XML over the shared deploy limit gets a JSON 413 naming 10 MB", async () => {
+    const body = `<Workflow>${"x".repeat(LIMITS.xmlBytes)}</Workflow>`;
+    const res = await post("/api/deploy-siemens", body, "application/xml");
+    assert.equal(res.status, 413);
+    assert.deepEqual(await res.json(), {
+      status: "ERROR",
+      message: "Payload Too Large. The maximum body size is 10 MB.",
+    });
+  });
+});

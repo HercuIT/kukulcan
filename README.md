@@ -165,6 +165,7 @@ Endpoints:
 | GET | `/api/ignition-health` | Checks that the Ignition gateway is reachable and `RUNNING` |
 | POST | `/api/compile` | Compiles a workflow JSON with the same compiler as `compile-xml` (`supabase/functions/compile-xml/compiler.mjs`; the server must run from a checkout that includes `supabase/`). Target `ignition` by default: returns the `<Workflow>` document `/api/deploy-workflow` accepts, or 400 naming each node/parameter that would fail deploy. Send `"target": "controller"` for the PLC document. Bodies up to 5 MB |
 | POST | `/api/deploy-workflow` | Validates workflow XML (`Content-Type: application/xml`, up to 10 MB) and forwards it to Ignition. Its request log stores the body's size and a 2,000-character preview, not the whole body |
+| POST | `/api/deploy-siemens` | Stub (HTE-110): checks the request shape and logs it, but always answers `501 NOT_CONFIGURED`. There is no TIA Portal Openness server to push to yet — see `CLAUDE.md` → "Watch out for" |
 
 ### Ignition XML contract
 
@@ -258,6 +259,7 @@ Steps:
 | `supabase` | Supabase hosted MCP server (`https://mcp.supabase.com/mcp?read_only=true`) | OAuth in the browser on first use; read-only |
 | `linear` | Linear hosted MCP server (`https://mcp.linear.app/mcp`), used to post spec links on `HTE-<n>` issues (see "Specs") | OAuth in the browser on first use; acts as you, with your Linear permissions |
 | `context7` | Hosted MCP server (`https://mcp.context7.com/mcp`) for public library/framework/API documentation lookups | No sign-in; no repo access, public docs only |
+| `postman` | Postman hosted MCP server (`https://mcp.postman.com/mcp`, Full mode; `https://mcp.eu.postman.com/mcp` for EU workspaces), used to build a mock server standing in for the TIA Portal Openness endpoint (HTE-110) until that real server exists | OAuth in the browser on first use; acts as you, with your Postman workspaces |
 
 Agent instructions live in `CLAUDE.md`; `GEMINI.md` imports it for Gemini CLI (which reads MCP servers from `.gemini/settings.json`, not `.mcp.json`). Claude Code asks you to approve project servers the first time you run `claude` in the repo; check them with `claude mcp list`. On native Windows, if the `firebase` server fails to start, change its `command` to `cmd` and put `"/c", "npx"` in front of its args. Don't commit tokens to `.mcp.json`.
 
