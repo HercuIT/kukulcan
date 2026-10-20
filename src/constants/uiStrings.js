@@ -466,14 +466,18 @@ export const UI_STRINGS = {
       done: "Done",
     },
     unsavedChangesModal: {
-      suSesionHaExpirado: "Su sesión ha expirado",
-      haRealizadoCambiosSinGuardar:
-        "Ha realizado cambios sin guardar en el lienzo.",
-      deseaGuardarlosAntesDeContinuar: "¿Desea guardarlos antes de continuar?",
-      guardando: "Guardando...",
-      guardarAhora: "Guardar Ahora",
-      descartarCambios: "Descartar Cambios",
-      guardandoSusCambios: "Guardando sus cambios...",
+      suSesionHaExpirado: "Your session has expired",
+      haRealizadoCambiosSinGuardar: "You have unsaved changes on the canvas.",
+      deseaGuardarlosAntesDeContinuar:
+        "Do you want to save them before continuing?",
+      guardando: "Saving...",
+      guardarAhora: "Save now",
+      descartarCambios: "Discard changes",
+      guardandoSusCambios: "Saving your changes...",
+      nuevoFlujoTitulo: "New workflow",
+      nuevoFlujoMensaje:
+        "You have unsaved changes. If you create a new workflow, they will be lost.",
+      cancelar: "Cancel",
     },
     versionHistoryModal: {
       versionHistory: "Version History",
