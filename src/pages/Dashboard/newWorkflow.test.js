@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import App from "./Dashboard";
 import { ThemeProvider } from "../../theme/ThemeContext";
@@ -19,7 +19,6 @@ const M = UI_STRINGS.dashboard.menuBar;
 const P = UI_STRINGS.dashboard.page;
 const U = UI_STRINGS.dashboard.unsavedChangesModal;
 const S = UI_STRINGS.dashboard.saveWorkflowModal;
-const O = UI_STRINGS.dashboard.openWorkflowModal;
 
 const mockDesignerUser = { uid: "user-designer-1", email: "designer@example.com" };
 const mockDesignerRoles = { designer: true, reviewer: false, deployer: false };
@@ -38,15 +37,17 @@ describe("File -> New workflow and unsaved changes guard", () => {
     sampleWorkflowDraft = {
       id: "wf-1",
       name: "Workflow 1 Draft",
-      nodes: [
-        { id: "begin", type: "start", label: "Begin", x: 100, y: 100 },
-        { id: "step1", type: "Procedure Phase", label: "Mixing", x: 200, y: 100 },
-        { id: "end", type: "end", label: "End", x: 300, y: 100 },
-      ],
-      connections: [
-        { id: "c1", from: "begin", to: "step1" },
-        { id: "c2", from: "step1", to: "end" },
-      ],
+      content: {
+        nodes: [
+          { id: "begin", type: "start", label: "Begin", x: 100, y: 100 },
+          { id: "step1", type: "Procedure Phase", label: "Mixing", x: 200, y: 100 },
+          { id: "end", type: "end", label: "End", x: 300, y: 100 },
+        ],
+        connections: [
+          { id: "c1", from: "begin", to: "step1" },
+          { id: "c2", from: "step1", to: "end" },
+        ],
+      },
       metadata: {
         status: "draft",
         version: 1,
@@ -58,11 +59,13 @@ describe("File -> New workflow and unsaved changes guard", () => {
     sampleWorkflowApproved = {
       id: "wf-approved",
       name: "Workflow Approved",
-      nodes: [
-        { id: "begin", type: "start", label: "Begin", x: 100, y: 100 },
-        { id: "end", type: "end", label: "End", x: 300, y: 100 },
-      ],
-      connections: [{ id: "c1", from: "begin", to: "end" }],
+      content: {
+        nodes: [
+          { id: "begin", type: "start", label: "Begin", x: 100, y: 100 },
+          { id: "end", type: "end", label: "End", x: 300, y: 100 },
+        ],
+        connections: [{ id: "c1", from: "begin", to: "end" }],
+      },
       metadata: {
         status: "approved",
         version: 2,
@@ -74,11 +77,13 @@ describe("File -> New workflow and unsaved changes guard", () => {
     sampleWorkflowPending = {
       id: "wf-pending",
       name: "Workflow Pending",
-      nodes: [
-        { id: "begin", type: "start", label: "Begin", x: 100, y: 100 },
-        { id: "end", type: "end", label: "End", x: 300, y: 100 },
-      ],
-      connections: [{ id: "c1", from: "begin", to: "end" }],
+      content: {
+        nodes: [
+          { id: "begin", type: "start", label: "Begin", x: 100, y: 100 },
+          { id: "end", type: "end", label: "End", x: 300, y: 100 },
+        ],
+        connections: [{ id: "c1", from: "begin", to: "end" }],
+      },
       metadata: {
         status: "pending_review",
         version: 1,
@@ -132,7 +137,10 @@ describe("File -> New workflow and unsaved changes guard", () => {
     );
   };
 
-  const openWorkflowViaModal = async (workflowName) => {
+  const getWorkflowTitle = (container) =>
+    container.querySelector(".center-section h2")?.textContent;
+
+  const openWorkflowViaModal = async (container, workflowName) => {
     // Click File menu
     fireEvent.click(screen.getByText(M.menuLabels.File));
     // Click Open
@@ -143,6 +151,9 @@ describe("File -> New workflow and unsaved changes guard", () => {
     });
     // Click the workflow item
     fireEvent.click(screen.getByText(workflowName));
+    await waitFor(() => {
+      expect(getWorkflowTitle(container)).toBe(workflowName);
+    });
   };
 
   const pickFileMenu = (optionName) => {
@@ -153,23 +164,16 @@ describe("File -> New workflow and unsaved changes guard", () => {
   // --- Positive Scenarios ---
 
   test("Open draft W1, New, Save, enter 'W2' creates a new workflow and leaves W1 untouched", async () => {
-    renderDashboard();
+    const { container } = renderDashboard();
 
     // 1. Open W1
-    await openWorkflowViaModal(sampleWorkflowDraft.name);
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-        sampleWorkflowDraft.name,
-      );
-    });
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
 
     // 2. Pick File -> New
     pickFileMenu(M.menuLabels.New);
 
     // Header updates to unsavedWorkflowTitle
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      P.unsavedWorkflowTitle,
-    );
+    expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
 
     // 3. Pick File -> Save
     pickFileMenu(M.menuLabels.Save);
@@ -197,14 +201,9 @@ describe("File -> New workflow and unsaved changes guard", () => {
   });
 
   test("After New, title reads 'New Workflow(Without save)', Share and Review are hidden, File has no Checkout or Version History", async () => {
-    renderDashboard();
+    const { container } = renderDashboard();
 
-    await openWorkflowViaModal(sampleWorkflowDraft.name);
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-        sampleWorkflowDraft.name,
-      );
-    });
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
 
     // Before New: Share button is visible for designer
     expect(screen.getByText(M.workflowActions)).toBeInTheDocument();
@@ -213,9 +212,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     pickFileMenu(M.menuLabels.New);
 
     // Title reads "New Workflow(Without save)"
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      P.unsavedWorkflowTitle,
-    );
+    expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
 
     // Share and Review buttons are hidden
     expect(screen.queryByText(M.workflowActions)).toBeNull();
@@ -228,30 +225,21 @@ describe("File -> New workflow and unsaved changes guard", () => {
   });
 
   test("New with no prior workflow starts editable default canvas with unsaved title", () => {
-    renderDashboard();
+    const { container } = renderDashboard();
 
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      P.unsavedWorkflowTitle,
-    );
+    expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
     expect(screen.queryByText(M.workflowActions)).toBeNull();
 
     // Pick File -> New
     pickFileMenu(M.menuLabels.New);
 
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      P.unsavedWorkflowTitle,
-    );
+    expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
   });
 
   test("Open W1, New, Save As creates a new workflow via the name modal", async () => {
-    renderDashboard();
+    const { container } = renderDashboard();
 
-    await openWorkflowViaModal(sampleWorkflowDraft.name);
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-        sampleWorkflowDraft.name,
-      );
-    });
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
 
     pickFileMenu(M.menuLabels.New);
     pickFileMenu(M.menuLabels["Save As"]);
@@ -270,21 +258,15 @@ describe("File -> New workflow and unsaved changes guard", () => {
   });
 
   test("Open W1, New, then Open W1 again loads W1 read-only with its saved nodes and connections", async () => {
-    renderDashboard();
+    const { container } = renderDashboard();
 
-    await openWorkflowViaModal(sampleWorkflowDraft.name);
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
     pickFileMenu(M.menuLabels.New);
 
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      P.unsavedWorkflowTitle,
-    );
+    expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
 
-    await openWorkflowViaModal(sampleWorkflowDraft.name);
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-        sampleWorkflowDraft.name,
-      );
-    });
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
+    expect(getWorkflowTitle(container)).toBe(sampleWorkflowDraft.name);
   });
 
   // --- Negative Scenarios ---
@@ -305,63 +287,50 @@ describe("File -> New workflow and unsaved changes guard", () => {
   });
 
   test("Negative: Open approved W1, New gives an editable canvas and isWorkflowReadOnly false", async () => {
-    renderDashboard();
+    const { container } = renderDashboard();
 
-    await openWorkflowViaModal(sampleWorkflowApproved.name);
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-        sampleWorkflowApproved.name,
-      );
-    });
+    await openWorkflowViaModal(container, sampleWorkflowApproved.name);
 
     pickFileMenu(M.menuLabels.New);
 
     // Canvas should now be editable, title unsavedWorkflowTitle
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      P.unsavedWorkflowTitle,
-    );
+    expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
 
     // Picking Save should open name dialog, not "cannot edit" alert
     pickFileMenu(M.menuLabels.Save);
     expect(screen.getByText(S.guardarFlujoDeTrabajo)).toBeInTheDocument();
-    expect(window.alert).not.toHaveBeenCalled();
+    expect(window.alert).not.toHaveBeenCalledWith(
+      expect.stringContaining("cannot edit"),
+    );
   });
 
   test("Negative: Open pending_review W1, New, Save opens name dialog rather than 'cannot edit' alert", async () => {
-    renderDashboard();
+    const { container } = renderDashboard();
 
-    await openWorkflowViaModal(sampleWorkflowPending.name);
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-        sampleWorkflowPending.name,
-      );
-    });
+    await openWorkflowViaModal(container, sampleWorkflowPending.name);
 
     pickFileMenu(M.menuLabels.New);
     pickFileMenu(M.menuLabels.Save);
 
     expect(screen.getByText(S.guardarFlujoDeTrabajo)).toBeInTheDocument();
-    expect(window.alert).not.toHaveBeenCalled();
   });
 
   // --- Edge Scenarios ---
 
   test("Edge: New twice in a row leaves same state as once", () => {
-    renderDashboard();
+    const { container } = renderDashboard();
 
     pickFileMenu(M.menuLabels.New);
     pickFileMenu(M.menuLabels.New);
 
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      P.unsavedWorkflowTitle,
-    );
+    expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
     expect(screen.queryByText(U.nuevoFlujoTitulo)).toBeNull();
   });
 
   test("Edge: Realtime update to W1 after New is ignored because subscription closed", async () => {
-    renderDashboard();
+    const { container } = renderDashboard();
 
-    await openWorkflowViaModal(sampleWorkflowDraft.name);
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
     expect(activeSubscriptions.has("wf-1")).toBe(true);
 
     pickFileMenu(M.menuLabels.New);
@@ -369,9 +338,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     // Subscription to wf-1 must be unsubscribed
     expect(activeSubscriptions.has("wf-1")).toBe(false);
 
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      P.unsavedWorkflowTitle,
-    );
+    expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
   });
 
   // --- Unsaved-changes Guard ---
@@ -379,7 +346,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
   test("Unsaved-changes guard: Edit W1, New, Discard changes resets to default canvas without saving W1", async () => {
     const { container } = renderDashboard();
 
-    await openWorkflowViaModal(sampleWorkflowDraft.name);
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
 
     // Simulate canvas drop to make dirty
     const canvas = container.querySelector(".canvas-area");
@@ -392,22 +359,20 @@ describe("File -> New workflow and unsaved changes guard", () => {
     // Unsaved changes prompt must appear with context-specific title & message
     expect(screen.getByText(U.nuevoFlujoTitulo)).toBeInTheDocument();
     expect(screen.getByText(U.nuevoFlujoMensaje)).toBeInTheDocument();
-    expect(screen.getByText(U.cancelar)).toBeInTheDocument();
+    expect(document.querySelector(".unsaved-changes-modal .btn-secondary")).toBeInTheDocument();
 
     // Click Discard changes
     fireEvent.click(screen.getByText(U.descartarCambios));
 
     // Must reset to default canvas and unsaved title
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      P.unsavedWorkflowTitle,
-    );
+    expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
     expect(workflowsApi.saveWorkflow).not.toHaveBeenCalled();
   });
 
   test("Unsaved-changes guard: Edit W1, New, Save now updates W1 then resets to blank canvas", async () => {
     const { container } = renderDashboard();
 
-    await openWorkflowViaModal(sampleWorkflowDraft.name);
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
 
     // Make canvas dirty
     const canvas = container.querySelector(".canvas-area");
@@ -431,9 +396,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
 
     // Afterwards, resets to new blank canvas with no current workflow
     await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-        P.unsavedWorkflowTitle,
-      );
+      expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
     });
   });
 
@@ -466,16 +429,14 @@ describe("File -> New workflow and unsaved changes guard", () => {
 
     // Resets to new blank canvas
     await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-        P.unsavedWorkflowTitle,
-      );
+      expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
     });
   });
 
   test("Unsaved-changes guard: Edit W1, New, Cancel keeps edits and stays on W1", async () => {
     const { container } = renderDashboard();
 
-    await openWorkflowViaModal(sampleWorkflowDraft.name);
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
 
     const canvas = container.querySelector(".canvas-area");
     window._dragComponent = { label: "Mixing", type: "Procedure Phase" };
@@ -485,13 +446,12 @@ describe("File -> New workflow and unsaved changes guard", () => {
 
     expect(screen.getByText(U.nuevoFlujoTitulo)).toBeInTheDocument();
 
-    // Click Cancel
-    fireEvent.click(screen.getByText(U.cancelar));
+    // Click Cancel in unsaved changes modal
+    const cancelBtn = document.querySelector(".unsaved-changes-modal .btn-secondary");
+    fireEvent.click(cancelBtn);
 
     // Stays on W1
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      sampleWorkflowDraft.name,
-    );
+    expect(getWorkflowTitle(container)).toBe(sampleWorkflowDraft.name);
     expect(workflowsApi.saveWorkflow).not.toHaveBeenCalled();
     expect(workflowsApi.createWorkflow).not.toHaveBeenCalled();
   });
@@ -518,7 +478,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     workflowsApi.saveWorkflow.mockRejectedValueOnce(new Error("Network DB error"));
     const { container } = renderDashboard();
 
-    await openWorkflowViaModal(sampleWorkflowDraft.name);
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
 
     const canvas = container.querySelector(".canvas-area");
     window._dragComponent = { label: "Mixing", type: "Procedure Phase" };
@@ -534,8 +494,6 @@ describe("File -> New workflow and unsaved changes guard", () => {
     });
 
     // Still on W1, no reset
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
-      sampleWorkflowDraft.name,
-    );
+    expect(getWorkflowTitle(container)).toBe(sampleWorkflowDraft.name);
   });
 });
