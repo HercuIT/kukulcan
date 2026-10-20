@@ -150,7 +150,7 @@ node src/index.js      # or: npx nodemon src/index.js
 node server/src/mock/index.js      # listens on 127.0.0.1:4100 (MOCK_SIEMENS_PORT)
 ```
 
-It simulates `POST /api/v1/siemens/import` (`?targetType=`, `?importOption=`, `?swImportOption=`) against the two Openness XML contracts; see `server/src/mock/opennessMockApp.js` and its tests in `server/test/opennessMockApp.test.js`. It is not wired into `deploySiemensRoutes.js`.
+It mocks the HTTP contract of an ASP.NET Core controller wrapping Openness: `POST /api/v1/siemens/import` as `multipart/form-data` with a `File` field, `TargetType` (`PlcBlock`/`PlcType`/`PlcTagTable`/`HardwareCAx`), `ImportOption`, `SwImportOption`, `CaxImportOption`, returning `{Success, Message, ImportedObjectNames, LogFilePath, ExecutionTimeMs}`. The SimaticML/AutomationML tag rules it checks inside that are an unverified reading of Siemens' format, not a confirmed TIA Portal export — see `server/src/mock/opennessMockApp.js`'s top comment and its tests in `server/test/opennessMockApp.test.js`. It is not wired into `deploySiemensRoutes.js`.
 
 The server listens on `127.0.0.1:3001` and reads these settings from `server/.env`:
 

@@ -1,6 +1,11 @@
 // The Siemens TIA Portal Openness mock (server/src/mock/opennessMockApp.js): simulates the
-// SimaticML and AutomationML/CAx import contract so Siemens XML can be tested before a real
-// Openness server exists (HTE-110). Run with: npm run test:node (from the repo root).
+// wire contract of an ASP.NET Core controller wrapping Openness, so it can be exercised before
+// a real Openness-backed service exists (HTE-110). Run with: npm run test:node (repo root).
+//
+// Reminder (see the long comment atop opennessMockApp.js): the SimaticML/AutomationML tag rules
+// these tests check are an unverified reading of Siemens' format, not a confirmed TIA Portal
+// export. These tests prove the mock agrees with itself, not that a real TIA Portal would
+// accept the file.
 const { test, describe, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { createOpennessMockApp } = require("../src/mock/opennessMockApp");
@@ -24,12 +29,19 @@ beforeEach(async () => {
   await fetch(`${baseUrl}/reset`, { method: "POST" });
 });
 
-const importXml = (xml, query = "") =>
-  fetch(`${baseUrl}/api/v1/siemens/import${query}`, {
+const importXml = (xml, fields = {}) => {
+  const form = new FormData();
+  if (xml !== null) {
+    form.append("File", new Blob([xml], { type: "application/xml" }), "block.xml");
+  }
+  for (const [key, value] of Object.entries(fields)) {
+    form.append(key, value);
+  }
+  return fetch(`${baseUrl}/api/v1/siemens/import`, {
     method: "POST",
-    headers: { "Content-Type": "application/xml" },
-    body: xml,
+    body: form,
   });
+};
 
 const simaticBlock = (name, version = "V16") => `<?xml version="1.0" encoding="utf-8"?>
 <Document>
@@ -50,93 +62,88 @@ const caexHardware = (name, schemaVersion = "2.15") => `<?xml version="1.0" enco
 </CAEXFile>`;
 
 describe("Siemens Openness mock: SimaticML (SW blocks)", () => {
-  test("positive: a valid <Document> block imports and names the object", async () => {
+  test("positive: a valid <Document> block imports and names the object (default TargetType=PlcBlock)", async () => {
     const res = await importXml(simaticBlock("MyFunctionBlock"));
     assert.equal(res.status, 200);
-    assert.deepEqual(await res.json(), {
-      status: "Success",
-      importedObjects: ["MyFunctionBlock"],
-    });
+    const json = await res.json();
+    assert.equal(json.Success, true);
+    assert.deepEqual(json.ImportedObjectNames, ["MyFunctionBlock"]);
+    assert.equal(json.LogFilePath, null);
+    assert.equal(typeof json.ExecutionTimeMs, "number");
   });
 
-  test("positive: importOption=Override re-imports an already-imported block", async () => {
+  test("positive: ImportOption=Override re-imports an already-imported block", async () => {
     await importXml(simaticBlock("MyFunctionBlock"));
-    const res = await importXml(
-      simaticBlock("MyFunctionBlock"),
-      "?importOption=Override",
-    );
+    const res = await importXml(simaticBlock("MyFunctionBlock"), {
+      ImportOption: "Override",
+    });
     assert.equal(res.status, 200);
+    assert.equal((await res.json()).Success, true);
   });
 
-  test("negative: missing body gets a 400", async () => {
-    const res = await importXml("");
+  test("negative: a missing file gets a 400, not a 500", async () => {
+    const res = await importXml(null);
     assert.equal(res.status, 400);
+    const json = await res.json();
+    assert.equal(json.Success, false);
+    assert.match(json.Message, /non-empty XML file/);
   });
 
   test("negative: malformed XML gets a 400 with a syntax message", async () => {
     const res = await importXml("<<<");
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /syntax error/);
+    assert.match((await res.json()).Message, /syntax error/);
   });
 
-  test("negative: an unsupported root element gets a 400", async () => {
-    const res = await importXml("<Foo/>");
-    assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /Unsupported root element/);
-  });
-
-  test("negative: <Document> missing <Engineering version> gets a 400", async () => {
+  test("negative: a <Document> missing <Engineering version> gets a 400", async () => {
     const res = await importXml(
-      '<Document><SW.Blocks.CompileUnit><AttributeList><Name>X</Name></AttributeList></SW.Blocks.CompileUnit></Document>',
+      "<Document><SW.Blocks.CompileUnit><AttributeList><Name>X</Name></AttributeList></SW.Blocks.CompileUnit></Document>",
     );
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /Engineering version/);
+    assert.match((await res.json()).Message, /Engineering version/);
   });
 
   test("negative: an unsupported TIA Portal version gets a 400", async () => {
     const res = await importXml(simaticBlock("MyFunctionBlock", "V99"));
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /Unsupported TIA Portal version/);
+    assert.match((await res.json()).Message, /Unsupported TIA Portal version/);
   });
 
   test("negative: re-importing without Override gets a 400", async () => {
     await importXml(simaticBlock("MyFunctionBlock"));
     const res = await importXml(simaticBlock("MyFunctionBlock"));
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /already exist/);
+    assert.match((await res.json()).Message, /already exist/);
   });
 
-  test("negative: an invalid importOption gets a 400", async () => {
-    const res = await importXml(
-      simaticBlock("MyFunctionBlock"),
-      "?importOption=Delete",
-    );
+  test("negative: an invalid ImportOption gets a 400", async () => {
+    const res = await importXml(simaticBlock("MyFunctionBlock"), {
+      ImportOption: "Delete",
+    });
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /importOption/);
+    assert.match((await res.json()).Message, /ImportOption/);
   });
 
-  test("negative: an invalid targetType gets a 400", async () => {
-    const res = await importXml(
-      simaticBlock("MyFunctionBlock"),
-      "?targetType=Nonsense",
-    );
+  test("negative: an invalid TargetType gets a 400", async () => {
+    const res = await importXml(simaticBlock("MyFunctionBlock"), {
+      TargetType: "Nonsense",
+    });
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /targetType/);
+    assert.match((await res.json()).Message, /import target type/);
   });
 
-  test("negative: targetType=HardwareCAx against a <Document> payload gets a 400", async () => {
-    const res = await importXml(
-      simaticBlock("MyFunctionBlock"),
-      "?targetType=HardwareCAx",
-    );
+  test("negative: TargetType=HardwareCAx against a <Document> payload gets a 400", async () => {
+    const res = await importXml(simaticBlock("MyFunctionBlock"), {
+      TargetType: "HardwareCAx",
+    });
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /doesn't match/);
+    assert.match((await res.json()).Message, /CAEXFile/);
   });
 
   test("negative: a <Document> with no SW.Blocks.* object gets a 400", async () => {
     const res = await importXml('<Document><Engineering version="V16"/></Document>');
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /No SW\.Blocks/);
+    assert.match((await res.json()).Message, /No SW\.Blocks/);
   });
 
   test("edge: several SW.Blocks.* objects in one <Document> all import", async () => {
@@ -147,7 +154,7 @@ describe("Siemens Openness mock: SimaticML (SW blocks)", () => {
     </Document>`;
     const res = await importXml(xml);
     assert.equal(res.status, 200);
-    assert.deepEqual((await res.json()).importedObjects, ["A", "B"]);
+    assert.deepEqual((await res.json()).ImportedObjectNames, ["A", "B"]);
   });
 
   test("edge: a block with no <Name> is skipped, and an all-skipped payload is a 400", async () => {
@@ -157,7 +164,7 @@ describe("Siemens Openness mock: SimaticML (SW blocks)", () => {
     </Document>`;
     const res = await importXml(xml);
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /No SW\.Blocks/);
+    assert.match((await res.json()).Message, /No SW\.Blocks/);
   });
 
   test("edge: /reset clears already-imported state", async () => {
@@ -166,40 +173,59 @@ describe("Siemens Openness mock: SimaticML (SW blocks)", () => {
     const res = await importXml(simaticBlock("MyFunctionBlock"));
     assert.equal(res.status, 200);
   });
+
+  test("edge: TargetType=PlcType and PlcTagTable also accept a <Document> payload", async () => {
+    for (const targetType of ["PlcType", "PlcTagTable"]) {
+      const res = await importXml(simaticBlock(`Obj_${targetType}`), {
+        TargetType: targetType,
+      });
+      assert.equal(res.status, 200, `expected 200 for TargetType=${targetType}`);
+    }
+  });
 });
 
 describe("Siemens Openness mock: AutomationML/CAx (hardware)", () => {
-  test("positive: a valid <CAEXFile> imports and names the element", async () => {
-    const res = await importXml(caexHardware("ET 200SP station_1"));
-    assert.equal(res.status, 200);
-    assert.deepEqual(await res.json(), {
-      status: "Success",
-      importedObjects: ["ET 200SP station_1"],
+  test("positive: a valid <CAEXFile> imports, names the element, and sets LogFilePath", async () => {
+    const res = await importXml(caexHardware("ET 200SP station_1"), {
+      TargetType: "HardwareCAx",
     });
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(json.Success, true);
+    assert.deepEqual(json.ImportedObjectNames, ["ET 200SP station_1"]);
+    assert.match(json.LogFilePath, /CAx_Import_Log_.*\.log/);
   });
 
   test("negative: <CAEXFile> missing SchemaVersion gets a 400", async () => {
     const res = await importXml(
       '<CAEXFile><InstanceHierarchy><InternalElement Name="X"/></InstanceHierarchy></CAEXFile>',
+      { TargetType: "HardwareCAx" },
     );
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /SchemaVersion/);
+    assert.match((await res.json()).Message, /SchemaVersion/);
   });
 
   test("negative: a <CAEXFile> with no <InternalElement> gets a 400", async () => {
     const res = await importXml(
       '<CAEXFile SchemaVersion="2.15"><InstanceHierarchy/></CAEXFile>',
+      { TargetType: "HardwareCAx" },
     );
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /InternalElement/);
+    assert.match((await res.json()).Message, /InternalElement/);
   });
 
-  test("edge: targetType=Block against a <CAEXFile> payload gets a 400", async () => {
-    const res = await importXml(
-      caexHardware("ET 200SP station_1"),
-      "?targetType=Block",
-    );
+  test("negative: an invalid CaxImportOption gets a 400", async () => {
+    const res = await importXml(caexHardware("ET 200SP station_1"), {
+      TargetType: "HardwareCAx",
+      CaxImportOption: "Nonsense",
+    });
     assert.equal(res.status, 400);
-    assert.match((await res.json()).message, /doesn't match/);
+    assert.match((await res.json()).Message, /CaxImportOption/);
+  });
+
+  test("edge: the default TargetType (PlcBlock) against a <CAEXFile> payload gets a 400", async () => {
+    const res = await importXml(caexHardware("ET 200SP station_1"));
+    assert.equal(res.status, 400);
+    assert.match((await res.json()).Message, /SimaticML/);
   });
 });
