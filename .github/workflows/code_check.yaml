@@ -36,6 +36,11 @@ jobs:
       - name: Run Prettier check
         run: npm run format-check
 
+      # TypeScript over the JavaScript (checkJs, tsconfig.typecheck.json); needs server/'s
+      # dependencies for the Express and axios types, installed above.
+      - name: Run typecheck
+        run: npm run typecheck
+
       - name: Run unit tests
         run: npm test -- --watchAll=false
         env:

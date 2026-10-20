@@ -26,6 +26,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
     "lint:css": "stylelint 'public/**/*.css'",
     "lint:html": "htmlhint 'public/**/*.html'",
     "test:node": "node --test supabase/tests/schema.test.mjs supabase/tests/definitions.test.mjs supabase/tests/compile-xml.test.mjs supabase/tests/xml-contract.test.mjs server/test/logger.test.js server/test/app.test.js scripts/migration/test/transform.test.js",
