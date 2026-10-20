@@ -20,12 +20,10 @@ const COMPILER_PATH = path.join(
 // Es un módulo ES: se carga una vez y se reutiliza; si falla, el siguiente intento lo reintenta.
 let compilerPromise = null;
 function loadCompiler() {
-  compilerPromise ??= import(pathToFileURL(COMPILER_PATH).href).catch(
-    (err) => {
-      compilerPromise = null;
-      throw err;
-    },
-  );
+  compilerPromise ??= import(pathToFileURL(COMPILER_PATH).href).catch((err) => {
+    compilerPromise = null;
+    throw err;
+  });
   return compilerPromise;
 }
 

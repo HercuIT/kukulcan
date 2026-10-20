@@ -495,7 +495,8 @@ export function compileRequest(body) {
     }
   }
 
-  const target = isPlainObject(wf) && wf.target != null ? wf.target : "controller";
+  const target =
+    isPlainObject(wf) && wf.target != null ? wf.target : "controller";
   if (!TARGETS.includes(target)) {
     return {
       status: 400,

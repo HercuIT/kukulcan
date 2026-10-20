@@ -296,7 +296,10 @@ describe("workflowsApi", () => {
 
   describe("edge", () => {
     test("compileWorkflow with an explicit undefined target sends the workflow as is", async () => {
-      supabase.functions.invoke.mockResolvedValue({ data: "<x/>", error: null });
+      supabase.functions.invoke.mockResolvedValue({
+        data: "<x/>",
+        error: null,
+      });
       const workflow = { nodes: [] };
       await compileWorkflow(workflow, { target: undefined });
       expect(supabase.functions.invoke).toHaveBeenLastCalledWith(
