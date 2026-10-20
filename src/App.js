@@ -4,6 +4,7 @@ import {
   Navigate,
   Routes,
   Route,
+  useLocation,
 } from "react-router-dom";
 import { getMyRoles, onSessionChange } from "./backend/authApi";
 
@@ -15,6 +16,17 @@ import SetPassword from "./pages/SetPassword/SetPassword";
 import Register from "./pages/Register/Register";
 import AuthConfirm from "./pages/AuthConfirm/AuthConfirm";
 import { UI_STRINGS } from "./constants/uiStrings";
+
+// Sin sesión, cualquier ruta muestra Login, salvo un enlace de confirmación que llegó a otra ruta:
+// si el origen del registro no está en las Redirect URLs de Supabase, el enlace del correo cae en
+// el Site URL (/?token_hash=…), y se reenvía a /auth/confirm con sus parámetros (HTE-107).
+export function SignedOutFallback() {
+  const { search } = useLocation();
+  if (new URLSearchParams(search).has("token_hash")) {
+    return <Navigate to={`/auth/confirm${search}`} replace />;
+  }
+  return <Login />;
+}
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -92,7 +104,7 @@ export default function App() {
             {/* HTE-107: registro y destino del enlace de confirmación */}
             <Route path="/register" element={<Register />} />
             <Route path="/auth/confirm" element={<AuthConfirm />} />
-            <Route path="*" element={<Login />} />
+            <Route path="*" element={<SignedOutFallback />} />
           </>
         )}
       </Routes>

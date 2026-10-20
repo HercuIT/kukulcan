@@ -10,9 +10,10 @@ export async function signIn(email, password) {
   return toAppUser(data.user);
 }
 
-// Página a la que lleva el enlace del correo de confirmación (HTE-107). Sale del origen actual, así
-// que sirve en local, en producción y en las vistas previas sin variables de entorno nuevas (cada
-// origen debe estar en las Redirect URLs de Supabase).
+// Página a la que lleva el enlace del correo de confirmación (HTE-107). Sale del origen actual y la
+// plantilla la usa como {{ .RedirectTo }}, así que local, producción y cada vista previa permitida
+// reciben su propio enlace sin variables de entorno nuevas. Un origen que no esté en las Redirect
+// URLs de Supabase recibe el Site URL (producción); App.js reenvía ese enlace a /auth/confirm.
 export const confirmRedirectUrl = () =>
   `${window.location.origin}/auth/confirm`;
 

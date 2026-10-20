@@ -6,9 +6,12 @@
   </head>
   <!--
     HTE-107 confirmation email. Local: supabase/config.toml points here. Live project: paste this
-    HTML under Authentication → Email Templates → Confirm signup. The link goes to /auth/confirm
-    with a token hash (not a PKCE code), so it works on any device; it expires after 24 hours and
-    works once. Email clients ignore CSS variables, so colors are written out here.
+    HTML under Authentication → Email Templates → Confirm signup. The link goes to RedirectTo, the
+    emailRedirectTo the app sends (<origin>/auth/confirm, so local, production and allowed previews
+    each get their own link). If that origin isn't in the allowed Redirect URLs, Supabase falls back
+    to the Site URL and the app forwards /?token_hash=… to /auth/confirm (App.js). The link carries a
+    token hash (not a PKCE code), so it works on any device; it expires after 24 hours and works
+    once. Email clients ignore CSS variables, so colors are written out here.
   -->
   <body
     style="
@@ -40,7 +43,7 @@
           </p>
           <p style="margin: 0 0 24px">
             <a
-              href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email"
+              href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email"
               style="
                 display: inline-block;
                 padding: 12px 20px;
