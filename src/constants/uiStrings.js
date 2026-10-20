@@ -474,10 +474,10 @@ export const UI_STRINGS = {
       guardarAhora: "Save now",
       descartarCambios: "Discard changes",
       guardandoSusCambios: "Saving your changes...",
-      nuevoFlujoTitulo: "New workflow",
-      nuevoFlujoMensaje:
+      newWorkflowTitle: "New workflow",
+      newWorkflowMessage:
         "You have unsaved changes. If you create a new workflow, they will be lost.",
-      cancelar: "Cancel",
+      cancel: "Cancel",
     },
     versionHistoryModal: {
       versionHistory: "Version History",

@@ -3,10 +3,11 @@ import ReactDOM from "react-dom";
 import "../../styles/ModalStyle/UnsavedChangesModal.css";
 import { UI_STRINGS } from "../../constants/uiStrings";
 
+// reason: "logout" (session expired or inactivity; save or discard, then sign out) or "new"
+// (File -> New; save, discard or cancel and stay on the canvas).
 export default function UnsavedChangesModal({
   open,
-  title,
-  message,
+  reason = "logout",
   onSave,
   onDiscard,
   onCancel,
@@ -14,34 +15,24 @@ export default function UnsavedChangesModal({
 }) {
   if (!open) return null;
 
+  const S = UI_STRINGS.dashboard.unsavedChangesModal;
+  const isNew = reason === "new";
+
   return ReactDOM.createPortal(
     <div className="unsaved-changes-modal-backdrop">
       <div className="unsaved-changes-modal">
         <div className="modal-header">
-          <h2>
-            {title ||
-              UI_STRINGS.dashboard.unsavedChangesModal.suSesionHaExpirado}
-          </h2>
+          <h2>{isNew ? S.newWorkflowTitle : S.suSesionHaExpirado}</h2>
           <div className="warning-icon">⚠️</div>
         </div>
 
         <div className="modal-body">
-          {message ? (
-            <p>{message}</p>
+          {isNew ? (
+            <p>{S.newWorkflowMessage}</p>
           ) : (
             <>
-              <p>
-                {
-                  UI_STRINGS.dashboard.unsavedChangesModal
-                    .haRealizadoCambiosSinGuardar
-                }
-              </p>
-              <p>
-                {
-                  UI_STRINGS.dashboard.unsavedChangesModal
-                    .deseaGuardarlosAntesDeContinuar
-                }
-              </p>
+              <p>{S.haRealizadoCambiosSinGuardar}</p>
+              <p>{S.deseaGuardarlosAntesDeContinuar}</p>
             </>
           )}
         </div>
@@ -66,13 +57,13 @@ export default function UnsavedChangesModal({
             {UI_STRINGS.dashboard.unsavedChangesModal.descartarCambios}
           </button>
 
-          {onCancel && (
+          {isNew && onCancel && (
             <button
               onClick={onCancel}
               className="btn-secondary"
               disabled={isSaving}
             >
-              {UI_STRINGS.dashboard.unsavedChangesModal.cancelar}
+              {S.cancel}
             </button>
           )}
         </div>
