@@ -1,4 +1,11 @@
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import App from "./Dashboard";
 import { ThemeProvider } from "../../theme/ThemeContext";
@@ -545,12 +552,13 @@ describe("File -> New workflow and unsaved changes guard", () => {
     revokeDesignerRole(rerender);
     pickFileMenu(M.menuLabels.New);
 
-    expect(screen.getByText(U.newWorkflowTitle)).toBeInTheDocument();
-    expect(screen.queryByText(U.saveNow)).toBeNull();
-    expect(screen.getByText(U.discardChanges)).toBeInTheDocument();
-    expect(screen.getByText(U.cancel)).toBeInTheDocument();
+    const modal = within(document.querySelector(".unsaved-changes-modal"));
+    expect(modal.getByText(U.newWorkflowTitle)).toBeInTheDocument();
+    expect(modal.queryByText(U.saveNow)).toBeNull();
+    expect(modal.getByText(U.discardChanges)).toBeInTheDocument();
+    expect(modal.getByText(U.cancel)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText(U.discardChanges));
+    fireEvent.click(modal.getByText(U.discardChanges));
     expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
     expect(workflowsApi.createWorkflow).not.toHaveBeenCalled();
     expect(workflowsApi.saveWorkflow).not.toHaveBeenCalled();
@@ -568,11 +576,12 @@ describe("File -> New workflow and unsaved changes guard", () => {
     const onSession = authApi.onSessionChange.mock.calls.at(-1)[0];
     act(() => onSession(null));
 
-    expect(screen.getByText(U.sessionExpiredTitle)).toBeInTheDocument();
-    expect(screen.queryByText(U.saveNow)).toBeNull();
-    expect(screen.queryByText(U.cancel)).toBeNull();
+    const modal = within(document.querySelector(".unsaved-changes-modal"));
+    expect(modal.getByText(U.sessionExpiredTitle)).toBeInTheDocument();
+    expect(modal.queryByText(U.saveNow)).toBeNull();
+    expect(modal.queryByText(U.cancel)).toBeNull();
 
-    fireEvent.click(screen.getByText(U.discardChanges));
+    fireEvent.click(modal.getByText(U.discardChanges));
     await waitFor(() => expect(authApi.signOut).toHaveBeenCalledTimes(1));
     expect(workflowsApi.createWorkflow).not.toHaveBeenCalled();
     expect(workflowsApi.saveWorkflow).not.toHaveBeenCalled();
