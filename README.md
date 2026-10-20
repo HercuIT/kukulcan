@@ -269,10 +269,11 @@ Claude Code asks you to approve project servers the first time you run `claude` 
 | `npm run test:node` | Run the Node tests: database (PGlite), `compile-xml`, the XML deploy contract, server logger, migration transforms. The contract test needs `server/`'s dependencies: run `npm ci --prefix server` once (CI does) |
 | `npm run lint` | Run ESLint |
 | `npm run format` / `npm run format-check` | Run Prettier (write / check) |
+| `npm run typecheck` | Type-check the JavaScript with TypeScript (`checkJs`, `tsconfig.typecheck.json`): `src/`, `server/src/`, the compiler and `scripts/*.js`. Needs `server/`'s dependencies (`npm ci --prefix server`) for the Express and axios types |
 | `npm run lint:css` / `npm run lint:html` | Run Stylelint / HTMLHint on `public/` |
 | `npm run theme` | Regenerate `src/styles/theme.css` from `src/styles/tokens.json` (see "Theme") |
 
-CI (`.github/workflows/code_check.yaml`) runs `npm run lint`, `npm run format-check`, the Jest unit tests (`npm test`) and `npm run test:node` on every pull request to `main`.
+CI (`.github/workflows/code_check.yaml`) installs the root and `server/` dependencies, then runs `npm run lint`, `npm run format-check`, `npm run typecheck`, the Jest unit tests (`npm test`) and `npm run test:node` on every pull request to `main`. Test files are left out of lint, Prettier and the typecheck (`.eslintignore`, `.prettierignore`, `tsconfig.typecheck.json`); Jest and `test:node` still run them.
 
 ## Theme
 

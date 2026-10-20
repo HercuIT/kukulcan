@@ -12,6 +12,7 @@ A React (Create React App) visual editor for manufacturing workflows, backed by 
 npm install && npm start      # web app on :3000; /api is proxied to :3001
 npm run lint                  # ESLint (CI)
 npm run format-check          # Prettier (CI); run `npm run format` to fix
+npm run typecheck             # TypeScript over the JavaScript, checkJs (CI)
 npm run build                 # production build
 npm run theme                 # regenerate src/styles/theme.css from src/styles/tokens.json
 npm test                      # Jest watch mode (CI); `CI=true npm test` runs once
@@ -19,7 +20,7 @@ npm run test:node             # Node tests: migrations on PGlite, compile-xml, X
 cd server && node src/index.js    # local API on 127.0.0.1:3001
 ```
 
-CI runs lint, Prettier, the Jest unit tests and `npm run test:node`. Merges to `main` that change `supabase/` also run `.github/workflows/deploy_supabase.yaml`, which pushes migrations and deploys `compile-xml` to the live project (`xiidwepvvjcqyhywmdrn`), so a migration merged to `main` is a production change. Run all four before you call a change done. On Windows, check Prettier with `npx prettier --check --end-of-line auto <files>`: `core.autocrlf` checks files out with CRLF, which plain `format-check` reports as errors.
+CI runs lint, Prettier, the typecheck, the Jest unit tests and `npm run test:node`. Test files (`*.test.js`/`.mjs`, `src/setupTests.js`, `server/test/`, `supabase/tests/`, `scripts/migration/test/`) are left out of lint, Prettier and the typecheck (`.eslintignore`, `.prettierignore`, `tsconfig.typecheck.json`); Jest and `test:node` still run them. Merges to `main` that change `supabase/` also run `.github/workflows/deploy_supabase.yaml`, which pushes migrations and deploys `compile-xml` to the live project (`xiidwepvvjcqyhywmdrn`), so a migration merged to `main` is a production change. Run all five before you call a change done. On Windows, check Prettier with `npx prettier --check --end-of-line auto <files>`: `core.autocrlf` checks files out with CRLF, which plain `format-check` reports as errors.
 
 ## Where things are
 
@@ -125,6 +126,7 @@ Both the Supabase migration and later specs follow the same pattern. A new table
 ## Conventions
 
 - Code comments and user-facing strings mix Spanish and English. Match whatever the surrounding code uses; don't translate existing text, including when you move it into `uiStrings.js`.
+- Types: `npm run typecheck` runs `tsc -p tsconfig.typecheck.json` (TypeScript 4.9, kept in `react-scripts` 5's peer range; `checkJs`, not strict) over `src/`, `server/src/`, `compiler.mjs` and `scripts/*.js`. Fix a type error rather than silencing it; where JS can't express a type, use a JSDoc annotation or cast (`/** @type {HTMLElement[]} */ (…)`). Globals such as `window._dragComponent` are declared in `src/types/globals.d.ts`. The file isn't named `tsconfig.json` because Create React App would then treat the app as TypeScript. In CommonJS, take axios as `require("axios").default` (the export its types describe).
 - Formatting comes from Prettier defaults (double quotes, trailing commas). Don't hand-format; run `npm run format`. Markdown files (`*.md`) and `.claude/` are excluded in `.prettierignore`; don't run Prettier on them.
 - `<TICKET>` below is the ticket or story ID exactly as the request gives it: Jira tickets (`HTE-<n>`) and story IDs from the backlog (`VCR-001`, `WFPR-003`, …).
 - Name branches `<TICKET>-<short-name>`. Start commits and PR titles with `<TICKET>: <description>`.
@@ -143,6 +145,8 @@ Both the Supabase migration and later specs follow the same pattern. A new table
   | `OPERATIONS_BY_PHASE` nests Operations inside Phases, the reverse of ISA-88 (Phases inside Operations); VCR-001 proposes flipping it | `Dashboard.js` |
   | Hierarchy panel expand state is keyed by label, so same-named rows expand together (fixed for User Created Definitions, which key by id) | `TreeViewExample` |
   | `/api/deploy-workflow` doesn't require a signed-in deployer (follow-up from PR #1) | `deployWorkflowRoutes.js` |
+  | `MenuBar` ignores props `Dashboard` passes it (`userRoles`, `title`, `onApprove`, `isDeployer`), so the menu's Review button has no handler; `OpenWorkflowModal` ignores `workflows` (it loads its own list). Found by the typecheck; the components accept any props until this is cleaned up | `MenuBar` in `Dashboard.js`, `OpenWorkflowModal.js` |
+  | `Selecto` gets the canvas ref object as `container` instead of the element (cast to `any` for the typecheck, behaviour left as is) | `Dashboard.js` |
   | The deploy validator's XML parser (`fast-xml-parser` 5.3) is quadratic on one long run of text: a single 100 kB text node takes about 19 s and 200 kB about a minute. Compiler output (many short elements) is fast (3 MB in under 1 s), and the server only listens on 127.0.0.1, but any local client can stall it. A fix needs a pre-parse guard or a parser change (found in the HTE-108 review) | `server/src/validarWorkflow.js`, `deployWorkflowRoutes.js` |
   | The deploy validator skips the connection check when `<Connections>` appears twice (the parser turns it into an array, so `.Connection` is undefined), and it never checks that `from`/`to` name an existing `<Node>`. Both compilers already reject such graphs; only hand-written XML posted to `/api/deploy-workflow` gets through (found in the HTE-108 review; HTE-108 kept the validator unchanged) | `server/src/validarWorkflow.js` |
   | The Equipment tree is sample data (*Enterprise Node* → four machines) that doesn't follow the documented Equipment hierarchy; Assets has its two branches (Assets Definitions, Assets Instances) but nothing beneath them | `equipmentData.js`, `assetsNode` in `Dashboard.js` |
