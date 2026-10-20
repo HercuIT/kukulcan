@@ -353,6 +353,20 @@ Features are specified before they're built, as Claude Docs, using the section t
 | HTE-107 | [HTE-107: Email confirmation and registration form](https://claude.ai/code/artifact/6b732d1e-e3b8-461c-8c72-2d61864a50d0) | Draft, open questions pending |
 | HTE-108 | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Implemented on `fix/HTE-108-compile-targets` (Option A); test plan `docs/HTE-108-testing.md` |
 
+## Claude Code review
+
+Two workflows use Anthropic's [`claude-code-action`](https://github.com/anthropics/claude-code-action) (pinned by commit SHA, like the other actions):
+
+- `.github/workflows/claude-code-review.yml` reviews every non-draft pull request to `main` when it's opened, updated, reopened or marked ready. Claude checks the diff against `CLAUDE.md` (correctness, security and RLS, migrations, tests, UI strings and color tokens, docs), posts inline comments and one summary comment, and can't push. A newer push to the same PR cancels a review in progress. PRs from forks are skipped (they get no secrets).
+- `.github/workflows/claude.yml` answers `@claude` in PR comments, review comments, reviews and issues, and can push changes to the PR branch. It only responds to people with write access.
+
+Setup, once per repository (both workflows fail until it's done):
+
+1. Install the [Claude GitHub app](https://github.com/apps/claude) on `HercuIT/kukulcan`.
+2. Run `claude setup-token` locally and add the token as the Actions secret `CLAUDE_CODE_OAUTH_TOKEN` (Settings → Secrets and variables → Actions). It uses the Claude subscription of whoever created it, not API billing.
+
+`/install-github-app` in Claude Code does both steps interactively. To change what the review looks for, edit the `prompt` in `claude-code-review.yml`.
+
 ## Contributing
 
 - Name branches after the ticket or story ID, e.g. `HTE-91-filtering` or `WFPR-003-nested-definitions`.
