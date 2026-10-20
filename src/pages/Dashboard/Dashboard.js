@@ -2254,6 +2254,7 @@ const THEME_OPTIONS = {
 export function MenuBar({
   user,
   workflow,
+  title,
   onNewWorkflow,
   onSaveWorkflow,
   onOpenWorkflow,
@@ -2296,8 +2297,8 @@ export function MenuBar({
   const isReviewer = workflow?.metadata?.assignedReviewerId === user?.uid;
   const isPendingReview = workflow?.metadata?.status === "pending_review";
 
-  const canShare = isDesigner;
-  const canReview = isReviewer && isPendingReview;
+  const canShare = Boolean(workflow && isDesigner);
+  const canReview = Boolean(isReviewer && isPendingReview);
 
   const fileOptions = [...menuOptions.File];
   if (workflow) fileOptions.push("Version History");
@@ -2366,7 +2367,9 @@ export function MenuBar({
       })}
 
       <div className="center-section">
-        <h2>{workflow?.name || UI_STRINGS.dashboard.menuBar.newWorkflow}</h2>
+        <h2>
+          {title || workflow?.name || UI_STRINGS.dashboard.menuBar.newWorkflow}
+        </h2>
         {canShare && (
           <button onClick={onShare}>
             {UI_STRINGS.dashboard.menuBar.workflowActions}

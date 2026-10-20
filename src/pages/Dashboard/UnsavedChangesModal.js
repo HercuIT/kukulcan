@@ -5,8 +5,11 @@ import { UI_STRINGS } from "../../constants/uiStrings";
 
 export default function UnsavedChangesModal({
   open,
+  title,
+  message,
   onSave,
   onDiscard,
+  onCancel,
   isSaving = false,
 }) {
   if (!open) return null;
@@ -15,23 +18,32 @@ export default function UnsavedChangesModal({
     <div className="unsaved-changes-modal-backdrop">
       <div className="unsaved-changes-modal">
         <div className="modal-header">
-          <h2>{UI_STRINGS.dashboard.unsavedChangesModal.suSesionHaExpirado}</h2>
+          <h2>
+            {title ||
+              UI_STRINGS.dashboard.unsavedChangesModal.suSesionHaExpirado}
+          </h2>
           <div className="warning-icon">⚠️</div>
         </div>
 
         <div className="modal-body">
-          <p>
-            {
-              UI_STRINGS.dashboard.unsavedChangesModal
-                .haRealizadoCambiosSinGuardar
-            }
-          </p>
-          <p>
-            {
-              UI_STRINGS.dashboard.unsavedChangesModal
-                .deseaGuardarlosAntesDeContinuar
-            }
-          </p>
+          {message ? (
+            <p>{message}</p>
+          ) : (
+            <>
+              <p>
+                {
+                  UI_STRINGS.dashboard.unsavedChangesModal
+                    .haRealizadoCambiosSinGuardar
+                }
+              </p>
+              <p>
+                {
+                  UI_STRINGS.dashboard.unsavedChangesModal
+                    .deseaGuardarlosAntesDeContinuar
+                }
+              </p>
+            </>
+          )}
         </div>
 
         <div className="modal-buttons">
@@ -53,6 +65,16 @@ export default function UnsavedChangesModal({
           >
             {UI_STRINGS.dashboard.unsavedChangesModal.descartarCambios}
           </button>
+
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="btn-secondary"
+              disabled={isSaving}
+            >
+              {UI_STRINGS.dashboard.unsavedChangesModal.cancelar}
+            </button>
+          )}
         </div>
 
         {isSaving && (
