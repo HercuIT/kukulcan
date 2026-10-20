@@ -2638,7 +2638,10 @@ export default function App({ user, userRoles }) {
 
   const isDirtyRef = useRef(isDirty);
 
-  const pendingAfterSave = useRef(null);
+  // What to do after a save started from the Save dialog (File -> New's "Save now" on an unsaved
+  // canvas). Set every time the dialog opens (openSaveDialog), so a plain Save / Save As never
+  // inherits an old follow-up.
+  const saveDialogAfterSave = useRef(null);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -2953,8 +2956,13 @@ export default function App({ user, userRoles }) {
     if (currentWorkflowId) {
       executeUpdateWorkflow();
     } else {
-      setSaveModalOpen(true);
+      openSaveDialog();
     }
+  };
+
+  const openSaveDialog = (afterSave = null) => {
+    saveDialogAfterSave.current = afterSave;
+    setSaveModalOpen(true);
   };
 
   const handleSaveAs = () => {
@@ -2964,13 +2972,13 @@ export default function App({ user, userRoles }) {
     }
     if (canvasNodes.length === 0)
       return alert(UI_STRINGS.dashboard.page.alerts.theCanvasIsEmpty);
-    setSaveModalOpen(true);
+    openSaveDialog();
   };
 
-  const executeUpdateWorkflow = async () => {
+  // Devuelve true si se guardó; onSaved corre solo en ese caso (p. ej. File -> New después de guardar).
+  const executeUpdateWorkflow = async ({ onSaved } = {}) => {
     if (!user || !currentWorkflowId) {
       alert(UI_STRINGS.dashboard.page.alerts.userOrWorkflowNotVerified);
-      pendingAfterSave.current = null;
       return false;
     }
 
@@ -2985,7 +2993,6 @@ export default function App({ user, userRoles }) {
         alert(
           UI_STRINGS.dashboard.page.alerts.noSePuedeEditarUn(currentStatus),
         );
-        pendingAfterSave.current = null;
         return false;
       }
 
@@ -2997,14 +3004,9 @@ export default function App({ user, userRoles }) {
 
       console.log("✅ Workflow actualizado");
       setIsDirty(false);
-      if (pendingAfterSave.current) {
-        const action = pendingAfterSave.current;
-        pendingAfterSave.current = null;
-        action();
-      }
+      onSaved?.();
       return true;
     } catch (e) {
-      pendingAfterSave.current = null;
       console.error("❌ Error actualizando workflow:", e);
 
       if (e.code === "permission-denied") {
@@ -3018,10 +3020,10 @@ export default function App({ user, userRoles }) {
     }
   };
 
-  const executeSaveAsNew = async (workflowName) => {
+  // Devuelve true si se creó; onSaved corre solo en ese caso.
+  const executeSaveAsNew = async (workflowName, { onSaved } = {}) => {
     if (!user) {
       alert(UI_STRINGS.dashboard.page.alerts.userNotVerified);
-      pendingAfterSave.current = null;
       return false;
     }
 
@@ -3036,16 +3038,16 @@ export default function App({ user, userRoles }) {
       });
       console.log("✅ Workflow guardado con ID:", newId);
       setSaveModalOpen(false);
-      setCurrentWorkflowId(newId);
       setIsDirty(false);
-      if (pendingAfterSave.current) {
-        const action = pendingAfterSave.current;
-        pendingAfterSave.current = null;
-        action();
+      if (onSaved) {
+        // The follow-up (File -> New) replaces the canvas and clears the current id, so the new
+        // workflow isn't opened.
+        onSaved();
+      } else {
+        setCurrentWorkflowId(newId);
       }
       return true;
     } catch (e) {
-      pendingAfterSave.current = null;
       console.error("❌ Error guardando workflow:", e);
 
       if (e.code === "permission-denied") {
@@ -3827,24 +3829,8 @@ export default function App({ user, userRoles }) {
         </div>
         <UnsavedChangesModal
           open={showUnsavedModal}
-          title={
-            unsavedModalReason === "new"
-              ? UI_STRINGS.dashboard.unsavedChangesModal.nuevoFlujoTitulo
-              : undefined
-          }
-          message={
-            unsavedModalReason === "new"
-              ? UI_STRINGS.dashboard.unsavedChangesModal.nuevoFlujoMensaje
-              : undefined
-          }
-          onCancel={
-            unsavedModalReason === "new"
-              ? () => {
-                  setShowUnsavedModal(false);
-                  pendingAfterSave.current = null;
-                }
-              : undefined
-          }
+          reason={unsavedModalReason}
+          onCancel={() => setShowUnsavedModal(false)}
           onDiscard={() => {
             console.log("🗑️ Usuario descartó cambios");
             setIsDirty(false);
@@ -3859,34 +3845,23 @@ export default function App({ user, userRoles }) {
             console.log("💾 Usuario eligió guardar");
             if (unsavedModalReason === "new") {
               setShowUnsavedModal(false);
-              pendingAfterSave.current = () => startNewWorkflow();
               if (currentWorkflowId) {
-                await executeUpdateWorkflow();
+                await executeUpdateWorkflow({ onSaved: startNewWorkflow });
               } else {
-                setSaveModalOpen(true);
+                openSaveDialog(startNewWorkflow);
               }
-            } else {
-              setIsSaving(true);
-              try {
-                if (currentWorkflowId) {
-                  await executeUpdateWorkflow();
-                } else {
-                  const defaultName = `Workflow-${new Date().toISOString().split("T")[0]}-${Date.now()}`;
-                  await executeSaveAsNew(defaultName);
-                }
-                setIsDirty(false);
-                setShowUnsavedModal(false);
-                performLogout();
-              } catch (error) {
-                console.error("Error al guardar:", error);
-                alert(
-                  UI_STRINGS.dashboard.page.alerts.errorAlGuardarLosCambios +
-                    error.message,
-                );
-              } finally {
-                setIsSaving(false);
-              }
+              return;
             }
+            // Cierre de sesión: solo se sale si el guardado funcionó. Si falló, el aviso ya se
+            // mostró y el modal sigue abierto para reintentar o descartar.
+            const ok = currentWorkflowId
+              ? await executeUpdateWorkflow()
+              : await executeSaveAsNew(
+                  `Workflow-${new Date().toISOString().split("T")[0]}-${Date.now()}`,
+                );
+            if (!ok) return;
+            setShowUnsavedModal(false);
+            performLogout();
           }}
           isSaving={isSaving}
         />
@@ -3900,11 +3875,10 @@ export default function App({ user, userRoles }) {
         />
         <SaveWorkflowModal
           open={isSaveModalOpen}
-          onClose={() => {
-            setSaveModalOpen(false);
-            pendingAfterSave.current = null;
-          }}
-          onSave={executeSaveAsNew}
+          onClose={() => setSaveModalOpen(false)}
+          onSave={(name) =>
+            executeSaveAsNew(name, { onSaved: saveDialogAfterSave.current })
+          }
         />
         <NodeParametersModal
           open={isParametersModalOpen}
