@@ -120,7 +120,7 @@ Both the Supabase migration and later specs follow the same pattern. A new table
 2. Enable RLS, revoke `insert`/`update`/`delete` from `anon` and `authenticated`, and grant only the reads (and column-level writes) clients really need.
 3. Put every rule-checking change in a `security definer` function with `set search_path = ''`, raising the standard error codes (see "Writing specs"). Shared checks go in the `private` schema; revoke `execute` from `public, anon` and grant it to `authenticated` (or `service_role`).
 4. Add the table to the `supabase_realtime` publication if open screens must refresh.
-5. Test the SQL in `supabase/tests/*.test.mjs` on PGlite (`npm run test:node`), running as `authenticated`, `anon` and `service_role` with the helpers in `schema.test.mjs`.
+5. Test the SQL in `supabase/tests/*.test.mjs` on PGlite (`npm run test:node`), running as `authenticated`, `anon` and `service_role` with the helpers in `supabase/tests/helpers.mjs` (`createTestDb`, `createUser`, `as`, `asServiceRole`, `rejectsWith`), and add the new file to the `test:node` script. The `kukulcan-db-change` skill (`.claude/skills/`) walks through these steps.
 6. Call it from a module in `src/backend/` (`<feature>Api.js`), mapping rows and errors in `mappers.js`; components never import `@supabase/supabase-js`.
 7. Put new strings in `uiStrings.js`, and update `README.md`/`CLAUDE.md`.
 8. Remember that merging to `main` runs the migration on the live project (`deploy_supabase.yaml`), and that an applied migration is never edited again.
@@ -133,7 +133,7 @@ Both the Supabase migration and later specs follow the same pattern. A new table
 - `<TICKET>` below is the ticket or story ID exactly as the request gives it: Jira tickets (`HTE-<n>`) and story IDs from the backlog (`VCR-001`, `WFPR-003`, …).
 - Name branches `<TICKET>-<short-name>`. Start commits and PR titles with `<TICKET>: <description>`.
 - Each ticket ships a manual test plan at `docs/<TICKET>-testing.md` with sections Issue, Test Cases (TC-01… with Steps and Expected), and Result. Add or update it alongside the feature.
-- Pull requests get an automatic Claude review (`.github/workflows/claude-code-review.yml`, Anthropic's `code-review` plugin, which also checks changes against this file), and `@claude` in a PR or issue comment asks Claude about it (`claude.yml`, read-only). Both came from `/install-github-app`; keep them as generated unless the user asks otherwise (the review was changed on request to always comment: `track_progress: true` and the `gh pr view/diff/comment` tools). Setup and the `CLAUDE_CODE_OAUTH_TOKEN` secret: README → "Claude Code review".
+- Pull requests get an automatic Claude review (`.github/workflows/claude-code-review.yml`, Anthropic's `code-review` plugin, which also checks changes against this file), and `@claude` in a PR or issue comment asks Claude about it (`claude.yml`, read-only). Both came from `/install-github-app`; keep them as generated unless the user asks otherwise (the review was changed on request to always comment: `track_progress: true` and the `gh pr view/diff/comment` tools; and to report a run that never reached the model, `is_error:true` after at most one turn with no cost, as a skipped check instead of a failed job). Setup and the `CLAUDE_CODE_OAUTH_TOKEN` secret: README → "Claude Code review".
 - Never end a filename with a space or dot. It breaks checkout on Windows (this already happened with an HTE-89 doc).
 
 ## Watch out for

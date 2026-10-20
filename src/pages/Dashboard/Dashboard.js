@@ -2254,6 +2254,7 @@ const THEME_OPTIONS = {
 export function MenuBar({
   user,
   workflow,
+  title,
   onNewWorkflow,
   onSaveWorkflow,
   onOpenWorkflow,
@@ -2296,8 +2297,8 @@ export function MenuBar({
   const isReviewer = workflow?.metadata?.assignedReviewerId === user?.uid;
   const isPendingReview = workflow?.metadata?.status === "pending_review";
 
-  const canShare = isDesigner;
-  const canReview = isReviewer && isPendingReview;
+  const canShare = Boolean(workflow && isDesigner);
+  const canReview = Boolean(isReviewer && isPendingReview);
 
   const fileOptions = [...menuOptions.File];
   if (workflow) fileOptions.push("Version History");
@@ -2366,7 +2367,9 @@ export function MenuBar({
       })}
 
       <div className="center-section">
-        <h2>{workflow?.name || UI_STRINGS.dashboard.menuBar.newWorkflow}</h2>
+        <h2>
+          {title || workflow?.name || UI_STRINGS.dashboard.menuBar.newWorkflow}
+        </h2>
         {canShare && (
           <button onClick={onShare}>
             {UI_STRINGS.dashboard.menuBar.workflowActions}
@@ -2629,10 +2632,16 @@ export default function App({ user, userRoles }) {
   const [isDirty, setIsDirty] = useState(false);
 
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [unsavedModalReason, setUnsavedModalReason] = useState("logout");
 
   const inactivityTimer = useRef(null);
 
   const isDirtyRef = useRef(isDirty);
+
+  // What to do after a save started from the Save dialog (File -> New's "Save now" on an unsaved
+  // canvas). Set every time the dialog opens (openSaveDialog), so a plain Save / Save As never
+  // inherits an old follow-up.
+  const saveDialogAfterSave = useRef(null);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -2679,7 +2688,9 @@ export default function App({ user, userRoles }) {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -2696,10 +2707,34 @@ export default function App({ user, userRoles }) {
 
     if (isDirtyRef.current) {
       console.log("Mostrando modal de cambios no guardados");
+      setUnsavedModalReason("logout");
       setShowUnsavedModal(true);
     } else {
       console.log("Cerrando sesión directamente (sin cambios)");
       performLogout();
+    }
+  };
+
+  const startNewWorkflow = () => {
+    const nodes = getDefaultWorkflowNodes();
+    setCanvasNodes(nodes);
+    // Las conexiones del workflow anterior no pasan al nuevo: solo las aristas por defecto.
+    setManualConnections(connectionsForLoadedWorkflow({ nodes }));
+    setUsedComponents([]);
+    setCurrentWorkflowId(null);
+    setCurrentWorkflow(null);
+    setIsSessionReadOnly(false);
+    setIsDirty(false);
+    setSelectedNodes([]);
+    setSelectedNode(null);
+  };
+
+  const requestNewWorkflow = () => {
+    if (isDirty) {
+      setUnsavedModalReason("new");
+      setShowUnsavedModal(true);
+    } else {
+      startNewWorkflow();
     }
   };
 
@@ -2786,7 +2821,9 @@ export default function App({ user, userRoles }) {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
   }, [currentWorkflowId]);
 
   useEffect(() => {
@@ -2919,8 +2956,13 @@ export default function App({ user, userRoles }) {
     if (currentWorkflowId) {
       executeUpdateWorkflow();
     } else {
-      setSaveModalOpen(true);
+      openSaveDialog();
     }
+  };
+
+  const openSaveDialog = (afterSave = null) => {
+    saveDialogAfterSave.current = afterSave;
+    setSaveModalOpen(true);
   };
 
   const handleSaveAs = () => {
@@ -2930,10 +2972,13 @@ export default function App({ user, userRoles }) {
     }
     if (canvasNodes.length === 0)
       return alert(UI_STRINGS.dashboard.page.alerts.theCanvasIsEmpty);
-    setSaveModalOpen(true);
+    openSaveDialog();
   };
 
-  const executeUpdateWorkflow = async () => {
+  // Devuelve true si se guardó; onSaved corre solo en ese caso (p. ej. File -> New después de guardar).
+  /** @param {{ onSaved?: (() => void) | null }} [options] */
+  const executeUpdateWorkflow = async (options = {}) => {
+    const { onSaved } = options;
     if (!user || !currentWorkflowId) {
       alert(UI_STRINGS.dashboard.page.alerts.userOrWorkflowNotVerified);
       return false;
@@ -2961,6 +3006,7 @@ export default function App({ user, userRoles }) {
 
       console.log("✅ Workflow actualizado");
       setIsDirty(false);
+      onSaved?.();
       return true;
     } catch (e) {
       console.error("❌ Error actualizando workflow:", e);
@@ -2976,10 +3022,16 @@ export default function App({ user, userRoles }) {
     }
   };
 
-  const executeSaveAsNew = async (workflowName) => {
+  // Devuelve true si se creó; onSaved corre solo en ese caso.
+  /**
+   * @param {string} workflowName
+   * @param {{ onSaved?: (() => void) | null }} [options]
+   */
+  const executeSaveAsNew = async (workflowName, options = {}) => {
+    const { onSaved } = options;
     if (!user) {
       alert(UI_STRINGS.dashboard.page.alerts.userNotVerified);
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -2993,8 +3045,14 @@ export default function App({ user, userRoles }) {
       });
       console.log("✅ Workflow guardado con ID:", newId);
       setSaveModalOpen(false);
-      setCurrentWorkflowId(newId);
       setIsDirty(false);
+      if (onSaved) {
+        // The follow-up (File -> New) replaces the canvas and clears the current id, so the new
+        // workflow isn't opened.
+        onSaved();
+      } else {
+        setCurrentWorkflowId(newId);
+      }
       return true;
     } catch (e) {
       console.error("❌ Error guardando workflow:", e);
@@ -3171,14 +3229,7 @@ export default function App({ user, userRoles }) {
         onShare={handleOpenShareModal}
         onApprove={handleApprove}
         OnLogout={handleLogout}
-        onNewWorkflow={() => {
-          const nodes = getDefaultWorkflowNodes();
-          setCanvasNodes(nodes);
-          // Las conexiones del workflow anterior no pasan al nuevo: solo las aristas por defecto.
-          setManualConnections(connectionsForLoadedWorkflow({ nodes }));
-          setUsedComponents([]);
-          setIsSessionReadOnly(false);
-        }}
+        onNewWorkflow={requestNewWorkflow}
         onSaveWorkflow={handleSave}
         onSaveAsWorkflow={handleSaveAs}
         onOpenWorkflow={() => setLoadModalOpen(true)}
@@ -3785,32 +3836,50 @@ export default function App({ user, userRoles }) {
         </div>
         <UnsavedChangesModal
           open={showUnsavedModal}
+          reason={unsavedModalReason}
+          canSave={isDesigner}
+          onCancel={() => setShowUnsavedModal(false)}
           onDiscard={() => {
             console.log("🗑️ Usuario descartó cambios");
             setIsDirty(false);
-            performLogout();
+            setShowUnsavedModal(false);
+            if (unsavedModalReason === "new") {
+              startNewWorkflow();
+            } else {
+              performLogout();
+            }
           }}
           onSave={async () => {
             console.log("💾 Usuario eligió guardar");
-            setIsSaving(true);
-            try {
-              if (currentWorkflowId) {
-                await executeUpdateWorkflow();
-              } else {
-                const defaultName = `Workflow-${new Date().toISOString().split("T")[0]}-${Date.now()}`;
-                await executeSaveAsNew(defaultName);
+            // Same guard as handleSave / handleSaveAs. The modal hides "Save now" without the
+            // designer role (canSave); this covers a role removed while the modal is open.
+            if (!isDesigner) {
+              if (unsavedModalReason === "new") {
+                setShowUnsavedModal(false);
+                showPermissionError();
               }
-              setIsDirty(false);
-              performLogout();
-            } catch (error) {
-              console.error("Error al guardar:", error);
-              alert(
-                UI_STRINGS.dashboard.page.alerts.errorAlGuardarLosCambios +
-                  error.message,
-              );
-            } finally {
-              setIsSaving(false);
+              // Logout: no save attempt; the prompt stays open with Discard.
+              return;
             }
+            if (unsavedModalReason === "new") {
+              setShowUnsavedModal(false);
+              if (currentWorkflowId) {
+                await executeUpdateWorkflow({ onSaved: startNewWorkflow });
+              } else {
+                openSaveDialog(startNewWorkflow);
+              }
+              return;
+            }
+            // Cierre de sesión: solo se sale si el guardado funcionó. Si falló, el aviso ya se
+            // mostró y el modal sigue abierto para reintentar o descartar.
+            const ok = currentWorkflowId
+              ? await executeUpdateWorkflow()
+              : await executeSaveAsNew(
+                  `Workflow-${new Date().toISOString().split("T")[0]}-${Date.now()}`,
+                );
+            if (!ok) return;
+            setShowUnsavedModal(false);
+            performLogout();
           }}
           isSaving={isSaving}
         />
@@ -3825,7 +3894,9 @@ export default function App({ user, userRoles }) {
         <SaveWorkflowModal
           open={isSaveModalOpen}
           onClose={() => setSaveModalOpen(false)}
-          onSave={executeSaveAsNew}
+          onSave={(name) =>
+            executeSaveAsNew(name, { onSaved: saveDialogAfterSave.current })
+          }
         />
         <NodeParametersModal
           open={isParametersModalOpen}

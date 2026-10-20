@@ -289,7 +289,6 @@ export const UI_STRINGS = {
         checkoutSuccessfulEditModeEnabled:
           "Checkout successful. Edit mode enabled.",
         errorDuringCheckout: "Error during checkout: ",
-        errorAlGuardarLosCambios: "Error al guardar los cambios: ",
       },
       errors: {
         designerRoleRequired:
@@ -466,14 +465,17 @@ export const UI_STRINGS = {
       done: "Done",
     },
     unsavedChangesModal: {
-      suSesionHaExpirado: "Su sesión ha expirado",
-      haRealizadoCambiosSinGuardar:
-        "Ha realizado cambios sin guardar en el lienzo.",
-      deseaGuardarlosAntesDeContinuar: "¿Desea guardarlos antes de continuar?",
-      guardando: "Guardando...",
-      guardarAhora: "Guardar Ahora",
-      descartarCambios: "Descartar Cambios",
-      guardandoSusCambios: "Guardando sus cambios...",
+      sessionExpiredTitle: "Your session has expired",
+      unsavedChangesMessage: "You have unsaved changes on the canvas.",
+      saveBeforeContinuing: "Do you want to save them before continuing?",
+      saving: "Saving...",
+      saveNow: "Save now",
+      discardChanges: "Discard changes",
+      savingYourChanges: "Saving your changes...",
+      newWorkflowTitle: "New workflow",
+      newWorkflowMessage:
+        "You have unsaved changes. If you create a new workflow, they will be lost.",
+      cancel: "Cancel",
     },
     versionHistoryModal: {
       versionHistory: "Version History",
