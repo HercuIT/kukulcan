@@ -6,10 +6,10 @@ File → New reset the canvas to Begin → Connection 1 → End but kept the pre
 
 What changed:
 - File → New (`startNewWorkflow`) clears the current workflow: id, loaded workflow, read-only session, dirty flag and selection. Its Realtime subscription closes, the header reads "New Workflow(Without save)", Share and Review are hidden, and the File menu has no Checkout or Version History. Save then asks for a name and creates a new workflow.
-- File → New on a canvas with unsaved changes asks first (`UnsavedChangesModal` with `reason="new"`): **Save now**, **Discard changes** or **Cancel**. Save now on an opened workflow updates it and then starts the new canvas; on an unsaved canvas it opens the name dialog first. If the save fails, the user stays on the current canvas with the edits.
+- File → New on a canvas with unsaved changes asks first (`UnsavedChangesModal` with `reason="new"`): **Save now**, **Discard changes** or **Cancel**. Save now on an opened workflow updates it and then starts the new canvas; on an unsaved canvas it opens the name dialog first. If the save fails, the user stays on the current canvas with the edits. Like Save and Save As, Save now checks the `designer` role first and shows the usual permission message instead of the Save dialog.
 - The session-expiry prompt (`reason="logout"`) now signs out only if Save now succeeds. Before, a failed save showed an alert and signed out anyway, losing the edits.
 - The save functions take the follow-up action as an argument (`executeUpdateWorkflow({ onSaved })`, `executeSaveAsNew(name, { onSaved })`) and run it only after a successful save, replacing the shared `pendingAfterSave` ref.
-- `UnsavedChangesModal` takes one `reason` prop instead of `title`, `message` and an optional `onCancel`; its new strings are `newWorkflowTitle`, `newWorkflowMessage` and `cancel` (English).
+- `UnsavedChangesModal` takes one `reason` prop instead of `title`, `message` and an optional `onCancel`; all its string keys now have English names (`sessionExpiredTitle`, `saveNow`, `newWorkflowTitle`, `cancel`, …).
 
 No database, compiler or deploy changes.
 
@@ -35,6 +35,7 @@ No database, compiler or deploy changes.
 | Negative | Edit W1, New, Cancel | Stays on W1 with the edits; nothing saved |
 | Negative | Edit an unsaved canvas, New, Save now, cancel the name dialog | Edits kept; nothing created |
 | Negative | Edit W1, New, Save now fails | Alert with the error; still on W1, no reset |
+| Negative | Designer role revoked after editing, New, Save now | Permission message (`designerRoleRequired`); no Save dialog; nothing saved |
 | Negative | Session expires with unsaved edits, Save now fails | Alert with the error; `signOut` not called; the prompt stays open |
 | Positive | Session expires with unsaved edits, Save now succeeds | W1 saved, then signed out |
 | Positive | Modal `reason="logout"` (default) | Session-expired title and message; no Cancel |
