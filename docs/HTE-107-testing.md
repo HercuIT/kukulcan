@@ -15,9 +15,25 @@ Decisions taken here: UI strings are in English (the spec drafted them in Spanis
 | Confirm page (`src/pages/AuthConfirm/AuthConfirm.test.js`) | Valid link → `confirmEmail(token_hash)` once → "Email confirmed"; StrictMode doesn't spend the token twice; Resend from the expired screen | Expired/used link → expired message + way back to sign in; missing or garbage `token_hash` → no Supabase call; network error → Retry works; invalid email not sent; rate-limited resend | Resend disabled for 60 s; `readConfirmLink` accepts `email`/`signup`, rejects other types, short and over-long hashes |
 | Login (`src/pages/Login/Login.test.js`) | Link to `/register` instead of a Register button; sign in; Enter submits; unconfirmed account → message + Resend (sent to the normalized email) | Wrong password → "incorrect" message, no Resend; generic failure; rate-limited resend | Empty fields; Resend disabled 60 s then enabled; dev shortcut |
 | Auth API and errors (`src/backend/authApi.test.js`) | `signUp` sends `emailRedirectTo = <origin>/auth/confirm`; `resendConfirmation` (type `signup`); `confirmEmail` (`verifyOtp`, type `email`) | `email_not_confirmed` → `email-not-confirmed`, `over_email_send_rate_limit` → `rate-limited`, `otp_expired` → `link-expired` | — |
-| Routing (`src/App.test.js`) | Signed out: `/register` → Register, `/auth/confirm` → Confirm | Signed out, any other path → Login | Signed in at `/auth/confirm` → Home (the link already did its job); signed in at `/register` → Home |
+| Routing (`src/App.test.js`) | Signed out: `/register` → Register, `/auth/confirm` → Confirm; a link that fell back to the Site URL (`/?token_hash=…&type=email`) is forwarded to `/auth/confirm` with its parameters | Signed out, any other path → Login | Signed in at `/auth/confirm` → Home (the link already did its job); signed in at `/register` → Home; other query strings on `/` still show Login |
 | Set password (`src/pages/SetPassword/SetPassword.test.js`) | Saves a valid password | Letters-only or digits-only rejected without calling Supabase; Supabase `weak-password` shown | Minimum is now 8: 7 rejected, exactly 8 accepted |
 | Cooldown (`src/hooks/useCooldown.test.js`) | Counts down 60 → 0 | Nothing counts without `start()` | Restart mid-countdown; custom length |
+
+## Rollout checklist (live project)
+
+`supabase/config.toml` only configures the local stack; the live project is set by hand. Do these in order and tick them off:
+
+- [ ] Custom SMTP set up and a test email received (the built-in sender only reaches team members).
+- [ ] Redirect URLs: `https://kukulcan.ramirezgjennyg.workers.dev/auth/confirm` added (keep `/set-password`); Site URL is the production URL. No preview wildcards.
+- [ ] Email Templates → Confirm signup: `supabase/templates/confirmation.html` pasted (its link uses `{{ .RedirectTo }}`), subject "Confirm your Kukulcan account".
+- [ ] Preflight, read-only: `select count(*) from auth.users u where email_confirmed_at is null and not exists (select 1 from public.profiles p where p.id = u.id);` returns 0 (it did on 2026-10-20). If not, the migration's guard stops the deploy.
+- [ ] PR merged; `deploy_supabase.yaml` applied `hte_107_profile_on_confirm`.
+- [ ] Only then: Confirm email on, email OTP expiration 86400 s, minimum password length 8, password requirements "letters and digits".
+- [ ] TC-10 passed with a throwaway account, which was then deleted.
+
+Why the migration goes before Confirm email: until it runs, the old trigger creates a profile at sign-up for every account, so accounts that register in that window would get a profile while still unconfirmed and show up in the share dialog early. (Confirmed accounts never miss a profile in either order.)
+
+Rollback: turn Confirm email off. Accounts created meanwhile stay unconfirmed until they open their link.
 
 ## Test Cases (manual, local stack with Inbucket, then production)
 
