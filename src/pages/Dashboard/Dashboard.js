@@ -2685,7 +2685,9 @@ export default function App({ user, userRoles }) {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -2816,7 +2818,9 @@ export default function App({ user, userRoles }) {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
   }, [currentWorkflowId]);
 
   useEffect(() => {
