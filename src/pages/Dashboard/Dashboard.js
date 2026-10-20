@@ -1555,13 +1555,17 @@ function TreeNode({
   }, [parentRefs, index]);
 
   const findNextNode = () => {
-    const all = Array.from(document.querySelectorAll(".tree-label"));
+    const all = /** @type {HTMLElement[]} */ (
+      Array.from(document.querySelectorAll(".tree-label"))
+    );
     const i = all.findIndex((el) => el === nodeRef.current);
     return i !== -1 && i < all.length - 1 ? all[i + 1] : null;
   };
 
   const findPrevNode = () => {
-    const all = Array.from(document.querySelectorAll(".tree-label"));
+    const all = /** @type {HTMLElement[]} */ (
+      Array.from(document.querySelectorAll(".tree-label"))
+    );
     const i = all.findIndex((el) => el === nodeRef.current);
     return i > 0 ? all[i - 1] : null;
   };
@@ -2243,6 +2247,10 @@ const THEME_OPTIONS = {
   "System Theme": "system",
 };
 
+/**
+ * @param {{ [prop: string]: any }} props Dashboard también pasa userRoles, title, onApprove e
+ *   isDeployer, que MenuBar no usa (CLAUDE.md → defectos conocidos).
+ */
 export function MenuBar({
   user,
   workflow,
@@ -4920,7 +4928,8 @@ function Canvas({
 
       <Selecto
         boundContainer={boundingContainerRef.current}
-        container={canvasRef}
+        // Selecto espera un elemento y recibe el ref; se deja como está (CLAUDE.md → defectos conocidos).
+        container={/** @type {any} */ (canvasRef)}
         selectableTargets={[".selecto-node"]}
         hitRate={0}
         selectByClick={false}
@@ -4934,7 +4943,6 @@ function Canvas({
             setSelectedNodes(selected);
           }
         }}
-        enabled={true}
       />
       <div className="canvas-zoom-controls">
         <button onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>

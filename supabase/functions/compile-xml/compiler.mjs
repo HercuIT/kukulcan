@@ -2,11 +2,23 @@
  * compile-xml: validación y generación del XML
  * Portado desde la Cloud Function compileXML (functions/index.js). Para un workflow válido con
  * parámetros agrupados el XML es idéntico (ver supabase/tests/fixtures).
+ *
+ * Dos destinos (`target` en el cuerpo):
+ * - "controller" (por defecto): el documento <Controller> del PLC, el que descarga el botón Compile.
+ * - "ignition": solo el <Workflow>, el documento que acepta /api/deploy-workflow (validarWorkflow)
+ *   y recibe recibirXML. Ambos salen de buildWorkflowXml, así que describen nodos y parámetros
+ *   igual. POST /api/compile del servidor local usa este mismo módulo.
  * =========================== */
+
+export const TARGETS = ["controller", "ignition"];
 
 // Límites para que una petición autenticada no pueda agotar memoria o CPU.
 export const LIMITS = {
   maxBodyBytes: 5 * 1024 * 1024,
+  // Tamaño máximo del documento de Ignition. El XML ocupa más que el JSON de entrada (marcado y
+  // escapes), así que tiene su propio límite; /api/deploy-workflow acepta exactamente este tamaño
+  // (server/src/app.js), de modo que todo lo que compila para Ignition también se puede desplegar.
+  maxXmlBytes: 10 * 1024 * 1024,
   maxNodes: 5000,
   maxConnections: 10000,
 };
@@ -104,6 +116,39 @@ export function validateWorkflow(wf) {
   return { ok: errors.length === 0, errors };
 }
 
+/**
+ * Solo para el destino "ignition": las mismas reglas de nodo que validarWorkflow aplica al XML,
+ * comprobadas sobre el JSON para fallar al compilar (nombrando nodo y parámetro) y no al desplegar.
+ * Cada nodo que no es Begin/Start/End necesita al menos un parámetro con nombre, y cada parámetro
+ * que se escribe necesita nombre y valor (tras caer en defaultValue).
+ */
+export function validateDeployable(wf) {
+  const errors = [];
+  // Sin id se usa "W-001"; un id de solo espacios llegaría vacío a validarWorkflow (que recorta).
+  if (typeof wf.id === "string" && wf.id !== "" && wf.id.trim() === "") {
+    errors.push("El workflow necesita un id que no esté en blanco.");
+  }
+  for (const n of wf.nodes) {
+    if (/^(begin|start|end)$/i.test(String(n.type))) continue;
+    const name = nodeName(n);
+    const params = flattenParams(n);
+    if (params.length === 0) {
+      errors.push(`El nodo '${name}' debe tener al menos un parámetro.`);
+      continue;
+    }
+    for (const p of params) {
+      if (String(p.name).trim() === "") {
+        errors.push(`El nodo '${name}' tiene un parámetro sin nombre.`);
+      } else if (String(p.value).trim() === "") {
+        errors.push(
+          `El nodo '${name}' requiere un valor para el parámetro '${p.name}'.`,
+        );
+      }
+    }
+  }
+  return { ok: errors.length === 0, errors };
+}
+
 /* --- Helpers XML --- */
 const TYPE_TO_XML = {
   begin: "BeginElement",
@@ -116,6 +161,32 @@ const paramGroups = (p) => (Array.isArray(p) ? [p] : Object.values(p));
 
 const mapTypeToXml = (t) =>
   TYPE_TO_XML[String(t || "").toLowerCase()] || t || "NodeDefinitionName";
+const nodeName = (n) => n.name || n.type || "Node";
+
+// Parámetros de un nodo en una lista plana, como se escriben en <Parameter>. Las filas sin nombre,
+// valor ni unidades se saltan; el valor cae en defaultValue solo si falta (no si es "").
+function flattenParams(n) {
+  const p = n.parameters;
+  if (!p || typeof p !== "object") return [];
+  const out = [];
+  for (const group of paramGroups(p)) {
+    if (Array.isArray(group)) {
+      for (const x of group) {
+        if (x && (x.name || x.value || x.units)) {
+          out.push({
+            name: x.name ?? "",
+            value: x.value ?? x.defaultValue ?? "",
+            unit: x.units ?? x.unit ?? "",
+            dataType: x.type ?? x.dataType ?? "",
+            defaultValue: x.defaultValue ?? "",
+          });
+        }
+      }
+    }
+  }
+  return out;
+}
+/** @param {unknown} s */
 const esc = (s = "") =>
   String(s)
     .replaceAll("&", "&amp;")
@@ -125,87 +196,96 @@ const esc = (s = "") =>
     .replaceAll("'", "&apos;");
 
 /* --- Generación del XML --- */
-export function buildXml(wf) {
+
+/**
+ * El elemento <Workflow> con sus <Nodes> (y <Parameters>) y <Connections>. Es el documento de
+ * Ignition (buildIgnitionXml) y el <Workflow> que va dentro del documento del PLC (buildXml).
+ * `indent` es la sangría de la línea <Workflow>; el resto se escribe relativo a ella, como siempre,
+ * para que el documento del PLC siga saliendo byte a byte igual.
+ */
+export function buildWorkflowXml(wf, { indent = "" } = {}) {
+  const i2 = `${indent}  `;
+  const i4 = `${indent}    `;
+  const i6 = `${indent}      `;
+
   // --- Nodos (con Parameters por nodo) ---
   const nodesXml = (wf.nodes || [])
     .map((n) => {
       const typeXml = mapTypeToXml(n.type);
-      const name = n.name || n.type || "Node";
+      const name = nodeName(n);
 
       // Begin/End self-closing
       if (typeXml === "BeginElement") {
-        return `    <Node id="${esc(n.id)}" type="BeginElement" name="Begin"/>`;
+        return `${i2}<Node id="${esc(n.id)}" type="BeginElement" name="Begin"/>`;
       }
       if (typeXml === "EndElement") {
-        return `    <Node id="${esc(n.id)}" type="EndElement" name="End"/>`;
+        return `${i2}<Node id="${esc(n.id)}" type="EndElement" name="End"/>`;
       }
 
-      // Aplanar parámetros
-      const flatParams = (() => {
-        const p = n.parameters;
-        if (!p || typeof p !== "object") return [];
-        const out = [];
-        for (const group of paramGroups(p)) {
-          if (Array.isArray(group)) {
-            for (const x of group) {
-              if (x && (x.name || x.value || x.units)) {
-                out.push({
-                  name: x.name ?? "",
-                  value: x.value ?? x.defaultValue ?? "",
-                  unit: x.units ?? x.unit ?? "",
-                  dataType: x.type ?? x.dataType ?? "",
-                  defaultValue: x.defaultValue ?? "",
-                });
-              }
-            }
-          }
-        }
-        return out;
-      })();
-
+      const flatParams = flattenParams(n);
       const paramsXml = flatParams.length
-        ? `      <Parameters>
+        ? `${i4}<Parameters>
 ${flatParams
   .map((p) => {
     const dt = p.dataType ? ` dataType="${esc(p.dataType)}"` : "";
     const dv = p.defaultValue ? ` defaultValue="${esc(p.defaultValue)}"` : "";
-    return `        <Parameter name="${esc(p.name)}" value="${esc(p.value)}" unit="${esc(p.unit)}"${dt}${dv}/>`;
+    return `${i6}<Parameter name="${esc(p.name)}" value="${esc(p.value)}" unit="${esc(p.unit)}"${dt}${dv}/>`;
   })
   .join("\n")}
-      </Parameters>
+${i4}</Parameters>
 `
         : "";
 
       // Asignaciones opcionales
       let assigns = "";
       if (n.equipmentId)
-        assigns += `      <Equipment assignedId="${esc(n.equipmentId)}"/>\n`;
+        assigns += `${i4}<Equipment assignedId="${esc(n.equipmentId)}"/>\n`;
       if (n.materialId)
-        assigns += `      <Material assignedId="${esc(n.materialId)}"/>\n`;
+        assigns += `${i4}<Material assignedId="${esc(n.materialId)}"/>\n`;
       if (n.personnelId)
-        assigns += `      <Personnel assignedId="${esc(n.personnelId)}"/>\n`;
+        assigns += `${i4}<Personnel assignedId="${esc(n.personnelId)}"/>\n`;
       if (n.workInstructionId)
-        assigns += `      <WorkInstruction assignedId="${esc(n.workInstructionId)}"/>\n`;
+        assigns += `${i4}<WorkInstruction assignedId="${esc(n.workInstructionId)}"/>\n`;
       if (n.elementName)
-        assigns += `      <Element name="${esc(n.elementName)}"/>\n`;
+        assigns += `${i4}<Element name="${esc(n.elementName)}"/>\n`;
       if (n.procedurePhase)
-        assigns += `      <ProcedurePhase name="${esc(n.procedurePhase)}"/>\n`;
+        assigns += `${i4}<ProcedurePhase name="${esc(n.procedurePhase)}"/>\n`;
       if (n.operation)
-        assigns += `      <Operation name="${esc(n.operation)}"/>\n`;
+        assigns += `${i4}<Operation name="${esc(n.operation)}"/>\n`;
 
       if (!paramsXml && !assigns) {
-        return `    <Node id="${esc(n.id)}" type="${esc(typeXml)}" name="${esc(name)}"/>`;
+        return `${i2}<Node id="${esc(n.id)}" type="${esc(typeXml)}" name="${esc(name)}"/>`;
       }
-      return `    <Node id="${esc(n.id)}" type="${esc(typeXml)}" name="${esc(name)}">
-${paramsXml}${assigns}    </Node>`;
+      return `${i2}<Node id="${esc(n.id)}" type="${esc(typeXml)}" name="${esc(name)}">
+${paramsXml}${assigns}${i2}</Node>`;
     })
     .join("\n");
 
   // --- Conexiones ---
   const connsXml = (wf.connections || [])
-    .map((c) => `    <Connection from="${esc(c.from)}" to="${esc(c.to)}"/>`)
+    .map((c) => `${i2}<Connection from="${esc(c.from)}" to="${esc(c.to)}"/>`)
     .join("\n");
 
+  return `${indent}<Workflow id="${esc(wf.id || "W-001")}" name="${esc(wf.workflowName || wf.name || "Workflow")}" version="${esc(wf.version || "1.0")}">
+${i2}<Nodes>
+${nodesXml}
+${i2}</Nodes>
+${i2}<Connections>
+${connsXml}
+${i2}</Connections>
+${indent}</Workflow>`;
+}
+
+// Documento de Ignition (destino "ignition"): solo el <Workflow>, la forma que valida
+// validarWorkflow en server/src/routes/deployWorkflowRoutes.js.
+export function buildIgnitionXml(wf) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+${buildWorkflowXml(wf)}
+`;
+}
+
+// Documento del PLC (destino "controller", el que descarga el botón Compile).
+export function buildXml(wf) {
   // --- Tags (a partir de TODOS los parámetros de TODOS los nodos) ---
   let allParams = [];
   try {
@@ -239,15 +319,7 @@ ${paramsXml}${assigns}    </Node>`;
     : "";
 
   // --- Workflow embebido (jerarquía PLC) ---
-  const workflowXml = `
-  <Workflow id="${esc(wf.id || "W-001")}" name="${esc(wf.workflowName || wf.name || "Workflow")}" version="${esc(wf.version || "1.0")}">
-    <Nodes>
-${nodesXml}
-    </Nodes>
-    <Connections>
-${connsXml}
-    </Connections>
-  </Workflow>`;
+  const workflowXml = `\n${buildWorkflowXml(wf, { indent: "  " })}`;
 
   // --- STContent dinámico ---
   const tagNames = allParams.map((p) => p.name).filter(Boolean);
@@ -404,7 +476,8 @@ export async function readTextLimited(req, maxBytes = LIMITS.maxBodyBytes) {
 
 /**
  * Compila el cuerpo de la petición. Devuelve el status HTTP y el cuerpo,
- * igual que el handler compileXML de Firebase.
+ * igual que el handler compileXML de Firebase. `target` en el cuerpo elige el documento:
+ * "controller" (por defecto, sin cambios) o "ignition" (el que acepta /api/deploy-workflow).
  */
 export function compileRequest(body) {
   let wf = body;
@@ -431,9 +504,41 @@ export function compileRequest(body) {
     }
   }
 
+  const target =
+    isPlainObject(wf) && wf.target != null ? wf.target : "controller";
+  if (!TARGETS.includes(target)) {
+    return {
+      status: 400,
+      json: {
+        message: `Target desconocido: '${target}'. Usa 'controller' o 'ignition'.`,
+        errors: [],
+      },
+    };
+  }
+
   const { ok, errors } = validateWorkflow(wf);
   if (!ok)
     return { status: 400, json: { message: "Fallo de compilación", errors } };
+
+  if (target === "ignition") {
+    const deployable = validateDeployable(wf);
+    if (!deployable.ok)
+      return {
+        status: 400,
+        json: { message: "Fallo de compilación", errors: deployable.errors },
+      };
+    const xml = buildIgnitionXml(wf);
+    if (new TextEncoder().encode(xml).length > LIMITS.maxXmlBytes) {
+      return {
+        status: 413,
+        json: {
+          message: `El XML generado supera el tamaño máximo que acepta el despliegue (${LIMITS.maxXmlBytes} bytes).`,
+          errors: [],
+        },
+      };
+    }
+    return { status: 200, xml, filename: xmlFileName(wf) };
+  }
 
   return { status: 200, xml: buildXml(wf), filename: xmlFileName(wf) };
 }

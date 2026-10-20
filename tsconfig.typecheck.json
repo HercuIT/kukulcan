@@ -1,0 +1,34 @@
+{
+  "//": "npm run typecheck: TypeScript checks the JavaScript (checkJs) without emitting anything. Not named tsconfig.json on purpose: Create React App would then treat the app as a TypeScript project. Test files are left out, like in ESLint and Prettier. scripts/migration (own dependencies) and the Deno entry supabase/functions/compile-xml/index.ts are left out too.",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "react", "react-dom"]
+  },
+  "include": [
+    "src",
+    "server/src",
+    "supabase/functions/compile-xml/compiler.mjs",
+    "scripts/*.js"
+  ],
+  "exclude": [
+    "**/*.test.js",
+    "**/*.test.jsx",
+    "**/*.test.mjs",
+    "src/setupTests.js",
+    "**/test/**",
+    "**/tests/**",
+    "node_modules",
+    "build"
+  ]
+}
