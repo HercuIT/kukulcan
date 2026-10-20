@@ -21,8 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      # write: the review posts its progress comment and findings on the PR.
+      pull-requests: write
+      issues: write
       id-token: write
 
     steps:
@@ -39,7 +40,12 @@ jobs:
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
+          # Posts a progress comment as soon as the review starts and updates it with the result, so
+          # every new PR gets a comment even when the review finds nothing.
+          track_progress: true
+          # The code-review plugin reads the PR and posts its summary with gh; without these it can't
+          # see the diff on larger PRs and stops without commenting.
+          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"'
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
 
