@@ -19,16 +19,50 @@ const contrast = (a, b) => {
   return (hi + 0.05) / (lo + 0.05);
 };
 
-// Valor final de un token de color en un tema, siguiendo los alias {otro-token}.
-function colorOf(name, theme) {
-  const token = tokens.color.tokens.find((t) => t.name === name);
-  const raw =
-    typeof token.value === "object"
-      ? (token.value[theme] ?? token.value.light)
-      : token.value;
-  const alias = raw.match(/^\{(.+)\}$/);
-  return alias ? colorOf(alias[1], theme) : raw;
+// Las pruebas de contraste leen el CSS generado (lo que usa la app), no tokens.json: así un error
+// del generador (alias mal resueltos, el valor oscuro equivocado) también las hace fallar.
+const GENERATED = buildThemeCss(tokens);
+
+// Declaraciones `--kk-x: valor;` de un bloque, por su selector exacto.
+function declarationsOf(css, selector) {
+  const start = css.indexOf(`${selector} {`);
+  if (start === -1) throw new Error(`No block for ${selector}`);
+  const body = css.slice(start + selector.length + 2, css.indexOf("}", start));
+  return Object.fromEntries(
+    [...body.matchAll(/(--kk-[\w-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2]]),
+  );
 }
+
+const LIGHT = declarationsOf(GENERATED, ":root");
+const DARK = declarationsOf(GENERATED, ':root[data-theme="dark"]');
+const DARK_MEDIA = declarationsOf(GENERATED, '  :root:not([data-theme="light"])');
+
+// Valor final de una variable en un tema, siguiendo var(--kk-…) como lo haría el navegador
+// (el bloque oscuro hereda de :root lo que no redefine).
+function colorOf(name, theme) {
+  const scope = theme === "dark" ? { ...LIGHT, ...DARK } : LIGHT;
+  let value = scope[`--kk-${name}`];
+  for (let i = 0; value && i < 10; i++) {
+    const ref = value.match(/^var\((--kk-[\w-]+)\)$/);
+    if (!ref) break;
+    value = scope[ref[1]];
+  }
+  if (!/^#[0-9a-f]{6}$/i.test(value || ""))
+    throw new Error(`--kk-${name} (${theme}) is not a #rrggbb color: ${value}`);
+  return value;
+}
+
+const expectContrast = (fg, bg, min) => {
+  for (const theme of ["light", "dark"]) {
+    const ratio = contrast(colorOf(fg, theme), colorOf(bg, theme));
+    expect({ theme, fg, bg, ok: ratio >= min }).toEqual({
+      theme,
+      fg,
+      bg,
+      ok: true,
+    });
+  }
+};
 
 describe("build-theme", () => {
   describe("positive", () => {
@@ -40,10 +74,16 @@ describe("build-theme", () => {
     });
 
     test("writes light values on :root and dark values under both dark selectors", () => {
-      const css = buildThemeCss(tokens);
-      expect(css).toMatch(/:root \{[^}]*--kk-ink: #14171c;/);
-      expect(css).toMatch(/:root\[data-theme="dark"\] \{[^}]*--kk-ink: /);
-      expect(css).toContain(':root:not([data-theme="light"])');
+      const darkInk = tokens.color.tokens.find((t) => t.name === "ink").value
+        .dark;
+      expect(LIGHT["--kk-ink"]).toBe("#14171c");
+      expect(DARK["--kk-ink"]).toBe(darkInk);
+      // El bloque @media (prefers-color-scheme: dark) lleva exactamente los mismos valores.
+      expect(GENERATED).toMatch(
+        /@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{/,
+      );
+      expect(DARK_MEDIA["--kk-ink"]).toBe(darkInk);
+      expect(DARK_MEDIA).toEqual(DARK);
     });
 
     test("turns {alias} values into var() references", () => {
@@ -59,35 +99,25 @@ describe("build-theme", () => {
     });
 
     test("ink and ink-muted reach 4.5:1 on bg, surface and raised in both themes", () => {
-      for (const theme of ["light", "dark"]) {
-        for (const fg of ["ink", "ink-muted"]) {
-          for (const bg of ["bg", "surface", "raised"]) {
-            const ratio = contrast(colorOf(fg, theme), colorOf(bg, theme));
-            expect({ theme, fg, bg, ok: ratio >= 4.5 }).toEqual({
-              theme,
-              fg,
-              bg,
-              ok: true,
-            });
-          }
-        }
+      for (const fg of ["ink", "ink-muted"]) {
+        for (const bg of ["bg", "surface", "raised"]) expectContrast(fg, bg, 4.5);
       }
     });
 
-    test("status foregrounds reach 4.5:1 on their own backgrounds in both themes", () => {
-      for (const theme of ["light", "dark"]) {
-        for (const s of ["draft", "review", "changes", "approved"]) {
-          const ratio = contrast(
-            colorOf(`status-${s}-fg`, theme),
-            colorOf(`status-${s}-bg`, theme),
-          );
-          expect({ theme, s, ok: ratio >= 4.5 }).toEqual({
-            theme,
-            s,
-            ok: true,
-          });
-        }
+    test("every status pill's text reaches 4.5:1 on its ground in both themes, Deployed included", () => {
+      for (const s of ["draft", "review", "changes", "approved"]) {
+        expectContrast(`status-${s}-fg`, `status-${s}-bg`, 4.5);
       }
+      // Deployed (OpenWorkflowModal.css .status-deployed) usa cyan-text sobre cyan-soft.
+      expectContrast("cyan-text", "cyan-soft", 4.5);
+    });
+
+    test("control borders reach 3:1 and on-brand text 4.5:1 on brand fills", () => {
+      expectContrast("border-strong", "surface", 3);
+      expectContrast("on-brand", "brand-mint", 4.5);
+      expectContrast("on-brand", "brand-cyan", 4.5);
+      // Botones destructivos: texto surface sobre status-changes-fg.
+      expectContrast("surface", "status-changes-fg", 4.5);
     });
   });
 

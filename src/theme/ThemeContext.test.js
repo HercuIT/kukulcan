@@ -3,6 +3,7 @@ import {
   THEME_STORAGE_KEY,
   ThemeProvider,
   readStoredMode,
+  syncThemeColor,
   systemTheme,
   useTheme,
 } from "./ThemeContext";
@@ -154,9 +155,71 @@ describe("ThemeProvider", () => {
       };
       window.matchMedia = jest.fn(() => query);
       const { unmount } = renderProbe();
-      expect(query.addListener).toHaveBeenCalled();
+      expect(query.addListener).toHaveBeenCalledTimes(1);
+      const onChange = query.addListener.mock.calls[0][0];
+      expect(typeof onChange).toBe("function");
+      expect(screen.getByTestId("resolved")).toHaveTextContent("dark");
+      // El callback registrado es el que actualiza el tema.
+      act(() => onChange({ matches: false }));
+      expect(screen.getByTestId("resolved")).toHaveTextContent("light");
+      expect(document.documentElement).toHaveAttribute("data-theme", "light");
       unmount();
-      expect(query.removeListener).toHaveBeenCalled();
+      expect(query.removeListener).toHaveBeenCalledWith(onChange);
     });
+  });
+});
+
+describe("syncThemeColor (browser chrome color)", () => {
+  // Dos etiquetas por esquema, como en public/index.html.
+  function addThemeColorTags() {
+    for (const media of ["light", "dark"]) {
+      const tag = document.createElement("meta");
+      tag.name = "theme-color";
+      tag.setAttribute("media", `(prefers-color-scheme: ${media})`);
+      tag.content = `initial-${media}`;
+      document.head.appendChild(tag);
+    }
+    return () =>
+      document
+        .querySelectorAll('meta[name="theme-color"]')
+        .forEach((t) => t.remove());
+  }
+  const contents = () =>
+    [...document.querySelectorAll('meta[name="theme-color"]')].map(
+      (t) => t.content,
+    );
+
+  afterEach(() => {
+    document.documentElement.style.removeProperty("--kk-raised");
+  });
+
+  test("positive: copies the resolved theme's --kk-raised to every tag", () => {
+    const cleanup = addThemeColorTags();
+    document.documentElement.style.setProperty("--kk-raised", "token-dark");
+    syncThemeColor();
+    expect(contents()).toEqual(["token-dark", "token-dark"]);
+    cleanup();
+  });
+
+  test("positive: an explicit choice updates the tags even against the OS", () => {
+    const cleanup = addThemeColorTags();
+    mockMatchMedia(false);
+    document.documentElement.style.setProperty("--kk-raised", "token-now");
+    renderProbe();
+    act(() => screen.getByText("dark").click());
+    expect(contents()).toEqual(["token-now", "token-now"]);
+    cleanup();
+  });
+
+  test("negative: without the theme stylesheet the tags are left alone", () => {
+    const cleanup = addThemeColorTags();
+    syncThemeColor();
+    expect(contents()).toEqual(["initial-light", "initial-dark"]);
+    cleanup();
+  });
+
+  test("edge: no theme-color tags is fine", () => {
+    document.documentElement.style.setProperty("--kk-raised", "x");
+    expect(() => syncThemeColor()).not.toThrow();
   });
 });
