@@ -120,7 +120,7 @@ Both the Supabase migration and later specs follow the same pattern. A new table
 2. Enable RLS, revoke `insert`/`update`/`delete` from `anon` and `authenticated`, and grant only the reads (and column-level writes) clients really need.
 3. Put every rule-checking change in a `security definer` function with `set search_path = ''`, raising the standard error codes (see "Writing specs"). Shared checks go in the `private` schema; revoke `execute` from `public, anon` and grant it to `authenticated` (or `service_role`).
 4. Add the table to the `supabase_realtime` publication if open screens must refresh.
-5. Test the SQL in `supabase/tests/*.test.mjs` on PGlite (`npm run test:node`), running as `authenticated`, `anon` and `service_role` with the helpers in `schema.test.mjs`.
+5. Test the SQL in `supabase/tests/*.test.mjs` on PGlite (`npm run test:node`), running as `authenticated`, `anon` and `service_role` with the helpers in `supabase/tests/helpers.mjs` (`createTestDb`, `createUser`, `as`, `asServiceRole`, `rejectsWith`), and add the new file to the `test:node` script. The `kukulcan-db-change` skill (`.claude/skills/`) walks through these steps.
 6. Call it from a module in `src/backend/` (`<feature>Api.js`), mapping rows and errors in `mappers.js`; components never import `@supabase/supabase-js`.
 7. Put new strings in `uiStrings.js`, and update `README.md`/`CLAUDE.md`.
 8. Remember that merging to `main` runs the migration on the live project (`deploy_supabase.yaml`), and that an applied migration is never edited again.
