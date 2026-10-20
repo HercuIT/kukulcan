@@ -1,0 +1,22 @@
+{
+  "id": "W-FLAT",
+  "workflowName": "Definicion de usuario",
+  "nodes": [
+    { "id": "begin", "type": "start" },
+    {
+      "id": "heater",
+      "type": "Heater v 1.0",
+      "name": "Heater v 1.0",
+      "parameters": [
+        { "name": "Setpoint", "dataType": "REAL", "defaultValue": 75.5 },
+        { "name": "Enabled", "dataType": "BOOL", "defaultValue": false },
+        { "name": "Mode", "dataType": "STRING", "defaultValue": "auto" }
+      ]
+    },
+    { "id": "end", "type": "end" }
+  ],
+  "connections": [
+    { "from": "begin", "to": "heater" },
+    { "from": "heater", "to": "end" }
+  ]
+}

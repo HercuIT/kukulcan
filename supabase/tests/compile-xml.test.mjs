@@ -237,3 +237,30 @@ describe("review fixes", () => {
     assert.equal(await readTextLimited(ok, 10), "ñandú");
   });
 });
+
+describe("target", () => {
+  test("positive: ignition from a JSON string body returns a bare <Workflow>", () => {
+    const result = compileRequest(
+      JSON.stringify(minimal({ id: "W-1", target: "ignition" })),
+    );
+    assert.equal(result.status, 200);
+    assert.match(result.xml, /^<\?xml[^>]*\?>\n<Workflow id="W-1"/);
+  });
+
+  test("negative: a non-string target is unknown", () => {
+    assert.deepEqual(compileRequest(minimal({ target: 5 })), {
+      status: 400,
+      json: {
+        message: "Target desconocido: '5'. Usa 'controller' o 'ignition'.",
+        errors: [],
+      },
+    });
+    assert.equal(compileRequest(minimal({ target: "" })).status, 400);
+  });
+
+  test("edge: a null target means controller", () => {
+    const result = compileRequest(minimal({ target: null }));
+    assert.equal(result.status, 200);
+    assert.match(result.xml, /<Controller Use="Context">/);
+  });
+});

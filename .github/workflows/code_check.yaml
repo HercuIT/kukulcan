@@ -25,6 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # The XML contract test loads the Express routes, which need server/'s own dependencies
+      # (fast-xml-parser, axios, uuid).
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
       - name: Run ESLint
         run: npm run lint
 

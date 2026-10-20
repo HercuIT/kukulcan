@@ -1,0 +1,51 @@
+{
+  "id": "W-COMPLETE",
+  "workflowName": "Linea completa",
+  "version": "3",
+  "nodes": [
+    { "id": "begin", "type": "start", "x": 0, "y": 0 },
+    {
+      "id": "phase",
+      "type": "Procedure Phase",
+      "name": "Mix & Heat",
+      "x": 0,
+      "y": 100,
+      "equipmentId": "EQ-1",
+      "parameters": {
+        "process": [
+          {
+            "name": "Speed",
+            "value": "10",
+            "units": "rpm",
+            "type": "REAL",
+            "defaultValue": "1"
+          },
+          {
+            "name": "Temp",
+            "value": "80",
+            "units": "C",
+            "type": "REAL",
+            "defaultValue": "20"
+          }
+        ]
+      }
+    },
+    {
+      "id": "operation",
+      "type": "Operation",
+      "name": "Drain",
+      "x": 0,
+      "y": 200,
+      "operation": "Drain",
+      "parameters": {
+        "a": [{ "name": "Time", "value": "30", "units": "s", "type": "INT" }]
+      }
+    },
+    { "id": "end", "type": "End", "x": 0, "y": 300 }
+  ],
+  "connections": [
+    { "from": "begin", "to": "phase" },
+    { "from": "phase", "to": "operation" },
+    { "from": "operation", "to": "end" }
+  ]
+}

@@ -197,6 +197,20 @@ describe("workflowsApi", () => {
         body: { nodes: [] },
       });
     });
+
+    test("compileWorkflow passes a target through without changing the workflow", async () => {
+      supabase.functions.invoke.mockResolvedValue({
+        data: "<Workflow/>",
+        error: null,
+      });
+      const workflow = { id: "W-1", nodes: [], connections: [] };
+      await compileWorkflow(workflow, { target: "ignition" });
+      expect(supabase.functions.invoke).toHaveBeenLastCalledWith(
+        "compile-xml",
+        { body: { id: "W-1", nodes: [], connections: [], target: "ignition" } },
+      );
+      expect(workflow).not.toHaveProperty("target");
+    });
   });
 
   describe("negative", () => {
@@ -247,6 +261,28 @@ describe("workflowsApi", () => {
       );
     });
 
+    test("compileWorkflow for Ignition surfaces the deployable-parameter errors", async () => {
+      supabase.functions.invoke.mockResolvedValue({
+        data: null,
+        error: {
+          message: "Edge Function returned a non-2xx status code",
+          context: {
+            json: async () => ({
+              message: "Fallo de compilación",
+              errors: [
+                "El nodo 'Mix' requiere un valor para el parámetro 'Temp'.",
+              ],
+            }),
+          },
+        },
+      });
+      await expect(
+        compileWorkflow({ nodes: [] }, { target: "ignition" }),
+      ).rejects.toThrow(
+        "Fallo de compilación\n- El nodo 'Mix' requiere un valor para el parámetro 'Temp'.",
+      );
+    });
+
     test("compileWorkflow falls back to the transport message without a JSON body", async () => {
       supabase.functions.invoke.mockResolvedValue({
         data: null,
@@ -259,6 +295,16 @@ describe("workflowsApi", () => {
   });
 
   describe("edge", () => {
+    test("compileWorkflow with an explicit undefined target sends the workflow as is", async () => {
+      supabase.functions.invoke.mockResolvedValue({ data: "<x/>", error: null });
+      const workflow = { nodes: [] };
+      await compileWorkflow(workflow, { target: undefined });
+      expect(supabase.functions.invoke).toHaveBeenLastCalledWith(
+        "compile-xml",
+        { body: workflow },
+      );
+    });
+
     test("getWorkflow returns null for a missing workflow", async () => {
       supabase.from.mockReturnValue(query({ data: null, error: null }));
       await expect(getWorkflow("nope")).resolves.toBeNull();
