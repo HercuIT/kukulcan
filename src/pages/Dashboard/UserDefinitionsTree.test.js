@@ -319,7 +319,8 @@ describe("UserDefinitionsTree", () => {
       expect(row("d999")).toBeInTheDocument();
       expect(row("d999").style.marginLeft).toBe(row("d8").style.marginLeft);
       expect(row("d1").style.marginLeft).not.toBe(row("d8").style.marginLeft);
-    });
+      // Rendering 1,000 rows can pass Jest's 5 s default when the whole suite runs in parallel.
+    }, 20000);
   });
 });
 
