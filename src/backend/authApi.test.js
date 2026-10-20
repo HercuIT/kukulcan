@@ -1,7 +1,10 @@
 import { supabase } from "./supabaseClient";
 import {
+  confirmEmail,
+  confirmRedirectUrl,
   getMyRoles,
   onSessionChange,
+  resendConfirmation,
   signIn,
   signOut,
   signUp,
@@ -16,6 +19,8 @@ jest.mock("./supabaseClient", () => ({
       signOut: jest.fn(),
       onAuthStateChange: jest.fn(),
       updateUser: jest.fn(),
+      resend: jest.fn(),
+      verifyOtp: jest.fn(),
     },
     from: jest.fn(),
   },
@@ -75,6 +80,31 @@ describe("authApi", () => {
         email: "designer@example.com",
       });
       expect(supabase.from).not.toHaveBeenCalled();
+      // HTE-107: el enlace del correo vuelve a /auth/confirm en el mismo origen.
+      expect(supabase.auth.signUp).toHaveBeenCalledWith({
+        email: "designer@example.com",
+        password: "pw",
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+      });
+    });
+
+    test("resendConfirmation mails a new signup link to /auth/confirm", async () => {
+      supabase.auth.resend.mockResolvedValue({ data: {}, error: null });
+      await expect(resendConfirmation("a@b.co")).resolves.toBeUndefined();
+      expect(supabase.auth.resend).toHaveBeenCalledWith({
+        type: "signup",
+        email: "a@b.co",
+        options: { emailRedirectTo: confirmRedirectUrl() },
+      });
+    });
+
+    test("confirmEmail verifies the link's token hash as an email OTP", async () => {
+      supabase.auth.verifyOtp.mockResolvedValue({ data: {}, error: null });
+      await confirmEmail("hash123");
+      expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
+        token_hash: "hash123",
+        type: "email",
+      });
     });
 
     test("onSessionChange reports the initial session and sign-out", () => {
@@ -159,6 +189,31 @@ describe("authApi", () => {
       });
       await expect(signUp("a@b.c", "pw")).rejects.toMatchObject({
         code: "email-in-use",
+      });
+    });
+
+    test("HTE-107 errors map to app codes: unconfirmed, rate limit, expired link", async () => {
+      supabase.auth.signInWithPassword.mockResolvedValue({
+        data: { user: null },
+        error: { code: "email_not_confirmed", message: "Email not confirmed" },
+      });
+      await expect(signIn("a@b.co", "pw")).rejects.toMatchObject({
+        code: "email-not-confirmed",
+      });
+      supabase.auth.resend.mockResolvedValue({
+        data: null,
+        error: { code: "over_email_send_rate_limit", message: "slow down" },
+      });
+      await expect(resendConfirmation("a@b.co")).rejects.toMatchObject({
+        code: "rate-limited",
+      });
+      supabase.auth.verifyOtp.mockResolvedValue({
+        data: null,
+        error: { code: "otp_expired", message: "expired" },
+      });
+      await expect(confirmEmail("old")).rejects.toMatchObject({
+        code: "link-expired",
+        message: "expired",
       });
     });
 

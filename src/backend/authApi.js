@@ -13,7 +13,8 @@ export async function signIn(email, password) {
 // Página a la que lleva el enlace del correo de confirmación (HTE-107). Sale del origen actual, así
 // que sirve en local, en producción y en las vistas previas sin variables de entorno nuevas (cada
 // origen debe estar en las Redirect URLs de Supabase).
-export const confirmRedirectUrl = () => `${window.location.origin}/auth/confirm`;
+export const confirmRedirectUrl = () =>
+  `${window.location.origin}/auth/confirm`;
 
 /**
  * Registra la cuenta sin confirmar: Supabase manda el correo con el enlace y no crea sesión. El

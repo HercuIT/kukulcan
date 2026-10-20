@@ -156,7 +156,8 @@ describe("UI_STRINGS", () => {
       expect(UI_STRINGS.dashboard.page.messages.errorDeValidacion).toBe(
         "❌ Error de validación:\n\n",
       );
-      expect(UI_STRINGS.login.iniciarSesion).toBe("Iniciar Sesión");
+      // UI strings are English (CLAUDE.md); the login page was translated in HTE-107.
+      expect(UI_STRINGS.login.iniciarSesion).toBe("Sign in");
     });
   });
 });

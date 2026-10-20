@@ -35,6 +35,7 @@ export function checkEmail(email) {
  */
 export function checkPassword(password) {
   const value = String(password ?? "");
+  /** @type {Array<"length" | "letter" | "digit">} */
   const failed = [];
   if (
     value.length < PASSWORD_RULES.minLength ||

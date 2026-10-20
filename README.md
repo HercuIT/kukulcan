@@ -10,7 +10,7 @@ A browser-based visual editor for manufacturing workflows. Designers drag proced
 | Database | `supabase/migrations/` | Supabase Postgres, Row-Level Security | Users' roles, workflows, collaborators, history, server logs; status changes run as Postgres functions (RPC) |
 | Edge Function | `supabase/functions/compile-xml/` | Supabase Edge Functions (Deno) | Validates a workflow and compiles it to XML (signed-in users only) |
 | Local API server | `server/` | Express 5, Node | Health checks, local JSON→XML compile, and deploying workflow XML to Ignition |
-| Auth | Supabase Auth | Email and password | Sign-in, sign-up, sessions |
+| Auth | Supabase Auth | Email and password, email confirmation required | Sign-in, sign-up (`/register`, confirmed through `/auth/confirm`), sessions |
 
 ```
 Browser (React, :3000)
@@ -275,6 +275,23 @@ Claude Code asks you to approve project servers the first time you run `claude` 
 
 CI (`.github/workflows/code_check.yaml`) installs the root and `server/` dependencies, then runs `npm run lint`, `npm run format-check`, `npm run typecheck`, the Jest unit tests (`npm test`) and `npm run test:node` on every pull request to `main`. Test files are left out of lint, Prettier and the typecheck (`.eslintignore`, `.prettierignore`, `tsconfig.typecheck.json`); Jest and `test:node` still run them.
 
+## Sign-up and email confirmation
+
+New accounts must confirm their email before they can sign in (HTE-107).
+
+- **Register:** the login page links to `/register` (`src/pages/Register/`): email, password and confirmation, validated on blur and on submit with the shared rules in `src/constants/passwordRules.js` (8–72 characters, at least one letter and one digit; the same rules Supabase enforces). Submitting calls `signUp` with `emailRedirectTo = <origin>/auth/confirm` and shows "Check your email". The screen is the same whether or not the address is already registered, so the form never reveals who has an account. Resend is allowed once every 60 seconds.
+- **Confirm:** the email links to `/auth/confirm?token_hash=…&type=email` (`src/pages/AuthConfirm/`), which calls `verifyOtp`. Supabase confirms the account and opens a session, and the app goes to Home. An expired or used link (24 h, one use) or a malformed one offers to resend; a network error offers Retry. The link carries a token hash, so it works on another device.
+- **Sign in unconfirmed:** the login page says to confirm the email and shows a Resend button instead of "incorrect password".
+- **Profiles:** a `profiles` row (no roles) is created when the account is confirmed, not when it signs up (migration `hte_107_profile_on_confirm`), so unconfirmed accounts don't appear in the share dialog and can't be added as designers. Accounts created already confirmed (service role, imports) still get it on insert.
+- **Settings:** `supabase/config.toml` turns this on for the local stack (`enable_confirmations`, `otp_expiry = 86400`, `max_frequency = "60s"`, the password rules, the `/auth/confirm` redirect and the template `supabase/templates/confirmation.html`). That file isn't deployed. On the live project, in this order:
+  1. Set up custom SMTP and send a test email (the built-in sender only reaches team members, about 2 emails an hour).
+  2. Add `https://kukulcan.ramirezgjennyg.workers.dev/auth/confirm` to the redirect URLs and paste `supabase/templates/confirmation.html` under Email Templates → Confirm signup.
+  3. Merge the PR (the migration runs through `deploy_supabase.yaml`; it's safe before step 4 because every current user is confirmed, and it refuses to run otherwise).
+  4. Turn on Confirm email, set the email OTP expiry to 86400 s, and set the minimum password length to 8 with letters and digits required.
+  5. Register a test account end to end, then delete it.
+
+  Rollback: turn Confirm email off. Accounts created meanwhile stay unconfirmed until they open their link.
+
 ## Theme
 
 The app uses the Kukulcan design system ([design system artifact](https://claude.ai/artifact/HtfdxXknT5ywmgbgJZTrt4)), with a light and a dark theme.
@@ -304,7 +321,7 @@ The app is also deployed as a static-assets Worker, `kukulcan` (production: `htt
 
 - Build command `npm run build`, deploy command `npx wrangler deploy` (Workers Builds, connected to this repo).
 - `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_PUBLISHABLE_KEY` go in **Settings → Build → Variables and secrets** (build variables). The Node version comes from `.node-version` (22). Create React App compiles them into the static bundle during `npm run build`, and the bundle can't read Worker runtime variables. (The dashboard also refuses runtime variables on this Worker because it serves assets without a script; a Worker with a script would accept them, but the app still wouldn't see them.)
-- In Supabase **Authentication → URL Configuration**, set Site URL to the production URL and add exactly `https://kukulcan.ramirezgjennyg.workers.dev/set-password`. Don't add a wildcard for previews: anyone with the publishable key can request a recovery email with any allowed `redirectTo`, so a wildcard would let any preview build (from any branch) receive users' recovery tokens. To test password emails on a preview, add that preview's exact `/set-password` URL and remove it afterwards.
+- In Supabase **Authentication → URL Configuration**, set Site URL to the production URL and add exactly `https://kukulcan.ramirezgjennyg.workers.dev/set-password` and `https://kukulcan.ramirezgjennyg.workers.dev/auth/confirm` (see "Sign-up and email confirmation"). Don't add a wildcard for previews: anyone with the publishable key can request a recovery email with any allowed `redirectTo`, so a wildcard would let any preview build (from any branch) receive users' recovery tokens. To test password emails on a preview, add that preview's exact `/set-password` URL and remove it afterwards.
 - The Express server isn't deployed here: it runs on each user's machine (`127.0.0.1:3001`).
 
 ## Project layout
@@ -350,7 +367,7 @@ Features are specified before they're built, as Claude Docs, using the section t
 | WFPR-003 | [Nested User Created Node Definitions](https://claude.ai/code/artifact/9753755e-5f4d-43bb-93af-e9e59d416800) | Implemented (PR #6, merged); test plan `docs/WFPR-003-testing.md` |
 | WFPR-004 | [Expandable Pre-Defined Definitions](https://claude.ai/code/artifact/cf5b6f1e-aa6f-400f-bc6f-f425c4349488) | Draft, depends on VCR-001; open questions pending |
 | HTE-111 | [Spec: Theme and logo](https://claude.ai/code/artifact/bbc1a1f8-71e3-4839-834b-d630c81cae85) | Implemented on `feat/HTE-111` (PR #7); test plan `docs/HTE-111-testing.md` |
-| HTE-107 | [HTE-107: Email confirmation and registration form](https://claude.ai/code/artifact/6b732d1e-e3b8-461c-8c72-2d61864a50d0) | Draft, open questions pending |
+| HTE-107 | [HTE-107: Email confirmation and registration form](https://claude.ai/code/artifact/6b732d1e-e3b8-461c-8c72-2d61864a50d0) | Implemented on `feat/HTE-107-email-confirmation` (strings in English; open questions taken at the spec's defaults); test plan `docs/HTE-107-testing.md` |
 | HTE-108 | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Implemented on `fix/HTE-108-compile-targets` (Option A); test plan `docs/HTE-108-testing.md` |
 
 ## Claude Code review
@@ -368,4 +385,5 @@ Both use the action's moving `@v1` tag (and `actions/checkout@v4`), as the insta
 - Start commit messages and PR titles with it: `HTE-91: add hierarchy filtering by element type`.
 - Add a manual test plan for each ticket at `docs/<TICKET>-testing.md` (issue, test cases with steps and expected results, outcome).
 - Open PRs against `main`. Lint and Prettier must pass.
+- All UI strings (`src/constants/uiStrings.js`) are in English; Spanish isn't supported yet. Older Spanish strings are translated when their component is touched.
 - Don't put a trailing space or dot at the end of a filename. Windows can't check those files out.

@@ -1,4 +1,7 @@
 # Supabase CLI config for Kukulcan. Full reference: https://supabase.com/docs/guides/local-development/cli/config
+# These auth settings apply to the local stack only: deploy_supabase.yaml pushes migrations and
+# functions, not this file. The live project's equivalents are set in the dashboard (README →
+# "Sign-up and email confirmation").
 project_id = "kukulcan"
 
 [api]
@@ -6,11 +9,26 @@ schemas = ["public"]
 
 [auth]
 site_url = "http://localhost:3000"
-# Solo la página del enlace de recuperación (send-password-resets.js); el site_url ya está permitido.
-additional_redirect_urls = ["http://localhost:3000/set-password"]
+# Recovery link page (send-password-resets.js) and the email confirmation link page (HTE-107);
+# the site_url itself is already allowed.
+additional_redirect_urls = [
+  "http://localhost:3000/set-password",
+  "http://localhost:3000/auth/confirm",
+]
+# Same rules as src/constants/passwordRules.js (the form only checks them early).
+minimum_password_length = 8
+password_requirements = "letters_digits"
 
 [auth.email]
-enable_confirmations = false
+# HTE-107: new accounts must open the emailed link before they can sign in.
+enable_confirmations = true
+# The confirmation link lasts 24 hours and one email per address can be sent every 60 seconds.
+otp_expiry = 86400
+max_frequency = "60s"
+
+[auth.email.template.confirmation]
+subject = "Confirm your Kukulcan account"
+content_path = "./supabase/templates/confirmation.html"
 
 [functions.compile-xml]
 # Solo usuarios autenticados pueden compilar (el endpoint de Firebase era público).

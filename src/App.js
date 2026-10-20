@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Navigate,
+  Routes,
+  Route,
+} from "react-router-dom";
 import { getMyRoles, onSessionChange } from "./backend/authApi";
 
 // Tus componentes de página reales
@@ -7,6 +12,8 @@ import Home from "./pages/Home/Home.js";
 import Dashboard from "./pages/Dashboard/Dashboard.js";
 import Login from "./pages/Login/Login";
 import SetPassword from "./pages/SetPassword/SetPassword";
+import Register from "./pages/Register/Register";
+import AuthConfirm from "./pages/AuthConfirm/AuthConfirm";
 import { UI_STRINGS } from "./constants/uiStrings";
 
 export default function App() {
@@ -68,6 +75,9 @@ export default function App() {
             */}
             {/* Destino del enlace de recuperación (send-password-resets.js) */}
             <Route path="/set-password" element={<SetPassword />} />
+            {/* Al confirmar el correo, Supabase abre la sesión y este árbol sustituye al de sin
+                sesión: el enlace ya cumplió y se va a Home (abrirlo de nuevo con sesión, igual). */}
+            <Route path="/auth/confirm" element={<Navigate to="/" replace />} />
             <Route
               path="/dashboard"
               element={<Dashboard user={user} userRoles={userRoles} />}
@@ -78,7 +88,12 @@ export default function App() {
             />
           </>
         ) : (
-          <Route path="*" element={<Login />} />
+          <>
+            {/* HTE-107: registro y destino del enlace de confirmación */}
+            <Route path="/register" element={<Register />} />
+            <Route path="/auth/confirm" element={<AuthConfirm />} />
+            <Route path="*" element={<Login />} />
+          </>
         )}
       </Routes>
     </Router>
