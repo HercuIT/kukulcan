@@ -80,7 +80,7 @@ export default function MoveDefinitionModal({
           ))}
         </select>
         {options.length === 0 && !canGoTop && (
-          <p style={{ color: "#555" }}>{S.noTargets}</p>
+          <p style={{ color: "var(--kk-ink-muted)" }}>{S.noTargets}</p>
         )}
         <div className="create-node-modal-buttons" style={{ marginTop: 16 }}>
           <button onClick={onClose}>{S.cancel}</button>

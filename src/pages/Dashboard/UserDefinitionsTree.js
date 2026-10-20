@@ -264,8 +264,12 @@ export default function UserDefinitionsTree({
         style={{
           marginLeft: indent(depth),
           cursor: isDesigner ? "grab" : "pointer",
-          color: node.kind === "predefined" ? "blue" : "green",
-          background: dropTargetId === node.id ? "#d0e8ff" : undefined,
+          color:
+            node.kind === "predefined"
+              ? "var(--kk-cyan-text)"
+              : "var(--kk-mint-text)",
+          background:
+            dropTargetId === node.id ? "var(--kk-cyan-soft)" : undefined,
           borderRadius: 4,
         }}
       >
@@ -278,7 +282,9 @@ export default function UserDefinitionsTree({
         <span onClick={() => hasContent && toggle(node.id)}>
           {labelOf(node)}
           {node.kind === "predefined" && (
-            <em style={{ color: "#555", marginLeft: 6 }}>{S.predefinedTag}</em>
+            <em style={{ color: "var(--kk-ink-muted)", marginLeft: 6 }}>
+              {S.predefinedTag}
+            </em>
           )}
         </span>
       </div>
@@ -358,7 +364,8 @@ export default function UserDefinitionsTree({
         style={{
           marginLeft: level * 10,
           cursor: "pointer",
-          background: dropTargetId === "root" ? "#d0e8ff" : undefined,
+          background:
+            dropTargetId === "root" ? "var(--kk-cyan-soft)" : undefined,
           borderRadius: 4,
         }}
       >
@@ -370,7 +377,7 @@ export default function UserDefinitionsTree({
               marginRight: 6,
               cursor: "pointer",
               fontWeight: "bold",
-              color: "#1677ff",
+              color: "var(--kk-cyan-text)",
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -392,7 +399,10 @@ export default function UserDefinitionsTree({
         <div
           role="alert"
           className="error-message"
-          style={{ marginLeft: (level + 1) * 10, color: "red" }}
+          style={{
+            marginLeft: (level + 1) * 10,
+            color: "var(--kk-status-changes-fg)",
+          }}
         >
           {message}
         </div>
@@ -410,9 +420,9 @@ export default function UserDefinitionsTree({
             position: "fixed",
             top: menu.y,
             left: menu.x,
-            background: "#fff",
-            border: "1px solid #ccc",
-            boxShadow: "0 2px 8px #888",
+            background: "var(--kk-surface)",
+            border: "1px solid var(--kk-border)",
+            boxShadow: "var(--kk-shadow-overlay)",
             zIndex: 999,
             borderRadius: 4,
           }}
@@ -425,7 +435,7 @@ export default function UserDefinitionsTree({
               style={{
                 padding: "8px 18px",
                 cursor: item.disabled ? "default" : "pointer",
-                color: item.disabled ? "#aaa" : undefined,
+                color: item.disabled ? "var(--kk-ink-muted)" : undefined,
               }}
               onClick={() => {
                 if (item.disabled) return;
