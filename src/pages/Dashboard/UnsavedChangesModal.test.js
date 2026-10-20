@@ -17,7 +17,7 @@ describe("UnsavedChangesModal", () => {
     expect(screen.queryByText(S.suSesionHaExpirado)).toBeNull();
   });
 
-  test("renders default session-expired title and message when title and message are omitted", () => {
+  test("renders the session-expired title and message by default (reason logout)", () => {
     render(
       <UnsavedChangesModal
         open={true}
@@ -33,30 +33,43 @@ describe("UnsavedChangesModal", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(S.guardarAhora)).toBeInTheDocument();
     expect(screen.getByText(S.descartarCambios)).toBeInTheDocument();
-    // Cancel button should not be rendered when onCancel is not passed
-    expect(screen.queryByText(S.cancelar)).toBeNull();
+    // Logout has no Cancel: the session is ending
+    expect(screen.queryByText(S.cancel)).toBeNull();
   });
 
-  test("renders custom title, custom message, and Cancel button when props are provided", () => {
+  test("reason new renders the new-workflow title, message and Cancel button", () => {
     const onCancel = jest.fn();
     render(
       <UnsavedChangesModal
         open={true}
-        title={S.nuevoFlujoTitulo}
-        message={S.nuevoFlujoMensaje}
+        reason="new"
         onSave={jest.fn()}
         onDiscard={jest.fn()}
         onCancel={onCancel}
       />,
     );
 
-    expect(screen.getByText(S.nuevoFlujoTitulo)).toBeInTheDocument();
-    expect(screen.getByText(S.nuevoFlujoMensaje)).toBeInTheDocument();
+    expect(screen.getByText(S.newWorkflowTitle)).toBeInTheDocument();
+    expect(screen.getByText(S.newWorkflowMessage)).toBeInTheDocument();
     expect(screen.queryByText(S.suSesionHaExpirado)).toBeNull();
-    expect(screen.getByText(S.cancelar)).toBeInTheDocument();
+    expect(screen.getByText(S.cancel)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText(S.cancelar));
+    fireEvent.click(screen.getByText(S.cancel));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  test("reason logout hides Cancel even when onCancel is passed", () => {
+    render(
+      <UnsavedChangesModal
+        open={true}
+        reason="logout"
+        onSave={jest.fn()}
+        onDiscard={jest.fn()}
+        onCancel={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText(S.cancel)).toBeNull();
+    expect(screen.queryByText(S.newWorkflowTitle)).toBeNull();
   });
 
   test("calls onSave and onDiscard handlers when buttons are clicked", () => {
@@ -89,6 +102,7 @@ describe("UnsavedChangesModal", () => {
         onSave={onSave}
         onDiscard={onDiscard}
         onCancel={onCancel}
+        reason="new"
         isSaving={true}
       />,
     );
@@ -98,7 +112,7 @@ describe("UnsavedChangesModal", () => {
 
     const saveBtn = screen.getByText(S.guardando).closest("button");
     const discardBtn = screen.getByText(S.descartarCambios);
-    const cancelBtn = screen.getByText(S.cancelar);
+    const cancelBtn = screen.getByText(S.cancel);
 
     expect(saveBtn).toBeDisabled();
     expect(discardBtn).toBeDisabled();

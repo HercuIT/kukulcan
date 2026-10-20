@@ -289,7 +289,6 @@ export const UI_STRINGS = {
         checkoutSuccessfulEditModeEnabled:
           "Checkout successful. Edit mode enabled.",
         errorDuringCheckout: "Error during checkout: ",
-        errorAlGuardarLosCambios: "Error al guardar los cambios: ",
       },
       errors: {
         designerRoleRequired:

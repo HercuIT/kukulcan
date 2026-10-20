@@ -1,10 +1,11 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import App from "./Dashboard";
 import { ThemeProvider } from "../../theme/ThemeContext";
 import { UI_STRINGS } from "../../constants/uiStrings";
 import * as workflowsApi from "../../backend/workflowsApi";
 import * as definitionsApi from "../../backend/definitionsApi";
+import * as authApi from "../../backend/authApi";
 
 jest.mock("../../backend/supabaseClient", () => ({ supabase: {} }));
 jest.mock("../../backend/authApi", () => ({
@@ -344,7 +345,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     pickFileMenu(M.menuLabels.New);
 
     expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
-    expect(screen.queryByText(U.nuevoFlujoTitulo)).toBeNull();
+    expect(screen.queryByText(U.newWorkflowTitle)).toBeNull();
   });
 
   test("Edge: Realtime update to W1 after New is ignored because subscription closed", async () => {
@@ -378,8 +379,8 @@ describe("File -> New workflow and unsaved changes guard", () => {
     pickFileMenu(M.menuLabels.New);
 
     // Unsaved changes prompt must appear with context-specific title & message
-    expect(screen.getByText(U.nuevoFlujoTitulo)).toBeInTheDocument();
-    expect(screen.getByText(U.nuevoFlujoMensaje)).toBeInTheDocument();
+    expect(screen.getByText(U.newWorkflowTitle)).toBeInTheDocument();
+    expect(screen.getByText(U.newWorkflowMessage)).toBeInTheDocument();
     expect(document.querySelector(".unsaved-changes-modal .btn-secondary")).toBeInTheDocument();
 
     // Click Discard changes
@@ -403,7 +404,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
 
     pickFileMenu(M.menuLabels.New);
 
-    expect(screen.getByText(U.nuevoFlujoTitulo)).toBeInTheDocument();
+    expect(screen.getByText(U.newWorkflowTitle)).toBeInTheDocument();
 
     // Click Save now
     fireEvent.click(screen.getByText(U.guardarAhora));
@@ -433,7 +434,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     pickFileMenu(M.menuLabels.New);
 
     // Prompt appears
-    expect(screen.getByText(U.nuevoFlujoTitulo)).toBeInTheDocument();
+    expect(screen.getByText(U.newWorkflowTitle)).toBeInTheDocument();
 
     // Click Save now -> opens name dialog because currentWorkflowId is null
     fireEvent.click(screen.getByText(U.guardarAhora));
@@ -467,7 +468,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
 
     pickFileMenu(M.menuLabels.New);
 
-    expect(screen.getByText(U.nuevoFlujoTitulo)).toBeInTheDocument();
+    expect(screen.getByText(U.newWorkflowTitle)).toBeInTheDocument();
 
     // Click Cancel in unsaved changes modal
     const cancelBtn = document.querySelector(".unsaved-changes-modal .btn-secondary");
@@ -519,5 +520,56 @@ describe("File -> New workflow and unsaved changes guard", () => {
 
     // Still on W1, no reset
     expect(getWorkflowTitle(container)).toBe(sampleWorkflowDraft.name);
+  });
+
+  test("Session expiry guard: Save now fails keeps the user signed in with the prompt open", async () => {
+    workflowsApi.saveWorkflow.mockRejectedValueOnce(new Error("Network DB error"));
+    const { container } = renderDashboard();
+
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
+    await checkoutOpenWorkflow();
+
+    const canvas = container.querySelector(".canvas-area");
+    window._dragComponent = { label: "Mixing", type: "Procedure Phase" };
+    fireEvent.drop(canvas, { clientX: 150, clientY: 150 });
+
+    // The session ends while the canvas has unsaved edits.
+    const onSession = authApi.onSessionChange.mock.calls.at(-1)[0];
+    act(() => onSession(null));
+    expect(screen.getByText(U.suSesionHaExpirado)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(U.guardarAhora));
+
+    await waitFor(() => {
+      expect(window.alert).toHaveBeenCalledWith(
+        expect.stringContaining("Network DB error"),
+      );
+    });
+    // Not signed out: the prompt stays so the user can retry or discard.
+    expect(authApi.signOut).not.toHaveBeenCalled();
+    expect(screen.getByText(U.suSesionHaExpirado)).toBeInTheDocument();
+  });
+
+  test("Session expiry guard: Save now succeeds saves W1 then signs out", async () => {
+    const { container } = renderDashboard();
+
+    await openWorkflowViaModal(container, sampleWorkflowDraft.name);
+    await checkoutOpenWorkflow();
+
+    const canvas = container.querySelector(".canvas-area");
+    window._dragComponent = { label: "Mixing", type: "Procedure Phase" };
+    fireEvent.drop(canvas, { clientX: 150, clientY: 150 });
+
+    const onSession = authApi.onSessionChange.mock.calls.at(-1)[0];
+    act(() => onSession(null));
+    fireEvent.click(screen.getByText(U.guardarAhora));
+
+    await waitFor(() => {
+      expect(workflowsApi.saveWorkflow).toHaveBeenCalledWith(
+        "wf-1",
+        expect.any(Object),
+      );
+    });
+    await waitFor(() => expect(authApi.signOut).toHaveBeenCalledTimes(1));
   });
 });
