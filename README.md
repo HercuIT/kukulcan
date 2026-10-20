@@ -350,7 +350,7 @@ Features are specified before they're built, as Claude Docs, using the section t
 | WFPR-004 | [Expandable Pre-Defined Definitions](https://claude.ai/code/artifact/cf5b6f1e-aa6f-400f-bc6f-f425c4349488) | Draft, depends on VCR-001; open questions pending |
 | HTE-111 | [Spec: Theme and logo](https://claude.ai/code/artifact/bbc1a1f8-71e3-4839-834b-d630c81cae85) | Implemented on `feat/HTE-111` (PR #7); test plan `docs/HTE-111-testing.md` |
 | HTE-107 | [HTE-107: Email confirmation and registration form](https://claude.ai/code/artifact/6b732d1e-e3b8-461c-8c72-2d61864a50d0) | Draft, open questions pending |
-| XML-DEPLOY (no Jira ticket yet) | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Implemented on `XML-DEPLOY-compile-targets` (Option A); test plan `docs/XML-DEPLOY-testing.md` |
+| HTE-108 | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Implemented on `fix/HTE-108-compile-targets` (Option A); test plan `docs/HTE-108-testing.md` |
 
 ## Contributing
 

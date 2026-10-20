@@ -1,7 +1,7 @@
-# XML-DEPLOY Testing Documentation
+# HTE-108 Testing Documentation
 
 ## Issue
-A workflow compiled by either compiler was rejected by `/api/deploy-workflow`: `compile-xml` wrapped the workflow in a `<Controller>` document and `/api/compile` left out `<Parameters>`, so nothing the app produced could reach Ignition unchanged. Spec: [Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) (no Jira ticket yet; `XML-DEPLOY` is a placeholder ID).
+A workflow compiled by either compiler was rejected by `/api/deploy-workflow`: `compile-xml` wrapped the workflow in a `<Controller>` document and `/api/compile` left out `<Parameters>`, so nothing the app produced could reach Ignition unchanged. Spec: [Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81).
 
 What changed:
 - `compiler.mjs` has two targets. `controller` (default) is the unchanged PLC document; `ignition` is the bare `<Workflow>` document the deploy validator accepts. Both come from one builder, `buildWorkflowXml`.
