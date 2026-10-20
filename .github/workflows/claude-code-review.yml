@@ -25,6 +25,8 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+      # write: a run that couldn't start is reported as a skipped check (see the last step).
+      checks: write
 
     steps:
       - name: Checkout repository
@@ -35,6 +37,8 @@ jobs:
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
+        # The next step decides whether a failure fails the job or counts as a skipped review.
+        continue-on-error: true
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
@@ -49,3 +53,33 @@ jobs:
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
 
+      # A run that ends with is_error:true after at most one turn, with no cost and no model usage,
+      # never reached the model (usage limit or token problem): report it as a skipped check and
+      # keep the job green. Any other failure still fails the job.
+      - name: Fail or skip after a review error
+        if: steps.claude-review.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          file="${EXECUTION_FILE:-$RUNNER_TEMP/claude-execution-output.json}"
+          result='null'
+          if [ -s "$file" ]; then
+            # The file is a JSON array of messages (or one message per line); take the last result.
+            result=$(jq -cs 'if (.[0] | type) == "array" then .[0] else . end
+              | map(select(.type == "result")) | last' "$file" 2>/dev/null || echo 'null')
+          fi
+          echo "Result: $result"
+          not_started=$(echo "$result" | jq -r 'if . == null then false else
+            (.is_error == true) and ((.num_turns // 0) <= 1) and ((.total_cost_usd // 0) == 0)
+            and ((.modelUsage // {}) | length == 0) end')
+          if [ "$not_started" != "true" ]; then
+            echo "::error::Claude Code Review failed. See the step above."
+            exit 1
+          fi
+          message="Claude Code Review didn't run: it stopped before reaching the model (is_error:true, $(echo "$result" | jq -r '.num_turns // 0') turn, no cost). Usually a usage limit or an expired CLAUDE_CODE_OAUTH_TOKEN; push again or re-run the job later."
+          echo "::warning::$message"
+          echo "### Claude Code Review skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "$message" >> "$GITHUB_STEP_SUMMARY"
+          gh api "repos/$GITHUB_REPOSITORY/check-runs"             -f name='Claude Code Review (skipped)'             -f head_sha="$HEAD_SHA"             -f status=completed             -f conclusion=skipped             -f "output[title]=Review skipped"             -f "output[summary]=$message"
