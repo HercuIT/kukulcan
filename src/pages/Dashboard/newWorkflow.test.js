@@ -19,6 +19,7 @@ const M = UI_STRINGS.dashboard.menuBar;
 const P = UI_STRINGS.dashboard.page;
 const U = UI_STRINGS.dashboard.unsavedChangesModal;
 const S = UI_STRINGS.dashboard.saveWorkflowModal;
+const C = UI_STRINGS.dashboard.checkoutModal;
 
 const mockDesignerUser = { uid: "user-designer-1", email: "designer@example.com" };
 const mockDesignerRoles = { designer: true, reviewer: false, deployer: false };
@@ -159,6 +160,25 @@ describe("File -> New workflow and unsaved changes guard", () => {
   const pickFileMenu = (optionName) => {
     fireEvent.click(screen.getByText(M.menuLabels.File));
     fireEvent.click(screen.getByText(optionName));
+  };
+
+  // An opened workflow is read-only until checkout, so edits need File -> Checkout first.
+  const checkoutOpenWorkflow = async () => {
+    pickFileMenu(M.menuLabels.Checkout);
+    fireEvent.change(
+      screen.getByPlaceholderText(C.describeYourChangesHere),
+      { target: { value: "Edit before New" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: C.checkout }));
+    await waitFor(() => {
+      expect(workflowsApi.checkoutWorkflow).toHaveBeenCalledWith(
+        "wf-1",
+        "Edit before New",
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText(C.describeYourChangesHere)).toBeNull();
+    });
   };
 
   // --- Positive Scenarios ---
@@ -347,6 +367,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     const { container } = renderDashboard();
 
     await openWorkflowViaModal(container, sampleWorkflowDraft.name);
+    await checkoutOpenWorkflow();
 
     // Simulate canvas drop to make dirty
     const canvas = container.querySelector(".canvas-area");
@@ -373,6 +394,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     const { container } = renderDashboard();
 
     await openWorkflowViaModal(container, sampleWorkflowDraft.name);
+    await checkoutOpenWorkflow();
 
     // Make canvas dirty
     const canvas = container.querySelector(".canvas-area");
@@ -437,6 +459,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     const { container } = renderDashboard();
 
     await openWorkflowViaModal(container, sampleWorkflowDraft.name);
+    await checkoutOpenWorkflow();
 
     const canvas = container.querySelector(".canvas-area");
     window._dragComponent = { label: "Mixing", type: "Procedure Phase" };
@@ -479,6 +502,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     const { container } = renderDashboard();
 
     await openWorkflowViaModal(container, sampleWorkflowDraft.name);
+    await checkoutOpenWorkflow();
 
     const canvas = container.querySelector(".canvas-area");
     window._dragComponent = { label: "Mixing", type: "Procedure Phase" };
