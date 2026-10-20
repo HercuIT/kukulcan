@@ -2632,10 +2632,13 @@ export default function App({ user, userRoles }) {
   const [isDirty, setIsDirty] = useState(false);
 
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [unsavedModalReason, setUnsavedModalReason] = useState("logout");
 
   const inactivityTimer = useRef(null);
 
   const isDirtyRef = useRef(isDirty);
+
+  const pendingAfterSave = useRef(null);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -2699,10 +2702,34 @@ export default function App({ user, userRoles }) {
 
     if (isDirtyRef.current) {
       console.log("Mostrando modal de cambios no guardados");
+      setUnsavedModalReason("logout");
       setShowUnsavedModal(true);
     } else {
       console.log("Cerrando sesión directamente (sin cambios)");
       performLogout();
+    }
+  };
+
+  const startNewWorkflow = () => {
+    const nodes = getDefaultWorkflowNodes();
+    setCanvasNodes(nodes);
+    // Las conexiones del workflow anterior no pasan al nuevo: solo las aristas por defecto.
+    setManualConnections(connectionsForLoadedWorkflow({ nodes }));
+    setUsedComponents([]);
+    setCurrentWorkflowId(null);
+    setCurrentWorkflow(null);
+    setIsSessionReadOnly(false);
+    setIsDirty(false);
+    setSelectedNodes([]);
+    setSelectedNode(null);
+  };
+
+  const requestNewWorkflow = () => {
+    if (isDirty) {
+      setUnsavedModalReason("new");
+      setShowUnsavedModal(true);
+    } else {
+      startNewWorkflow();
     }
   };
 
