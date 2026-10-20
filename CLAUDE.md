@@ -38,12 +38,13 @@ CI runs lint, Prettier, the typecheck, the Jest unit tests and `npm run test:nod
 
 ## MCP servers
 
-`.mcp.json` registers two MCP servers for this repo:
+`.mcp.json` registers three MCP servers for this repo:
 
 - `firebase`: the Firebase CLI's MCP server (`firebase-tools mcp`), limited to the `auth` and `firestore` tools. It acts as whoever is logged into the Firebase CLI, against the shared `xicotencatl` project. The app no longer uses Firebase; keep this only to inspect the old data until the project is deleted. Writes and deletes follow the Firebase rule under "Watch out for".
 - `supabase`: Supabase's hosted MCP server in read-only mode. Once the Supabase project exists, add `&project_ref=<ref>` to its URL. Keep `read_only=true` unless the user asks for write access.
+- `linear`: Linear's hosted MCP server (`https://mcp.linear.app/mcp`), acting as whoever signs in, in the Linear workspace (team HTE, project TW_Manufacturing). It can write: post only what a rule here asks for (the spec-link comment under "Writing specs") or what the user asks for, and don't change issue status, assignees or other fields unless asked. If you already added Linear at user scope under another name, remove one of the two so its tools aren't listed twice.
 
-Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their own: Firebase through `firebase login`, Supabase through OAuth in the browser.
+Never put tokens or other secrets in `.mcp.json`. Each server signs in on its own: Firebase through `firebase login`, Supabase and Linear through OAuth in the browser.
 
 ## Domain facts
 
@@ -100,7 +101,7 @@ What specs and features in the designer have to work with (all in `src/pages/Das
 
 ## Writing specs
 
-A spec is written before implementation, as a Claude Doc (not a file in the repo), and listed in the **Specs** table in `README.md` with its link and status. For a Linear ticket (`HTE-<n>`), once the spec doc is created, add its link as a comment on that issue in Linear (team HTE, through the Linear MCP server): the doc's title and link, what it builds on, and a line pointing to its open questions. Read the specs it depends on first (e.g. WFPR-003 builds on VCR-001's rules). Use these sections, in this order:
+A spec is written before implementation, as a Claude Doc (not a file in the repo), and listed in the **Specs** table in `README.md` with its link and status. For a Linear ticket (`HTE-<n>`), once the spec doc is created, add its link as a comment on that issue in Linear (team HTE), through the `linear` MCP server in `.mcp.json`, or by hand in the Linear app if the server isn't connected: the doc's title and link, what it builds on, and a line pointing to its open questions. Read the specs it depends on first (e.g. WFPR-003 builds on VCR-001's rules). Use these sections, in this order:
 
 1. **Overview:** the user story verbatim, goals, non-goals, and a "Done when" list of checkable outcomes.
 2. **Current state:** what the code does today, naming files, components and constants (see "Editor domain model" above), and the known defects the feature touches.

@@ -256,6 +256,7 @@ Steps:
 | --- | --- | --- |
 | `firebase` | Firebase CLI MCP server (`npx firebase-tools@latest mcp --only auth,firestore`), kept to inspect the old data until the Firebase project is deleted | Your Firebase CLI login (`firebase login`) on project `xicotencatl` |
 | `supabase` | Supabase hosted MCP server (`https://mcp.supabase.com/mcp?read_only=true`) | OAuth in the browser on first use; read-only |
+| `linear` | Linear hosted MCP server (`https://mcp.linear.app/mcp`), used to post spec links on `HTE-<n>` issues (see "Specs") | OAuth in the browser on first use; acts as you, with your Linear permissions |
 
 Agent instructions live in `CLAUDE.md`; `GEMINI.md` imports it for Gemini CLI (which reads MCP servers from `.gemini/settings.json`, not `.mcp.json`). Claude Code asks you to approve project servers the first time you run `claude` in the repo; check them with `claude mcp list`. On native Windows, if the `firebase` server fails to start, change its `command` to `cmd` and put `"/c", "npx"` in front of its args. Don't commit tokens to `.mcp.json`.
 
