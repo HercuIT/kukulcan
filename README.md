@@ -144,6 +144,14 @@ npm install
 node src/index.js      # or: npx nodemon src/index.js
 ```
 
+`/api/deploy-siemens` is a stub (see "Known defects" in `CLAUDE.md`): there is no TIA Portal Openness server to push to yet. To exercise the Siemens XML contract itself (SimaticML `<Document>` / AutomationML `<CAEXFile>`) without that real server, run the local mock:
+
+```bash
+node server/src/mock/index.js      # listens on 127.0.0.1:4100 (MOCK_SIEMENS_PORT)
+```
+
+It simulates `POST /api/v1/siemens/import` (`?targetType=`, `?importOption=`, `?swImportOption=`) against the two Openness XML contracts; see `server/src/mock/opennessMockApp.js` and its tests in `server/test/opennessMockApp.test.js`. It is not wired into `deploySiemensRoutes.js`.
+
 The server listens on `127.0.0.1:3001` and reads these settings from `server/.env`:
 
 | Variable | Meaning |
@@ -270,7 +278,7 @@ Agent instructions live in `CLAUDE.md`; `GEMINI.md` imports it for Gemini CLI (w
 | `npm start` | Start the dev server |
 | `npm run build` | Build for production into `build/` |
 | `npm test` | Run Jest in watch mode |
-| `npm run test:node` | Run the Node tests: database (PGlite), `compile-xml`, the XML deploy contract, server logger, migration transforms. The contract test needs `server/`'s dependencies: run `npm ci --prefix server` once (CI does) |
+| `npm run test:node` | Run the Node tests: database (PGlite), `compile-xml`, the XML deploy contract, server logger, the Siemens Openness mock, migration transforms. The contract test needs `server/`'s dependencies: run `npm ci --prefix server` once (CI does) |
 | `npm run lint` | Run ESLint |
 | `npm run format` / `npm run format-check` | Run Prettier (write / check) |
 | `npm run typecheck` | Type-check the JavaScript with TypeScript (`checkJs`, `tsconfig.typecheck.json`): `src/`, `server/src/`, the compiler and `scripts/*.js`. Needs `server/`'s dependencies (`npm ci --prefix server`) for the Express and axios types |
