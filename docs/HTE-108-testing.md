@@ -35,6 +35,7 @@ What changed:
 | Edge | Entirely empty parameter rows (`{name:"",value:""}`, `{}`, `null`) next to a valid one | Skipped; workflow passes |
 | Edge | `target: "controller"` vs no target | Byte-identical output |
 | Edge | String body over 5 MB with `target: "ignition"` | 413 |
+| Negative | An Ignition document over 10 MB from under 5 MB of JSON (escaping) | 413 at compile time, no XML; the controller document still compiles |
 | Regression | Deploy route | Still exports the validator it uses |
 
 `supabase/tests/compile-xml.test.mjs` (existing suite plus new `target` cases):
@@ -46,7 +47,19 @@ What changed:
 | Negative | `target: 5` or `""` | 400 `Target desconocido` |
 | Edge | `target: null` | Treated as `controller` |
 
-Jest (`src/backend/workflowsApi.test.js`): `compileWorkflow(workflow, { target })` adds `target` to the body without mutating the workflow (positive); deployable errors are listed in the thrown message (negative); `{ target: undefined }` sends the workflow unchanged (edge).
+`server/test/app.test.js` (the real Express app, Supabase variables blanked):
+
+| Kind | Scenario | Expected |
+| --- | --- | --- |
+| Positive | `/api/compile` through the app | 200, Ignition document |
+| Negative | JSON over 5 MB | JSON 413 `Payload Too Large. The maximum body size is 5 MB.` (was a 500) |
+| Negative | XML over 10 MB to `/api/deploy-workflow` | JSON 413 naming 10 MB |
+| Edge | XML between 5 and 10 MB | Reaches the validator (400 for a non-`<Workflow>` root), not a 413 |
+| Edge | App limits vs compiler limits | XML limit = `maxXmlBytes`, JSON limit = `maxBodyBytes` |
+
+`server/test/logger.test.js`: `summarizeBody` keeps small bodies whole with their size, cuts large ones to a 2,000-character preview flagged `bodyTruncated` with the exact byte size, and handles missing and object bodies.
+
+Jest (`src/backend/workflowsApi.test.js`): `compileWorkflow(workflow, { target })` adds `target` to the body without mutating the workflow (positive); deployable errors are listed in the thrown message (negative); `{ target: undefined }` sends the very same workflow object, with no `target` key (edge).
 
 ## Test Cases
 
