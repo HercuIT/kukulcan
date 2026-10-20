@@ -26,9 +26,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
     "lint:css": "stylelint 'public/**/*.css'",
     "lint:html": "htmlhint 'public/**/*.html'",
-    "test:node": "node --test supabase/tests/schema.test.mjs supabase/tests/definitions.test.mjs supabase/tests/compile-xml.test.mjs server/test/logger.test.js scripts/migration/test/transform.test.js",
+    "test:node": "node --test supabase/tests/schema.test.mjs supabase/tests/definitions.test.mjs supabase/tests/compile-xml.test.mjs supabase/tests/xml-contract.test.mjs server/test/logger.test.js server/test/app.test.js scripts/migration/test/transform.test.js",
     "theme": "node scripts/build-theme.js"
   },
   "eslintConfig": {
@@ -51,13 +52,17 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "htmlhint": "^1.6.3",
     "prettier": "^3.2.5",
     "stylelint": "^16.2.1",
-    "stylelint-config-standard": "^36.0.0"
+    "stylelint-config-standard": "^36.0.0",
+    "typescript": "^4.9.5"
   },
   "proxy": "http://localhost:3001",
   "jest": {

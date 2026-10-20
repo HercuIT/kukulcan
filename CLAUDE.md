@@ -12,14 +12,15 @@ A React (Create React App) visual editor for manufacturing workflows, backed by 
 npm install && npm start      # web app on :3000; /api is proxied to :3001
 npm run lint                  # ESLint (CI)
 npm run format-check          # Prettier (CI); run `npm run format` to fix
+npm run typecheck             # TypeScript over the JavaScript, checkJs (CI)
 npm run build                 # production build
 npm run theme                 # regenerate src/styles/theme.css from src/styles/tokens.json
 npm test                      # Jest watch mode (CI); `CI=true npm test` runs once
-npm run test:node             # Node tests: migrations on PGlite, compile-xml, server logger, migration scripts (CI)
+npm run test:node             # Node tests: migrations on PGlite, compile-xml, XML deploy contract, server logger, migration scripts (CI; the contract test needs `npm ci --prefix server`)
 cd server && node src/index.js    # local API on 127.0.0.1:3001
 ```
 
-CI runs lint, Prettier, the Jest unit tests and `npm run test:node`. Merges to `main` that change `supabase/` also run `.github/workflows/deploy_supabase.yaml`, which pushes migrations and deploys `compile-xml` to the live project (`xiidwepvvjcqyhywmdrn`), so a migration merged to `main` is a production change. Run all four before you call a change done. On Windows, check Prettier with `npx prettier --check --end-of-line auto <files>`: `core.autocrlf` checks files out with CRLF, which plain `format-check` reports as errors.
+CI runs lint, Prettier, the typecheck, the Jest unit tests and `npm run test:node`. Test files (`*.test.js`/`.mjs`, `src/setupTests.js`, `server/test/`, `supabase/tests/`, `scripts/migration/test/`) are left out of lint, Prettier and the typecheck (`.eslintignore`, `.prettierignore`, `tsconfig.typecheck.json`); Jest and `test:node` still run them. Merges to `main` that change `supabase/` also run `.github/workflows/deploy_supabase.yaml`, which pushes migrations and deploys `compile-xml` to the live project (`xiidwepvvjcqyhywmdrn`), so a migration merged to `main` is a production change. Run all five before you call a change done. On Windows, check Prettier with `npx prettier --check --end-of-line auto <files>`: `core.autocrlf` checks files out with CRLF, which plain `format-check` reports as errors.
 
 ## Where things are
 
@@ -27,7 +28,8 @@ CI runs lint, Prettier, the Jest unit tests and `npm run test:node`. Merges to `
 - `src/pages/Dashboard/*Modal.js`: the save, open, share, version-history, checkout and unsaved-changes dialogs.
 - `src/backend/`: the only code that talks to Supabase. `supabaseClient.js` (client from `REACT_APP_SUPABASE_URL` / `REACT_APP_SUPABASE_PUBLISHABLE_KEY`), `authApi.js` (sign-in/up/out, `onSessionChange`, `getMyRoles`), `workflowsApi.js` (workflow CRUD, `subscribeToWorkflow`, `listMyWorkflows`, `listUsers`, one wrapper per RPC, `compileWorkflow`), `definitionsApi.js` (the User Created Definitions tree: RPC wrappers, `subscribeToDefinitions`, iterative tree helpers `buildDefinitionTree` / `visibleRows` / `expandForCanvas`), `mappers.js` (rows ↔ the legacy `{ id, name, content: { nodes, connections }, metadata }` shape, error codes; RPC rule hints are kept on `error.hint`). Components import these, never `@supabase/supabase-js`. The `user` prop is `{ uid, email }`.
 - `supabase/migrations/`: schema, RLS policies, triggers and the RPC functions (`submit_for_review`, `assign_reviewer`, `approve_workflow`, `request_changes`, `add_designer`, `remove_designer`, `checkout_workflow`, `my_workflows`; WFPR-003: `create_definition`, `add_predefined_child`, `update_definition`, `move_definition`, `delete_definition`), plus `migrate_workflow` (service role only, used by `scripts/migration/migrate-data.js`). Every schema change is a new migration file, created with `npx supabase migration new <name>` (UTC timestamp). Never hand-pick a timestamp: one in the future makes later CLI-created migrations run before it. Once a migration is on the Supabase project, don't rename or edit it; add a new one.
-- `supabase/functions/compile-xml/`: the Edge Function; `compiler.mjs` holds the validation and XML code (a second copy lives in `server/src/routes/compileRoutes.js`).
+- `supabase/functions/compile-xml/`: the Edge Function; `compiler.mjs` is the only compiler (validation, `buildWorkflowXml`, the `controller` and `ignition` targets, `validateDeployable`). `server/src/routes/compileRoutes.js` loads it with a dynamic `import()` (the server must run from a checkout that includes `supabase/`). The deploy validator is `server/src/validarWorkflow.js`; `supabase/tests/xml-contract.test.mjs` runs both compile paths through it.
+- `server/src/app.js`: the Express app (body limits: JSON 5 MB, XML 10 MB; the JSON 413/400/500 error handler); `index.js` only starts it, and `server/test/app.test.js` tests it in-process with the Supabase variables blanked so nothing reaches the live `server_logs`.
 - `server/src/routes/`: `health`, `ignitionHealth`, `compile` (JSON→XML), `deployWorkflow` (XML→Ignition). `server/src/logger.js` inserts one Supabase `server_logs` row per event through `supabaseAdmin.js` (service role).
 - `scripts/migration/`: one-off Firebase → Supabase scripts (`import-users.js`, `migrate-data.js`, `verify.js`, `send-password-resets.js`) with their own `package.json`.
 - `src/pages/SetPassword/`: the `/set-password` page that the password email links to (imported users have no password until they set one there).
@@ -46,7 +48,7 @@ Never put tokens or other secrets in `.mcp.json`. Both servers sign in on their 
 
 - Tables: `profiles` (one per `auth.users` row; role flags `designer`, `reviewer`, `deployer`, created by a sign-up trigger), `workflows` (canvas nodes in `nodes` jsonb, canvas edges in `connections` jsonb), `user_definitions` (the shared User Created Definitions tree: `parent_id`, manual `position` among siblings, `kind` = `user` or `predefined` for a reference to a pre-defined element; no depth limit; changed only through the WFPR-003 RPCs, which raise `P0001` with a `hint` such as `cycle` or `duplicate_sibling`), `workflow_designers`, `workflow_history` (`kind` = `checkout` or `changes_requested`), `server_logs` (service role only).
 - Workflow `status`: `draft` → `pending_review` → `approved`, or `pending_review` → `changes_requested` → back to editing. Clients may only update `name`, `nodes` and `connections` (column grants + RLS; `checkout_description` is set by `checkout_workflow`); status, reviewer and collaborator changes go through the RPC functions, which check `assigned_reviewer_id` and `workflow_designers`. A trigger bumps `version` when `name`, `nodes` or `connections` change and stamps `last_modified_*` for user writes (service-role writes keep their values).
-- A valid workflow has exactly one Begin/Start node with no inputs and one End node with no outputs. In XML, node types map to `BeginElement`, `EndElement`, `NodeDefinitionName`, etc. (`TYPE_TO_XML` in `server/src/routes/compileRoutes.js`). Deploy requires every non-Begin/End node to have at least one `<Parameter>` with a non-empty value.
+- A valid workflow has exactly one Begin/Start node with no inputs and one End node with no outputs. In XML, Begin/Start → `BeginElement`, End → `EndElement`, other types pass through (`TYPE_TO_XML` in `compiler.mjs`). Anything bound for Ignition is compiled with `target: "ignition"`; the default `controller` document is the PLC download and isn't deployable. Deploy requires every non-Begin/End node to have at least one `<Parameter>` with a non-empty value.
 
 ## Editor domain model
 
@@ -73,9 +75,9 @@ What specs and features in the designer have to work with (all in `src/pages/Das
   | --- | --- | --- |
   | Editing (live) and before compiling | `validateWorkflow` in `Dashboard.js` | Graph shape in the editor: one START, at least one END, no disconnected or unreachable nodes |
   | Saving, sharing, status changes | RLS, column grants and RPC functions in the database | Who may change what, and the workflow status rules |
-  | Compiling in the app | `validateWorkflow` in `supabase/functions/compile-xml/compiler.mjs` | Structure, node ids, Begin/End, connections, size limits |
-  | Compiling through the local server (`POST /api/compile`) | `validateWorkflow` in `server/src/routes/compileRoutes.js` | A separate, older copy of the same graph checks: it must mirror `compiler.mjs` when either changes |
-  | Deploying (`POST /api/deploy-workflow`) | `validarWorkflow` in `server/src/routes/deployWorkflowRoutes.js` | The Ignition XML contract (see `README.md`) |
+  | Compiling in the app | `validateWorkflow` in `supabase/functions/compile-xml/compiler.mjs`; plus `validateDeployable` for `target: "ignition"` | Structure, node ids, Begin/End, connections, size limits; for Ignition, every non-Begin/End node has named parameters with values |
+  | Compiling through the local server (`POST /api/compile`) | The same `compiler.mjs` (target `ignition` by default) | Same as above |
+  | Deploying (`POST /api/deploy-workflow`) | `validarWorkflow` in `server/src/validarWorkflow.js` | The Ignition XML contract (see `README.md`); `supabase/tests/xml-contract.test.mjs` keeps both compile paths passing it |
 
 ## Rules for new code
 
@@ -124,10 +126,12 @@ Both the Supabase migration and later specs follow the same pattern. A new table
 ## Conventions
 
 - Code comments and user-facing strings mix Spanish and English. Match whatever the surrounding code uses; don't translate existing text, including when you move it into `uiStrings.js`.
+- Types: `npm run typecheck` runs `tsc -p tsconfig.typecheck.json` (TypeScript 4.9, kept in `react-scripts` 5's peer range; `checkJs`, not strict) over `src/`, `server/src/`, `compiler.mjs` and `scripts/*.js`. Fix a type error rather than silencing it; where JS can't express a type, use a JSDoc annotation or cast (`/** @type {HTMLElement[]} */ (…)`). Globals such as `window._dragComponent` are declared in `src/types/globals.d.ts`. The file isn't named `tsconfig.json` because Create React App would then treat the app as TypeScript. In CommonJS, take axios as `require("axios").default` (the export its types describe).
 - Formatting comes from Prettier defaults (double quotes, trailing commas). Don't hand-format; run `npm run format`. Markdown files (`*.md`) and `.claude/` are excluded in `.prettierignore`; don't run Prettier on them.
 - `<TICKET>` below is the ticket or story ID exactly as the request gives it: Jira tickets (`HTE-<n>`) and story IDs from the backlog (`VCR-001`, `WFPR-003`, …).
 - Name branches `<TICKET>-<short-name>`. Start commits and PR titles with `<TICKET>: <description>`.
 - Each ticket ships a manual test plan at `docs/<TICKET>-testing.md` with sections Issue, Test Cases (TC-01… with Steps and Expected), and Result. Add or update it alongside the feature.
+- Pull requests get an automatic Claude review (`.github/workflows/claude-code-review.yml`, Anthropic's `code-review` plugin, which also checks changes against this file), and `@claude` in a PR or issue comment asks Claude about it (`claude.yml`, read-only). Both came from `/install-github-app`; keep them as generated unless the user asks otherwise. Setup and the `CLAUDE_CODE_OAUTH_TOKEN` secret: README → "Claude Code review".
 - Never end a filename with a space or dot. It breaks checkout on Windows (this already happened with an HTE-89 doc).
 
 ## Watch out for
@@ -141,9 +145,11 @@ Both the Supabase migration and later specs follow the same pattern. A new table
   | --- | --- |
   | `OPERATIONS_BY_PHASE` nests Operations inside Phases, the reverse of ISA-88 (Phases inside Operations); VCR-001 proposes flipping it | `Dashboard.js` |
   | Hierarchy panel expand state is keyed by label, so same-named rows expand together (fixed for User Created Definitions, which key by id) | `TreeViewExample` |
-  | Neither compiler's output passes the deploy validator as-is: `compile-xml` wraps `<Workflow>` in `<Controller>`, and `/api/compile` emits nodes without `<Parameters>` | `compiler.mjs`, `compileRoutes.js`, `deployWorkflowRoutes.js` |
-  | `/api/compile` (`compileRoutes.js`) doesn't read flat parameter arrays; `compile-xml` does | `server/src/routes/compileRoutes.js` |
   | `/api/deploy-workflow` doesn't require a signed-in deployer (follow-up from PR #1) | `deployWorkflowRoutes.js` |
+  | `MenuBar` ignores props `Dashboard` passes it (`userRoles`, `title`, `onApprove`, `isDeployer`), so the menu's Review button has no handler; `OpenWorkflowModal` ignores `workflows` (it loads its own list). Found by the typecheck; the components accept any props until this is cleaned up | `MenuBar` in `Dashboard.js`, `OpenWorkflowModal.js` |
+  | `Selecto` gets the canvas ref object as `container` instead of the element (cast to `any` for the typecheck, behaviour left as is) | `Dashboard.js` |
+  | The deploy validator's XML parser (`fast-xml-parser` 5.3) is quadratic on one long run of text: a single 100 kB text node takes about 19 s and 200 kB about a minute. Compiler output (many short elements) is fast (3 MB in under 1 s), and the server only listens on 127.0.0.1, but any local client can stall it. A fix needs a pre-parse guard or a parser change (found in the HTE-108 review) | `server/src/validarWorkflow.js`, `deployWorkflowRoutes.js` |
+  | The deploy validator skips the connection check when `<Connections>` appears twice (the parser turns it into an array, so `.Connection` is undefined), and it never checks that `from`/`to` name an existing `<Node>`. Both compilers already reject such graphs; only hand-written XML posted to `/api/deploy-workflow` gets through (found in the HTE-108 review; HTE-108 kept the validator unchanged) | `server/src/validarWorkflow.js` |
   | The Equipment tree is sample data (*Enterprise Node* → four machines) that doesn't follow the documented Equipment hierarchy; Assets has its two branches (Assets Definitions, Assets Instances) but nothing beneath them | `equipmentData.js`, `assetsNode` in `Dashboard.js` |
 
 - RLS gotchas: a client `insert … returning` on `workflows` fails because the read policy depends on `workflow_designers`, which the trigger fills after the insert. `createWorkflow` generates the id client-side and inserts without `returning`. An update that RLS filters out returns zero rows instead of an error, so `saveWorkflow` checks the row count.

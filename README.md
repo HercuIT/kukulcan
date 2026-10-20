@@ -163,12 +163,12 @@ Endpoints:
 | --- | --- | --- |
 | GET | `/api/health` | Liveness check |
 | GET | `/api/ignition-health` | Checks that the Ignition gateway is reachable and `RUNNING` |
-| POST | `/api/compile` | Validates a workflow JSON (`nodes`, `connections`; exactly one Begin and one End) and returns XML |
-| POST | `/api/deploy-workflow` | Validates workflow XML (`Content-Type: application/xml`) and forwards it to Ignition |
+| POST | `/api/compile` | Compiles a workflow JSON with the same compiler as `compile-xml` (`supabase/functions/compile-xml/compiler.mjs`; the server must run from a checkout that includes `supabase/`). Target `ignition` by default: returns the `<Workflow>` document `/api/deploy-workflow` accepts, or 400 naming each node/parameter that would fail deploy. Send `"target": "controller"` for the PLC document. Bodies up to 5 MB |
+| POST | `/api/deploy-workflow` | Validates workflow XML (`Content-Type: application/xml`, up to 10 MB) and forwards it to Ignition. Its request log stores the body's size and a 2,000-character preview, not the whole body |
 
 ### Ignition XML contract
 
-`/api/deploy-workflow` checks the XML (`validarWorkflow` in `server/src/routes/deployWorkflowRoutes.js`), then POSTs it unchanged to `http://<IP_IGNITION>:<PORT_IGNITION>/system/webdev/<PROJECT_NAME_IGNITION>/api/recibirXML` with basic auth. The XML it accepts:
+`/api/deploy-workflow` checks the XML (`validarWorkflow` in `server/src/validarWorkflow.js`, used by `server/src/routes/deployWorkflowRoutes.js`), then POSTs it unchanged to `http://<IP_IGNITION>:<PORT_IGNITION>/system/webdev/<PROJECT_NAME_IGNITION>/api/recibirXML` with basic auth. The XML it accepts:
 
 ```xml
 <Workflow id="W-001" name="…" version="…">            <!-- root element; id required, non-empty -->
@@ -187,15 +187,13 @@ Endpoints:
 </Workflow>
 ```
 
-- Node types map to XML `type` differently in the two compilers:
-  - `compile-xml` (used by the app): Begin/Start → `BeginElement`, End → `EndElement`, and any other type passes through unchanged (an ISA-88 level stays e.g. `Procedure Phase`).
-  - `/api/compile` (`compileRoutes.js`): also maps the ISA-88 levels to `NodeDefinitionName`.
-
-  The deploy validator doesn't check `type`, so both pass it. What `recibirXML` expects for procedural nodes is unconfirmed.
+- **One builder, two targets.** There is one compiler, `supabase/functions/compile-xml/compiler.mjs`, used by the `compile-xml` Edge Function and by `POST /api/compile`. `buildWorkflowXml(wf)` renders the `<Workflow>` element above; the body's `target` picks the document:
+  - `controller` (the default for `compile-xml`, unchanged): the PLC document, which embeds that `<Workflow>` inside `<Controller>`/`<Programs>`/`<SFCContent>`. It is what the app's Compile button downloads, and it is **not** deployable (no `<Workflow>` root).
+  - `ignition` (the default for `/api/compile`): exactly the document above. In the frontend it's available as `compileWorkflow(workflow, { target: "ignition" })`, but no screen calls it yet: the Compile button still downloads the controller document, and there's no Deploy button. The document is capped at 10 MB (`LIMITS.maxXmlBytes`, a 413 at compile time), the same size `/api/deploy-workflow` accepts, so anything that compiles for Ignition fits the deploy endpoint. Before building it, `validateDeployable` applies the deploy validator's node rules to the JSON, so an incomplete workflow fails at compile time with `400 Fallo de compilación` and one error per node or parameter (`El workflow necesita un id que no esté en blanco.`, `El nodo '<name>' debe tener al menos un parámetro.`, `El nodo '<name>' tiene un parámetro sin nombre.`, `El nodo '<name>' requiere un valor para el parámetro '<param>'.`). An unknown target returns `400 Target desconocido: '<value>'. Usa 'controller' o 'ignition'.`
+- `supabase/tests/xml-contract.test.mjs` (in `npm run test:node`) compiles a set of fixtures through both paths and feeds each result to `validarWorkflow`: complete workflows with grouped and flat parameters, Begin → End only, escaped names, 5,000 nodes, skipped empty rows, and the failing cases (missing values or names, blank id, unknown target). It catches drift in those scenarios; it doesn't prove every possible workflow deploys, so add a fixture when you change either side.
+- Node types: Begin/Start → `BeginElement`, End → `EndElement`, and any other type passes through unchanged (an ISA-88 level stays e.g. `Procedure Phase`; node ids stay the canvas ids). The deploy validator doesn't check `type`. What `recibirXML` expects for procedural nodes is unconfirmed.
+- Parameters come from grouped (`{ group: [...] }`) or flat (`[{ name, dataType, defaultValue }]`) arrays; `value` falls back to `defaultValue` only when it's missing, and rows with no name, value or units are skipped.
 - Ignition answers with a JSON `status`/`message`. "The file already exists in the destination folder." means a workflow with that file name was already deployed.
-- **Known gap:** neither compiler's output passes this check as-is:
-  - `compile-xml` (used by the app) wraps `<Workflow>` in a `<Controller>`/`<Programs>`/`<SFCContent>` document for the PLC.
-  - `/api/compile` emits nodes without `<Parameters>`.
 - **Changing the contract:** any change (new elements such as nested nodes, new required attributes) needs the Ignition project's `recibirXML` script to change too. Specs treat it as a non-goal unless the story says otherwise.
 
 ### Database and Edge Function
@@ -268,13 +266,14 @@ Claude Code asks you to approve project servers the first time you run `claude` 
 | `npm start` | Start the dev server |
 | `npm run build` | Build for production into `build/` |
 | `npm test` | Run Jest in watch mode |
-| `npm run test:node` | Run the Node tests: database (PGlite), `compile-xml`, server logger, migration transforms |
+| `npm run test:node` | Run the Node tests: database (PGlite), `compile-xml`, the XML deploy contract, server logger, migration transforms. The contract test needs `server/`'s dependencies: run `npm ci --prefix server` once (CI does) |
 | `npm run lint` | Run ESLint |
 | `npm run format` / `npm run format-check` | Run Prettier (write / check) |
+| `npm run typecheck` | Type-check the JavaScript with TypeScript (`checkJs`, `tsconfig.typecheck.json`): `src/`, `server/src/`, the compiler and `scripts/*.js`. Needs `server/`'s dependencies (`npm ci --prefix server`) for the Express and axios types |
 | `npm run lint:css` / `npm run lint:html` | Run Stylelint / HTMLHint on `public/` |
 | `npm run theme` | Regenerate `src/styles/theme.css` from `src/styles/tokens.json` (see "Theme") |
 
-CI (`.github/workflows/code_check.yaml`) runs `npm run lint`, `npm run format-check`, the Jest unit tests (`npm test`) and `npm run test:node` on every pull request to `main`.
+CI (`.github/workflows/code_check.yaml`) installs the root and `server/` dependencies, then runs `npm run lint`, `npm run format-check`, `npm run typecheck`, the Jest unit tests (`npm test`) and `npm run test:node` on every pull request to `main`. Test files are left out of lint, Prettier and the typecheck (`.eslintignore`, `.prettierignore`, `tsconfig.typecheck.json`); Jest and `test:node` still run them.
 
 ## Theme
 
@@ -333,7 +332,7 @@ src/
 public/brand/                  Kukulcan logo SVGs
 public/ICONOSPNG/              toolbar icons
 supabase/migrations/           schema, RLS, triggers and RPC functions
-supabase/functions/compile-xml Edge Function (compiler.mjs holds the XML logic)
+supabase/functions/compile-xml Edge Function (compiler.mjs holds the XML logic; /api/compile uses it too)
 supabase/tests/                Node tests for the database and the compiler
 server/src/                    Express API (routes/, logger.js, supabaseAdmin.js)
 scripts/migration/             one-off Firebase → Supabase migration scripts
@@ -352,7 +351,16 @@ Features are specified before they're built, as Claude Docs, using the section t
 | WFPR-004 | [Expandable Pre-Defined Definitions](https://claude.ai/code/artifact/cf5b6f1e-aa6f-400f-bc6f-f425c4349488) | Draft, depends on VCR-001; open questions pending |
 | HTE-111 | [Spec: Theme and logo](https://claude.ai/code/artifact/bbc1a1f8-71e3-4839-834b-d630c81cae85) | Implemented on `feat/HTE-111` (PR #7); test plan `docs/HTE-111-testing.md` |
 | HTE-107 | [HTE-107: Email confirmation and registration form](https://claude.ai/code/artifact/6b732d1e-e3b8-461c-8c72-2d61864a50d0) | Draft, open questions pending |
-| Compiled XML can't be deployed (no ticket yet) | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Draft, open questions pending |
+| HTE-108 | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Implemented on `fix/HTE-108-compile-targets` (Option A); test plan `docs/HTE-108-testing.md` |
+
+## Claude Code review
+
+Two workflows use Anthropic's [`claude-code-action`](https://github.com/anthropics/claude-code-action). They were created by `/install-github-app` in Claude Code, which also installed the Claude GitHub app and added the `CLAUDE_CODE_OAUTH_TOKEN` secret (the Claude subscription token of whoever ran it, not API billing):
+
+- `.github/workflows/claude-code-review.yml` reviews every pull request when it's opened, updated, reopened or marked ready, with Anthropic's official `code-review` plugin (`/code-review:code-review --comment`). The plugin checks the change, including against `CLAUDE.md`, and posts its findings as inline comments. The job has read-only repository permissions, so it can't push.
+- `.github/workflows/claude.yml` answers `@claude` in PR comments, review comments, reviews and issues (title or body). It also runs with read-only permissions (plus reading CI results), so it answers and comments but doesn't push changes.
+
+Both use the action's moving `@v1` tag (and `actions/checkout@v4`), as the installer generates them. To redo the setup (for example after the token expires), run `/install-github-app` again or replace the secret with a new `claude setup-token` value. To filter which PRs get reviewed (authors, paths), see the commented options in `claude-code-review.yml`.
 
 ## Contributing
 

@@ -23,7 +23,9 @@ export const AUTH_ERROR_CODES = {
 // El mensaje se conserva: las RPC lanzan los mismos mensajes que las Cloud Functions.
 export function toAppError(error, fallbackMessage = "Unexpected error") {
   if (!error) return null;
-  const appError = new Error(error.message || fallbackMessage);
+  const appError = /** @type {Error & { code?: string, hint?: string }} */ (
+    new Error(error.message || fallbackMessage)
+  );
   appError.code =
     ERROR_CODES[error.code] || AUTH_ERROR_CODES[error.code] || error.code;
   // El HINT de las RPC identifica la regla rota (p. ej. "cycle"); la UI lo traduce.
@@ -47,7 +49,8 @@ function historyEntry(row) {
   };
 }
 
-const byCreatedAt = (a, b) => new Date(a.created_at) - new Date(b.created_at);
+const byCreatedAt = (a, b) =>
+  new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
 
 // Fila de workflows (con workflow_designers y workflow_history embebidos) → forma legada.
 export function rowToWorkflow(row) {

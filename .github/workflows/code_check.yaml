@@ -25,11 +25,21 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # The XML contract test loads the Express routes, which need server/'s own dependencies
+      # (fast-xml-parser, axios, uuid).
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
       - name: Run ESLint
         run: npm run lint
 
       - name: Run Prettier check
         run: npm run format-check
+
+      # TypeScript over the JavaScript (checkJs, tsconfig.typecheck.json); needs server/'s
+      # dependencies for the Express and axios types, installed above.
+      - name: Run typecheck
+        run: npm run typecheck
 
       - name: Run unit tests
         run: npm test -- --watchAll=false

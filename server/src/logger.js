@@ -20,6 +20,20 @@ function toRow(level, logObj) {
   };
 }
 
+// Resumen de un cuerpo de petición para el log: tamaño y los primeros caracteres. Un cuerpo puede
+// pesar megas (hasta el límite de la app), y guardarlo entero en server_logs llenaría la base.
+const BODY_PREVIEW_CHARS = 2000;
+function summarizeBody(body, maxChars = BODY_PREVIEW_CHARS) {
+  if (body === undefined || body === null) return { bodyBytes: 0 };
+  const text = typeof body === "string" ? body : JSON.stringify(body);
+  const summary = {
+    bodyBytes: Buffer.byteLength(text, "utf8"),
+    bodyPreview: text.slice(0, maxChars),
+  };
+  if (text.length > maxChars) summary.bodyTruncated = true;
+  return summary;
+}
+
 // Un fallo al guardar el log se reporta en consola y nunca se propaga a la ruta.
 function createLogger(getClient = getSupabaseAdmin) {
   const write = async (level, logObj) => {
@@ -43,3 +57,4 @@ function createLogger(getClient = getSupabaseAdmin) {
 module.exports = createLogger();
 module.exports.createLogger = createLogger;
 module.exports.toRow = toRow;
+module.exports.summarizeBody = summarizeBody;

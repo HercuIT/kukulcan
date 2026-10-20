@@ -34,7 +34,11 @@ export async function createWorkflow({ name, nodes, connections = [] }) {
   return id;
 }
 
-// Guarda el contenido. El trigger sube la versión y sella fecha y autor.
+/**
+ * Guarda el contenido. El trigger sube la versión y sella fecha y autor.
+ * @param {string} id
+ * @param {{ nodes: any[], connections?: any[], name?: string }} fields
+ */
 export async function saveWorkflow(id, { nodes, connections, name }) {
   const fields = { nodes: cleanNodes(nodes) };
   // Nunca se guarda una conexión hacia un nodo borrado.
@@ -146,10 +150,14 @@ export const checkoutWorkflow = (wf, description) =>
 /**
  * Compila el workflow con la Edge Function compile-xml y devuelve el XML como Blob.
  * Si la compilación falla, lanza un Error con el mensaje y una línea "- error" por cada error.
+ * @param {object} workflow El workflow a compilar (nodes, connections, id, …).
+ * @param {{ target?: "controller" | "ignition" }} options target: "controller" (por defecto, el
+ *   documento del PLC que descarga Compile) o "ignition" (el <Workflow> que acepta
+ *   /api/deploy-workflow). Sin target el cuerpo se envía sin cambios.
  */
-export async function compileWorkflow(workflow) {
+export async function compileWorkflow(workflow, { target } = {}) {
   const { data, error } = await supabase.functions.invoke("compile-xml", {
-    body: workflow,
+    body: target === undefined ? workflow : { ...workflow, target },
   });
   if (error) {
     let details = {};

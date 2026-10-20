@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const router = express.Router();
-const axios = require("axios");
+const axios = require("axios").default;
 
 const GATEWAY_URL = `http://${process.env.IP_IGNITION}:${process.env.PORT_IGNITION}`;
 
