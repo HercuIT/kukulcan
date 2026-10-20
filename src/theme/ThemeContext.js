@@ -44,6 +44,19 @@ function darkQuery() {
 
 export const systemTheme = () => (darkQuery()?.matches ? "dark" : "light");
 
+// El color del navegador (meta theme-color) sigue al tema resuelto, también cuando el usuario
+// eligió uno distinto del sistema: se copia --kk-raised (el color de la barra de menú) a todas las
+// etiquetas. Sin hoja de estilos (p. ej. en pruebas) la variable está vacía y no se toca nada.
+export function syncThemeColor() {
+  const color = getComputedStyle(document.documentElement)
+    .getPropertyValue("--kk-raised")
+    .trim();
+  if (!color) return;
+  document
+    .querySelectorAll('meta[name="theme-color"]')
+    .forEach((tag) => tag.setAttribute("content", color));
+}
+
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
@@ -68,6 +81,7 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", resolvedTheme);
+    syncThemeColor();
   }, [resolvedTheme]);
 
   const setMode = useCallback((next) => {

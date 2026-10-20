@@ -1,6 +1,6 @@
-/* Barra superior (HTE-111): superficie según el tema, con borde inferior */
+/* Barra superior (HTE-111): fondo raised (design system), con borde inferior */
 .menu-bar {
-  background: var(--kk-surface);
+  background: var(--kk-raised);
   color: var(--kk-ink);
   border-bottom: 1px solid var(--kk-border);
   padding: 10px 24px;
@@ -35,7 +35,7 @@
 
 .menu-btn:hover,
 .menu-btn:focus {
-  background: var(--kk-raised);
+  background: var(--kk-border);
 }
 
 .dropdown {

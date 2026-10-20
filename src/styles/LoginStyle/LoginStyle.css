@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background-color: var(--kk-raised);
+  background-color: var(--kk-bg);
   font-family: var(--kk-font-sans);
 }
 .login-box {
@@ -24,7 +24,7 @@
   width: 100%;
   padding: 12px;
   margin-bottom: 16px;
-  border: 1px solid var(--kk-border);
+  border: 1px solid var(--kk-border-strong);
   border-radius: 4px;
   box-sizing: border-box; /* Importante para que el padding no afecte el ancho */
 }
@@ -40,13 +40,17 @@
   margin-top: 8px;
 }
 .login-box button:hover {
-  background-color: var(--kk-brand-mint);
+  box-shadow: inset 0 0 0 999px var(--kk-hover-overlay);
 }
+/* Botón secundario (design system): superficie, texto ink y borde de control */
 .login-box button.register-btn {
-  background-color: var(--kk-ink-muted);
+  background-color: var(--kk-surface);
+  color: var(--kk-ink);
+  border: 1px solid var(--kk-border-strong);
 }
 .login-box button.register-btn:hover {
-  background-color: var(--kk-ink-muted);
+  background: var(--kk-raised);
+  box-shadow: none;
 }
 .error-message {
   color: var(--kk-status-changes-fg);
@@ -78,5 +82,5 @@
   cursor: pointer;
 }
 .user-info button:hover {
-  background-color: var(--kk-status-changes-fg);
+  box-shadow: inset 0 0 0 999px var(--kk-hover-overlay);
 }

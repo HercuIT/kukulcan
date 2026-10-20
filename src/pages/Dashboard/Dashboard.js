@@ -2334,11 +2334,19 @@ export function MenuBar({
                     <div
                       key={option}
                       className="dropdown-option"
-                      role={THEME_OPTIONS[option] ? "menuitemradio" : undefined}
+                      role={THEME_OPTIONS[option] ? "menuitemradio" : "menuitem"}
                       aria-checked={
                         THEME_OPTIONS[option] ? isActive : undefined
                       }
+                      // Opciones alcanzables con Tab y activables con Enter/Espacio (teclado).
+                      tabIndex={0}
                       onClick={() => handleOptionClick(menu, option)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleOptionClick(menu, option);
+                        }
+                      }}
                     >
                       {isActive && (
                         <>

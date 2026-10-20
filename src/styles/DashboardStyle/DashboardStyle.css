@@ -92,9 +92,9 @@
 }
 
 /* Menú superior */
-/* Barra superior (HTE-111): superficie clara/oscura según el tema, con borde inferior */
+/* Barra superior (HTE-111): fondo raised (design system), con borde inferior */
 .menu-bar {
-  background: var(--kk-surface);
+  background: var(--kk-raised);
   color: var(--kk-ink);
   border-bottom: 1px solid var(--kk-border);
   padding: 10px 20px;
@@ -123,7 +123,7 @@
 }
 
 .menu-btn:hover {
-  background: var(--kk-raised);
+  background: var(--kk-border);
 }
 
 .dropdown {
@@ -222,7 +222,7 @@
 }
 
 .logout-btn:hover {
-  background-color: var(--kk-status-changes-fg);
+  box-shadow: inset 0 0 0 999px var(--kk-hover-overlay);
 }
 
 /* Toolbar */
@@ -447,11 +447,11 @@ button:disabled {
 }
 
 .create-node-modal-buttons button:hover {
-  background: var(--kk-border);
+  background: var(--kk-border-strong);
 }
 
 .create-node-modal-buttons button:last-child:hover {
-  background: var(--kk-brand-mint);
+  box-shadow: inset 0 0 0 999px var(--kk-hover-overlay);
 }
 
 /* Canvas & nodes (preserve visuals) */
@@ -659,7 +659,7 @@ button:disabled {
 }
 
 .canvas-zoom-controls button:hover {
-  background: var(--kk-brand-mint);
+  box-shadow: inset 0 0 0 999px var(--kk-hover-overlay);
 }
 
 .canvas-node:hover {
@@ -978,7 +978,7 @@ button:disabled {
 .prop-item textarea {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid var(--kk-border);
+  border: 1px solid var(--kk-border-strong);
   border-radius: 5px;
   font-size: 14px;
   background: var(--kk-surface);

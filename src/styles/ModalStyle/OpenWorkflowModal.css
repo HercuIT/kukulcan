@@ -43,7 +43,7 @@
   grid-template-columns: 2fr 1fr 1fr 1.5fr;
   gap: 15px;
   padding: 12px 15px;
-  background-color: var(--kk-surface);
+  background-color: var(--kk-raised);
   font-weight: bold;
   border-bottom: 1px solid var(--kk-border);
   color: var(--kk-ink);
@@ -185,9 +185,9 @@
 }
 
 .modal-buttons button {
-  background: var(--kk-ink-muted);
-  color: var(--kk-surface);
-  border: none;
+  background: var(--kk-surface);
+  color: var(--kk-ink);
+  border: 1px solid var(--kk-border-strong);
   padding: 10px 20px;
   border-radius: 4px;
   cursor: pointer;
@@ -195,7 +195,7 @@
 }
 
 .modal-buttons button:hover {
-  background: var(--kk-ink-muted);
+  background: var(--kk-raised);
 }
 
 /* SCROLLBAR */
@@ -214,7 +214,7 @@
 }
 
 .workflow-list::-webkit-scrollbar-thumb:hover {
-  background: var(--kk-border);
+  background: var(--kk-border-strong);
 }
 
 .role-pill.role-deployer {

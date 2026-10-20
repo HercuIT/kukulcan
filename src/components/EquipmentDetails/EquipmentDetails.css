@@ -5,7 +5,7 @@
   left: 0;
   width: 100vw; /* 100% del ancho de la ventana */
   height: 100vh; /* 100% del alto de la ventana */
-  background-color: var(--kk-scrim); /* Color negro con 50% de opacidad */
+  background-color: var(--kk-scrim); /* Velo oscuro del tema (--kk-scrim en index.css) */
   display: flex;
   justify-content: center;
   align-items: center;

@@ -6,6 +6,9 @@
 :root {
   /* Dark veil behind modals. Built from a token so no color literal lives outside theme.css. */
   --kk-scrim: color-mix(in srgb, var(--kk-on-brand) 45%, transparent);
+  /* Hover of filled buttons (brand and destructive): 8% ink overlay, as in the design system's
+     Button. Apply as `box-shadow: inset 0 0 0 999px var(--kk-hover-overlay)`. */
+  --kk-hover-overlay: color-mix(in srgb, var(--kk-on-brand) 8%, transparent);
 }
 
 body {

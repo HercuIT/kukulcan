@@ -5,7 +5,8 @@
     <!--
       Theme: set data-theme before React loads so the page never flashes the wrong theme.
       The user's pick (localStorage "kukulcan.theme") wins; otherwise the OS setting.
-      src/theme/ThemeContext.js keeps it in sync afterwards.
+      The browser chrome color (theme-color) follows the same choice once the page has parsed.
+      src/theme/ThemeContext.js keeps both in sync afterwards.
     -->
     <script>
       (function () {
@@ -21,6 +22,19 @@
               : "light";
         }
         document.documentElement.setAttribute("data-theme", theme);
+        // Copy the chosen scheme's theme-color to both tags so the chrome matches an explicit pick
+        // even when the OS is set to the other scheme.
+        document.addEventListener("DOMContentLoaded", function () {
+          var tags = document.querySelectorAll('meta[name="theme-color"]');
+          var color = null;
+          for (var i = 0; i < tags.length; i++) {
+            if ((tags[i].getAttribute("media") || "").indexOf(theme) !== -1)
+              color = tags[i].getAttribute("content");
+          }
+          if (!color) return;
+          for (var j = 0; j < tags.length; j++)
+            tags[j].setAttribute("content", color);
+        });
       })();
     </script>
     <link
