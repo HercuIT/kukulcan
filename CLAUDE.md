@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for AI coding agents working in this repo. `AGENTS.md` is a symlink to this file. Read `README.md` for the architecture, setup and endpoints.
+Guidance for AI coding agents working in this repo. `AGENTS.md` is a symlink to this file (git mode 120000), and `GEMINI.md` imports it for Gemini CLI (adding only Gemini-specific notes), so rules belong here, not in those files. On Windows without symlink support (Developer Mode off, or `core.symlinks=false`), git checks `AGENTS.md` out as a small text file containing `CLAUDE.md`; don't commit it back as a regular file (`git ls-files -s AGENTS.md` must show `120000`). Read `README.md` for the architecture, setup and endpoints.
 
 ## What this is
 
