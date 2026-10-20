@@ -2,6 +2,12 @@
 // Correr con: npm run test:node (desde la raíz; necesita `npm ci --prefix server`).
 const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
+
+// Nunca escribir en el proyecto real: la ruta de deploy registra cada petición en server_logs, y
+// app.js carga server/.env. dotenv no pisa variables ya definidas, así que vaciarlas antes de
+// cargar la app deja al logger sin cliente (lo reporta por consola y sigue).
+process.env.SUPABASE_URL = "";
+process.env.SUPABASE_SERVICE_ROLE_KEY = "";
 const app = require("../src/app");
 
 const { LIMITS } = app;
@@ -74,7 +80,11 @@ describe("server app", () => {
   });
 
   test("edge: XML bigger than the JSON limit but within the XML limit reaches the validator", async () => {
-    const body = `<Other>${"x".repeat(LIMITS.jsonBytes + 1024)}</Other>`;
+    // Muchos elementos pequeños, como un XML real: un solo texto de megas tarda minutos en el
+    // parser (ver CLAUDE.md → defectos conocidos) y no es lo que esta prueba mide.
+    const unit = '<Item a="1"/>';
+    const count = Math.ceil((LIMITS.jsonBytes + 1024) / unit.length);
+    const body = `<Other>${unit.repeat(count)}</Other>`;
     const res = await post("/api/deploy-workflow", body, "application/xml");
     assert.equal(res.status, 400);
     const json = await res.json();
@@ -82,9 +92,8 @@ describe("server app", () => {
   });
 
   test("edge: the XML limit matches the compiler's Ignition output limit", async () => {
-    const { LIMITS: compilerLimits } = await import(
-      "../../supabase/functions/compile-xml/compiler.mjs"
-    );
+    const { LIMITS: compilerLimits } =
+      await import("../../supabase/functions/compile-xml/compiler.mjs");
     assert.equal(LIMITS.xmlBytes, compilerLimits.maxXmlBytes);
     assert.equal(LIMITS.jsonBytes, compilerLimits.maxBodyBytes);
   });

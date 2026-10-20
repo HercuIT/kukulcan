@@ -302,6 +302,21 @@ describe("contract: edge", () => {
     });
     assert.equal(compileRequest(big).status, 413);
   });
+
+  test("an Ignition document over the XML limit fails at compile time with 413", () => {
+    // "&" ocupa 1 byte en el JSON y 5 en el XML (&amp;): menos de 5 MB de entrada, más de 10 de salida.
+    const name = "&".repeat(Math.ceil(LIMITS.maxXmlBytes / 5) + 1);
+    const wf = chain([
+      middle("m", { name, parameters: [{ name: "P", value: "1" }] }),
+    ]);
+    assert.ok(JSON.stringify(wf).length < LIMITS.maxBodyBytes);
+    const result = compileRequest({ ...wf, target: "ignition" });
+    assert.equal(result.status, 413);
+    assert.equal(result.xml, undefined);
+    assert.match(result.json.message, /tamaño máximo que acepta el despliegue/);
+    // El documento del PLC no tiene ese límite (no se despliega).
+    assert.equal(compileRequest(wf).status, 200);
+  });
 });
 
 describe("deploy route", () => {

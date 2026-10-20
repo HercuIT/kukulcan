@@ -302,6 +302,10 @@ describe("workflowsApi", () => {
       });
       const workflow = { nodes: [] };
       await compileWorkflow(workflow, { target: undefined });
+      // toHaveBeenLastCalledWith ignora claves undefined: se comprueba el cuerpo directamente.
+      const { body } = supabase.functions.invoke.mock.lastCall[1];
+      expect(body).toBe(workflow);
+      expect(body).not.toHaveProperty("target");
       expect(supabase.functions.invoke).toHaveBeenLastCalledWith(
         "compile-xml",
         { body: workflow },

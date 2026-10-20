@@ -181,6 +181,9 @@ describe("summarizeBody (request bodies in server_logs)", () => {
       bodyBytes: 7,
       bodyPreview: '{"a":1}',
     });
-    assert.deepEqual(summarizeBody("abc", 3), { bodyBytes: 3, bodyPreview: "abc" });
+    assert.deepEqual(summarizeBody("abc", 3), {
+      bodyBytes: 3,
+      bodyPreview: "abc",
+    });
   });
 });

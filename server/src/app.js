@@ -17,7 +17,10 @@ app.use(cors());
 
 app.use(express.json({ limit: LIMITS.jsonBytes }));
 app.use(
-  express.text({ type: ["application/xml", "text/xml"], limit: LIMITS.xmlBytes }),
+  express.text({
+    type: ["application/xml", "text/xml"],
+    limit: LIMITS.xmlBytes,
+  }),
 );
 
 // --- Uso de las Rutas ---
