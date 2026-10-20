@@ -384,7 +384,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     expect(document.querySelector(".unsaved-changes-modal .btn-secondary")).toBeInTheDocument();
 
     // Click Discard changes
-    fireEvent.click(screen.getByText(U.descartarCambios));
+    fireEvent.click(screen.getByText(U.discardChanges));
 
     // Must reset to default canvas and unsaved title
     expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
@@ -407,7 +407,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     expect(screen.getByText(U.newWorkflowTitle)).toBeInTheDocument();
 
     // Click Save now
-    fireEvent.click(screen.getByText(U.guardarAhora));
+    fireEvent.click(screen.getByText(U.saveNow));
 
     // Must call saveWorkflow on W1
     await waitFor(() => {
@@ -437,7 +437,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     expect(screen.getByText(U.newWorkflowTitle)).toBeInTheDocument();
 
     // Click Save now -> opens name dialog because currentWorkflowId is null
-    fireEvent.click(screen.getByText(U.guardarAhora));
+    fireEvent.click(screen.getByText(U.saveNow));
 
     expect(screen.getByText(S.guardarFlujoDeTrabajo)).toBeInTheDocument();
     const input = screen.getByPlaceholderText(S.ejProcesoDeEnsamblajeV1);
@@ -488,7 +488,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     fireEvent.drop(canvas, { clientX: 150, clientY: 150 });
 
     pickFileMenu(M.menuLabels.New);
-    fireEvent.click(screen.getByText(U.guardarAhora));
+    fireEvent.click(screen.getByText(U.saveNow));
 
     // Cancel name dialog
     fireEvent.click(screen.getByText(S.cancelar));
@@ -510,7 +510,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     fireEvent.drop(canvas, { clientX: 150, clientY: 150 });
 
     pickFileMenu(M.menuLabels.New);
-    fireEvent.click(screen.getByText(U.guardarAhora));
+    fireEvent.click(screen.getByText(U.saveNow));
 
     await waitFor(() => {
       expect(window.alert).toHaveBeenCalledWith(
@@ -520,6 +520,35 @@ describe("File -> New workflow and unsaved changes guard", () => {
 
     // Still on W1, no reset
     expect(getWorkflowTitle(container)).toBe(sampleWorkflowDraft.name);
+  });
+
+  test("Unsaved-changes guard: designer role revoked, New, Save now shows the permission message and saves nothing", () => {
+    const { container, rerender } = renderDashboard();
+
+    // Unsaved edits made while still a designer.
+    const canvas = container.querySelector(".canvas-area");
+    window._dragComponent = { label: "Mixing", type: "Procedure Phase" };
+    fireEvent.drop(canvas, { clientX: 150, clientY: 150 });
+
+    // The designer role is removed mid-session.
+    rerender(
+      <MemoryRouter>
+        <ThemeProvider>
+          <App
+            user={mockDesignerUser}
+            userRoles={{ designer: false, reviewer: false, deployer: false }}
+          />
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    pickFileMenu(M.menuLabels.New);
+    fireEvent.click(screen.getByText(U.saveNow));
+
+    expect(screen.getByText(P.errors.designerRoleRequired)).toBeInTheDocument();
+    expect(screen.queryByText(S.guardarFlujoDeTrabajo)).toBeNull();
+    expect(workflowsApi.createWorkflow).not.toHaveBeenCalled();
+    expect(workflowsApi.saveWorkflow).not.toHaveBeenCalled();
   });
 
   test("Session expiry guard: Save now fails keeps the user signed in with the prompt open", async () => {
@@ -536,9 +565,9 @@ describe("File -> New workflow and unsaved changes guard", () => {
     // The session ends while the canvas has unsaved edits.
     const onSession = authApi.onSessionChange.mock.calls.at(-1)[0];
     act(() => onSession(null));
-    expect(screen.getByText(U.suSesionHaExpirado)).toBeInTheDocument();
+    expect(screen.getByText(U.sessionExpiredTitle)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText(U.guardarAhora));
+    fireEvent.click(screen.getByText(U.saveNow));
 
     await waitFor(() => {
       expect(window.alert).toHaveBeenCalledWith(
@@ -547,7 +576,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     });
     // Not signed out: the prompt stays so the user can retry or discard.
     expect(authApi.signOut).not.toHaveBeenCalled();
-    expect(screen.getByText(U.suSesionHaExpirado)).toBeInTheDocument();
+    expect(screen.getByText(U.sessionExpiredTitle)).toBeInTheDocument();
   });
 
   test("Session expiry guard: Save now succeeds saves W1 then signs out", async () => {
@@ -564,7 +593,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
 
     const onSession = authApi.onSessionChange.mock.calls.at(-1)[0];
     act(() => onSession(null));
-    fireEvent.click(screen.getByText(U.guardarAhora));
+    fireEvent.click(screen.getByText(U.saveNow));
 
     await waitFor(() => {
       expect(workflowsApi.saveWorkflow).toHaveBeenCalledWith(

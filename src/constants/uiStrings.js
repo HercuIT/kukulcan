@@ -465,14 +465,13 @@ export const UI_STRINGS = {
       done: "Done",
     },
     unsavedChangesModal: {
-      suSesionHaExpirado: "Your session has expired",
-      haRealizadoCambiosSinGuardar: "You have unsaved changes on the canvas.",
-      deseaGuardarlosAntesDeContinuar:
-        "Do you want to save them before continuing?",
-      guardando: "Saving...",
-      guardarAhora: "Save now",
-      descartarCambios: "Discard changes",
-      guardandoSusCambios: "Saving your changes...",
+      sessionExpiredTitle: "Your session has expired",
+      unsavedChangesMessage: "You have unsaved changes on the canvas.",
+      saveBeforeContinuing: "Do you want to save them before continuing?",
+      saving: "Saving...",
+      saveNow: "Save now",
+      discardChanges: "Discard changes",
+      savingYourChanges: "Saving your changes...",
       newWorkflowTitle: "New workflow",
       newWorkflowMessage:
         "You have unsaved changes. If you create a new workflow, they will be lost.",

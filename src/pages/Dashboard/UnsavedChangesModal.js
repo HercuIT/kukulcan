@@ -22,7 +22,7 @@ export default function UnsavedChangesModal({
     <div className="unsaved-changes-modal-backdrop">
       <div className="unsaved-changes-modal">
         <div className="modal-header">
-          <h2>{isNew ? S.newWorkflowTitle : S.suSesionHaExpirado}</h2>
+          <h2>{isNew ? S.newWorkflowTitle : S.sessionExpiredTitle}</h2>
           <div className="warning-icon">⚠️</div>
         </div>
 
@@ -31,8 +31,8 @@ export default function UnsavedChangesModal({
             <p>{S.newWorkflowMessage}</p>
           ) : (
             <>
-              <p>{S.haRealizadoCambiosSinGuardar}</p>
-              <p>{S.deseaGuardarlosAntesDeContinuar}</p>
+              <p>{S.unsavedChangesMessage}</p>
+              <p>{S.saveBeforeContinuing}</p>
             </>
           )}
         </div>
@@ -42,10 +42,10 @@ export default function UnsavedChangesModal({
             {isSaving ? (
               <>
                 <div className="loading-spinner"></div>
-                {UI_STRINGS.dashboard.unsavedChangesModal.guardando}
+                {UI_STRINGS.dashboard.unsavedChangesModal.saving}
               </>
             ) : (
-              UI_STRINGS.dashboard.unsavedChangesModal.guardarAhora
+              UI_STRINGS.dashboard.unsavedChangesModal.saveNow
             )}
           </button>
 
@@ -54,7 +54,7 @@ export default function UnsavedChangesModal({
             className="btn-danger"
             disabled={isSaving}
           >
-            {UI_STRINGS.dashboard.unsavedChangesModal.descartarCambios}
+            {UI_STRINGS.dashboard.unsavedChangesModal.discardChanges}
           </button>
 
           {isNew && onCancel && (
@@ -70,9 +70,7 @@ export default function UnsavedChangesModal({
 
         {isSaving && (
           <div className="saving-progress">
-            <p>
-              {UI_STRINGS.dashboard.unsavedChangesModal.guardandoSusCambios}
-            </p>
+            <p>{UI_STRINGS.dashboard.unsavedChangesModal.savingYourChanges}</p>
           </div>
         )}
       </div>

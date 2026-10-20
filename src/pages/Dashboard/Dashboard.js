@@ -3852,6 +3852,12 @@ export default function App({ user, userRoles }) {
             console.log("💾 Usuario eligió guardar");
             if (unsavedModalReason === "new") {
               setShowUnsavedModal(false);
+              // Same guard as handleSave / handleSaveAs: the usual permission message instead of a
+              // Save dialog that ends in a server error.
+              if (!isDesigner) {
+                showPermissionError();
+                return;
+              }
               if (currentWorkflowId) {
                 await executeUpdateWorkflow({ onSaved: startNewWorkflow });
               } else {

@@ -14,7 +14,7 @@ describe("UnsavedChangesModal", () => {
       />,
     );
     expect(container.firstChild).toBeNull();
-    expect(screen.queryByText(S.suSesionHaExpirado)).toBeNull();
+    expect(screen.queryByText(S.sessionExpiredTitle)).toBeNull();
   });
 
   test("renders the session-expired title and message by default (reason logout)", () => {
@@ -26,13 +26,13 @@ describe("UnsavedChangesModal", () => {
       />,
     );
 
-    expect(screen.getByText(S.suSesionHaExpirado)).toBeInTheDocument();
-    expect(screen.getByText(S.haRealizadoCambiosSinGuardar)).toBeInTheDocument();
+    expect(screen.getByText(S.sessionExpiredTitle)).toBeInTheDocument();
+    expect(screen.getByText(S.unsavedChangesMessage)).toBeInTheDocument();
     expect(
-      screen.getByText(S.deseaGuardarlosAntesDeContinuar),
+      screen.getByText(S.saveBeforeContinuing),
     ).toBeInTheDocument();
-    expect(screen.getByText(S.guardarAhora)).toBeInTheDocument();
-    expect(screen.getByText(S.descartarCambios)).toBeInTheDocument();
+    expect(screen.getByText(S.saveNow)).toBeInTheDocument();
+    expect(screen.getByText(S.discardChanges)).toBeInTheDocument();
     // Logout has no Cancel: the session is ending
     expect(screen.queryByText(S.cancel)).toBeNull();
   });
@@ -51,7 +51,7 @@ describe("UnsavedChangesModal", () => {
 
     expect(screen.getByText(S.newWorkflowTitle)).toBeInTheDocument();
     expect(screen.getByText(S.newWorkflowMessage)).toBeInTheDocument();
-    expect(screen.queryByText(S.suSesionHaExpirado)).toBeNull();
+    expect(screen.queryByText(S.sessionExpiredTitle)).toBeNull();
     expect(screen.getByText(S.cancel)).toBeInTheDocument();
 
     fireEvent.click(screen.getByText(S.cancel));
@@ -84,10 +84,10 @@ describe("UnsavedChangesModal", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText(S.guardarAhora));
+    fireEvent.click(screen.getByText(S.saveNow));
     expect(onSave).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByText(S.descartarCambios));
+    fireEvent.click(screen.getByText(S.discardChanges));
     expect(onDiscard).toHaveBeenCalledTimes(1);
   });
 
@@ -107,11 +107,11 @@ describe("UnsavedChangesModal", () => {
       />,
     );
 
-    expect(screen.getByText(S.guardando)).toBeInTheDocument();
-    expect(screen.getByText(S.guardandoSusCambios)).toBeInTheDocument();
+    expect(screen.getByText(S.saving)).toBeInTheDocument();
+    expect(screen.getByText(S.savingYourChanges)).toBeInTheDocument();
 
-    const saveBtn = screen.getByText(S.guardando).closest("button");
-    const discardBtn = screen.getByText(S.descartarCambios);
+    const saveBtn = screen.getByText(S.saving).closest("button");
+    const discardBtn = screen.getByText(S.discardChanges);
     const cancelBtn = screen.getByText(S.cancel);
 
     expect(saveBtn).toBeDisabled();
