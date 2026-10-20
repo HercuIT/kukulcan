@@ -4,6 +4,9 @@ import { UI_STRINGS } from "../../constants/uiStrings";
 import { ThemeProvider, THEME_STORAGE_KEY } from "../../theme/ThemeContext";
 import { MenuBar } from "./Dashboard";
 
+// Dashboard.js importa módulos que crean el cliente de Supabase (p. ej. definitionsApi vía
+// UserDefinitionsTree); sin este mock la suite falla donde no hay variables REACT_APP_SUPABASE_*.
+jest.mock("../../backend/supabaseClient", () => ({ supabase: {} }));
 jest.mock("../../backend/authApi", () => ({
   onSessionChange: jest.fn(() => () => {}),
   signOut: jest.fn(),
