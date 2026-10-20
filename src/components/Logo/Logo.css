@@ -1,0 +1,37 @@
+/* Kukulcan lockup (design system → Logo). Clear space: a quarter of the mark's width. */
+.kk-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kk-space-2);
+  padding: 7px;
+  text-decoration: none;
+  color: var(--kk-ink);
+}
+
+.kk-logo__mark {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+/* Tamaño y familia: clases generadas .kk-text-wordmark (sm) y .kk-text-display (lg). */
+.kk-logo__name {
+  text-transform: uppercase;
+  color: var(--kk-ink);
+}
+
+.kk-logo--lg {
+  flex-direction: column;
+  gap: var(--kk-space-3);
+  padding: 18px;
+}
+
+.kk-logo--lg .kk-logo__mark {
+  width: 72px;
+  height: 72px;
+}
+
+/* El design system pide el nombre en mayúsculas con algo de aire, también en tamaño display. */
+.kk-logo--lg .kk-logo__name {
+  letter-spacing: 0.02em;
+}

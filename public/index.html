@@ -2,42 +2,76 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
+    <!--
+      Theme: set data-theme before React loads so the page never flashes the wrong theme.
+      The user's pick (localStorage "kukulcan.theme") wins; otherwise the OS setting.
+      The browser chrome color (theme-color) follows the same choice once the page has parsed.
+      src/theme/ThemeContext.js keeps both in sync afterwards.
+    -->
+    <script>
+      (function () {
+        var theme = null;
+        try {
+          theme = window.localStorage.getItem("kukulcan.theme");
+        } catch (e) {}
+        if (theme !== "light" && theme !== "dark") {
+          theme =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+        }
+        document.documentElement.setAttribute("data-theme", theme);
+        // Copy the chosen scheme's theme-color to both tags so the chrome matches an explicit pick
+        // even when the OS is set to the other scheme.
+        document.addEventListener("DOMContentLoaded", function () {
+          var tags = document.querySelectorAll('meta[name="theme-color"]');
+          var color = null;
+          for (var i = 0; i < tags.length; i++) {
+            if ((tags[i].getAttribute("media") || "").indexOf(theme) !== -1)
+              color = tags[i].getAttribute("content");
+          }
+          if (!color) return;
+          for (var j = 0; j < tags.length; j++)
+            tags[j].setAttribute("content", color);
+        });
+      })();
+    </script>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="%PUBLIC_URL%/brand/kukulcan-favicon.svg"
     />
+    <link
+      rel="icon"
+      href="%PUBLIC_URL%/favicon.ico"
+      sizes="16x16 32x32 48x48"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="theme-color"
+      content="#eef2f1"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content="#1d242b"
+      media="(prefers-color-scheme: dark)"
+    />
+    <meta name="description" content="Kukulcan workflow designer" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
-
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>React App</title>
+    <!-- Kukulcan design system fonts: Space Grotesk, IBM Plex Sans, IBM Plex Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+    <title>Kukulcan</title>
   </head>
-  <body>
+  <body class="kk-text-body">
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
   </body>
 </html>

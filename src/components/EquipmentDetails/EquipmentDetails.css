@@ -5,7 +5,9 @@
   left: 0;
   width: 100vw; /* 100% del ancho de la ventana */
   height: 100vh; /* 100% del alto de la ventana */
-  background-color: rgba(0, 0, 0, 0.5); /* Color negro con 50% de opacidad */
+  background-color: var(
+    --kk-scrim
+  ); /* Velo oscuro del tema (--kk-scrim en index.css) */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -14,17 +16,17 @@
 
 /* El contenido de la ventana emergente */
 .modal-content {
-  background-color: white;
+  background-color: var(--kk-surface);
   padding: 20px 30px;
   border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--kk-shadow-overlay);
   min-width: 400px;
   position: relative;
 }
 
 .modal-content h3 {
   margin-top: 0;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--kk-border);
   padding-bottom: 10px;
 }
 
@@ -47,10 +49,10 @@
   border: none;
   font-size: 24px;
   font-weight: bold;
-  color: #888;
+  color: var(--kk-ink-muted);
   cursor: pointer;
 }
 
 .close-button:hover {
-  color: #000;
+  color: var(--kk-ink);
 }

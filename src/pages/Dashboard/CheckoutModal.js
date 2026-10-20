@@ -28,7 +28,13 @@ export default function CheckoutModal({ open, onClose, onCheckout }) {
     <div className="create-node-modal-backdrop">
       <div className="create-node-modal" style={{ maxWidth: "400px" }}>
         <h2>{UI_STRINGS.dashboard.checkoutModal.checkout}</h2>
-        <p style={{ marginTop: 0, marginBottom: "15px", color: "#555" }}>
+        <p
+          style={{
+            marginTop: 0,
+            marginBottom: "15px",
+            color: "var(--kk-ink-muted)",
+          }}
+        >
           {UI_STRINGS.dashboard.checkoutModal.describeTheChangesYouMade}
         </p>
         <label>
@@ -48,7 +54,13 @@ export default function CheckoutModal({ open, onClose, onCheckout }) {
             }}
           />
         </label>
-        {error && <p style={{ color: "red", fontWeight: "bold" }}>{error}</p>}
+        {error && (
+          <p
+            style={{ color: "var(--kk-status-changes-fg)", fontWeight: "bold" }}
+          >
+            {error}
+          </p>
+        )}
         <div
           className="create-node-modal-buttons"
           style={{ marginTop: "20px" }}

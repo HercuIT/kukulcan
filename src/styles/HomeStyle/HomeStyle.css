@@ -1,12 +1,14 @@
+/* Barra superior (HTE-111): fondo raised (design system), con borde inferior */
 .menu-bar {
-  background: #131418;
-  color: #fff;
+  background: var(--kk-raised);
+  color: var(--kk-ink);
+  border-bottom: 1px solid var(--kk-border);
   padding: 10px 24px;
   display: flex;
   align-items: center;
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: var(--kk-font-sans);
   position: relative;
-  box-shadow: 0 2px 8px rgba(26, 35, 126, 0.08);
+  box-shadow: var(--kk-shadow-node);
   /* Keep top edge flat; round only bottom corners for a card-like look */
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;
@@ -22,7 +24,7 @@
 .menu-btn {
   background: none;
   border: none;
-  color: #fff;
+  color: var(--kk-ink);
   font-weight: 600;
   font-size: 16px;
   cursor: pointer;
@@ -33,17 +35,17 @@
 
 .menu-btn:hover,
 .menu-btn:focus {
-  background: #3d3e47;
-  outline: none;
+  background: var(--kk-border);
 }
 
 .dropdown {
   position: absolute;
   top: 38px;
   left: 0;
-  background: #393b43;
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(26, 35, 126, 0.18);
+  background: var(--kk-surface);
+  color: var(--kk-ink);
+  border: 1px solid var(--kk-border);
+  box-shadow: var(--kk-shadow-overlay);
   border-radius: 6px;
   min-width: 150px;
   z-index: 10;
@@ -64,8 +66,8 @@
 .dropdown-option {
   padding: 12px 20px;
   cursor: pointer;
-  border-bottom: 1px solid #9d9faa;
-  background: #51535f;
+  border-bottom: 1px solid var(--kk-border);
+  background: var(--kk-surface);
   transition: background 0.18s;
   font-size: 15px;
 }
@@ -75,7 +77,7 @@
 }
 
 .dropdown-option:hover {
-  background: #66676f;
+  background: var(--kk-raised);
 }
 
 .loader-overlay {
@@ -84,7 +86,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--kk-surface);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -93,8 +95,8 @@
 }
 
 .loader {
-  border: 8px solid #eee;
-  border-top: 8px solid #3498db;
+  border: 8px solid var(--kk-border);
+  border-top: 8px solid var(--kk-cyan-text);
   border-radius: 50%;
   width: 60px;
   height: 60px;
@@ -117,7 +119,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.35); /* Fondo oscuro y semitransparente */
+  background: var(--kk-scrim); /* Fondo oscuro y semitransparente */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,10 +127,10 @@
 }
 
 .custom-modal-content {
-  background: #fff;
+  background: var(--kk-surface);
   padding: 32px 24px;
   border-radius: 12px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--kk-shadow-overlay);
   text-align: center;
   min-width: 320px;
 }
@@ -139,12 +141,12 @@
   font-size: 16px;
   border-radius: 6px;
   border: none;
-  background: #3498db;
-  color: #fff;
+  background: var(--kk-brand-mint);
+  color: var(--kk-on-brand);
   cursor: pointer;
 }
 
 .custom-modal-content button:last-child {
-  background: #aaa;
-  color: #fff;
+  background: var(--kk-raised);
+  color: var(--kk-ink);
 }

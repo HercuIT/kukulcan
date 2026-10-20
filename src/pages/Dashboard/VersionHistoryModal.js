@@ -20,25 +20,35 @@ export default function VersionHistoryModal({ open, onClose, history }) {
             maxHeight: "400px",
             overflowY: "auto",
             marginTop: "15px",
-            border: "1px solid #ddd",
+            border: "1px solid var(--kk-border)",
             borderRadius: "4px",
           }}
         >
           {!history || history.length === 0 ? (
-            <p style={{ padding: "20px", textAlign: "center", color: "#666" }}>
+            <p
+              style={{
+                padding: "20px",
+                textAlign: "center",
+                color: "var(--kk-ink-muted)",
+              }}
+            >
               {UI_STRINGS.dashboard.versionHistoryModal.noHistoryAvailable}
             </p>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead
-                style={{ background: "#f5f5f5", position: "sticky", top: 0 }}
+                style={{
+                  background: "var(--kk-raised)",
+                  position: "sticky",
+                  top: 0,
+                }}
               >
                 <tr>
                   <th
                     style={{
                       padding: "10px",
                       textAlign: "left",
-                      borderBottom: "1px solid #ddd",
+                      borderBottom: "1px solid var(--kk-border)",
                     }}
                   >
                     {UI_STRINGS.dashboard.versionHistoryModal.description}
@@ -47,7 +57,7 @@ export default function VersionHistoryModal({ open, onClose, history }) {
                     style={{
                       padding: "10px",
                       textAlign: "left",
-                      borderBottom: "1px solid #ddd",
+                      borderBottom: "1px solid var(--kk-border)",
                     }}
                   >
                     {UI_STRINGS.dashboard.versionHistoryModal.userUid}
@@ -56,7 +66,7 @@ export default function VersionHistoryModal({ open, onClose, history }) {
                     style={{
                       padding: "10px",
                       textAlign: "left",
-                      borderBottom: "1px solid #ddd",
+                      borderBottom: "1px solid var(--kk-border)",
                     }}
                   >
                     {UI_STRINGS.dashboard.versionHistoryModal.timestamp}
@@ -65,13 +75,16 @@ export default function VersionHistoryModal({ open, onClose, history }) {
               </thead>
               <tbody>
                 {history.map((entry, index) => (
-                  <tr key={index} style={{ borderBottom: "1px solid #eee" }}>
+                  <tr
+                    key={index}
+                    style={{ borderBottom: "1px solid var(--kk-border)" }}
+                  >
                     <td style={{ padding: "10px" }}>{entry.description}</td>
                     <td
                       style={{
                         padding: "10px",
                         fontSize: "0.9em",
-                        color: "#555",
+                        color: "var(--kk-ink-muted)",
                       }}
                     >
                       {entry.userId}
@@ -80,7 +93,7 @@ export default function VersionHistoryModal({ open, onClose, history }) {
                       style={{
                         padding: "10px",
                         fontSize: "0.9em",
-                        color: "#555",
+                        color: "var(--kk-ink-muted)",
                       }}
                     >
                       {formatDate(entry.created_at)}

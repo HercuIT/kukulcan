@@ -4,7 +4,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--kk-scrim);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -12,12 +12,12 @@
 }
 
 .modal-content {
-  background: white;
+  background: var(--kk-surface);
   padding: 25px;
   border-radius: 8px;
   width: 90%;
   max-width: 900px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--kk-shadow-overlay);
   max-height: 80vh;
   display: flex;
   flex-direction: column;
@@ -26,13 +26,13 @@
 .modal-content h2 {
   margin-top: 0;
   margin-bottom: 20px;
-  color: #333;
+  color: var(--kk-ink);
 }
 
 .workflow-list {
   flex: 1;
   overflow-y: auto;
-  border: 1px solid #ddd;
+  border: 1px solid var(--kk-border);
   border-radius: 6px;
   margin-bottom: 20px;
 }
@@ -43,10 +43,10 @@
   grid-template-columns: 2fr 1fr 1fr 1.5fr;
   gap: 15px;
   padding: 12px 15px;
-  background-color: #f8f9fa;
+  background-color: var(--kk-raised);
   font-weight: bold;
-  border-bottom: 1px solid #ddd;
-  color: #333;
+  border-bottom: 1px solid var(--kk-border);
+  color: var(--kk-ink);
   position: sticky;
   top: 0;
   z-index: 1;
@@ -64,14 +64,14 @@
   gap: 15px;
   align-items: center;
   padding: 12px 15px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--kk-border);
   cursor: pointer;
   transition: background-color 0.2s ease-in-out;
   min-height: 60px;
 }
 
 .workflow-list-item:hover {
-  background-color: #f5f5f5;
+  background-color: var(--kk-raised);
 }
 
 .workflow-list-item:last-child {
@@ -90,11 +90,11 @@
 
 .workflow-name {
   font-weight: 500;
-  color: #333;
+  color: var(--kk-ink);
 }
 
 .workflow-date {
-  color: #666;
+  color: var(--kk-ink-muted);
   font-size: 0.9em;
 }
 
@@ -105,8 +105,7 @@
   align-items: center;
   justify-content: center;
   padding: 4px 12px;
-  border-radius: 12px;
-  color: white;
+  border-radius: var(--kk-radius-pill);
   font-size: 0.75em;
   font-weight: bold;
   min-width: 80px;
@@ -124,53 +123,59 @@
 
 /* Colores para roles */
 .role-designer {
-  background-color: #3498db !important;
+  background-color: var(--kk-mint-soft) !important;
+  color: var(--kk-mint-text);
 }
 
 .role-reviewer {
-  background-color: #e67e22 !important;
+  background-color: var(--kk-cyan-soft) !important;
+  color: var(--kk-cyan-text);
 }
 
 /* Colores para estados */
 .status-draft {
-  background-color: #6c757d;
+  background-color: var(--kk-status-draft-bg);
+  color: var(--kk-status-draft-fg);
 }
 .status-pending_review {
-  background-color: #ffc107;
-  color: #000;
+  background-color: var(--kk-status-review-bg);
+  color: var(--kk-status-review-fg);
 }
 .status-changes_requested {
-  background-color: #dc3545;
+  background-color: var(--kk-status-changes-bg);
+  color: var(--kk-status-changes-fg);
 }
 .status-approved {
-  background-color: #28a745;
+  background-color: var(--kk-status-approved-bg);
+  color: var(--kk-status-approved-fg);
 }
 .status-deployed {
-  background-color: #17a2b8;
+  background-color: var(--kk-cyan-soft);
+  color: var(--kk-cyan-text);
 }
 
 /* ESTADOS DEL MODAL */
 .empty-list-message {
   padding: 40px 20px;
   text-align: center;
-  color: #666;
+  color: var(--kk-ink-muted);
   font-style: italic;
 }
 
 .loading-message {
   text-align: center;
   padding: 20px;
-  color: #666;
+  color: var(--kk-ink-muted);
   font-style: italic;
 }
 
 .error-message {
-  background: #ffe6e6;
-  color: #d63031;
+  background: var(--kk-status-changes-bg);
+  color: var(--kk-status-changes-fg);
   padding: 12px;
   border-radius: 4px;
   margin-bottom: 15px;
-  border-left: 4px solid #d63031;
+  border-left: 4px solid var(--kk-status-changes-fg);
 }
 
 /* BOTONES */
@@ -180,9 +185,9 @@
 }
 
 .modal-buttons button {
-  background: #6c757d;
-  color: white;
-  border: none;
+  background: var(--kk-surface);
+  color: var(--kk-ink);
+  border: 1px solid var(--kk-border-strong);
   padding: 10px 20px;
   border-radius: 4px;
   cursor: pointer;
@@ -190,7 +195,7 @@
 }
 
 .modal-buttons button:hover {
-  background: #545b62;
+  background: var(--kk-raised);
 }
 
 /* SCROLLBAR */
@@ -199,20 +204,20 @@
 }
 
 .workflow-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--kk-raised);
   border-radius: 0 6px 6px 0;
 }
 
 .workflow-list::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--kk-border);
   border-radius: 4px;
 }
 
 .workflow-list::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: var(--kk-border-strong);
 }
 
 .role-pill.role-deployer {
-  background-color: #6f42c1;
-  color: white;
+  background-color: var(--kk-status-draft-bg);
+  color: var(--kk-ink);
 }

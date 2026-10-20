@@ -6,6 +6,10 @@ export const UI_STRINGS = {
     loading: "Cargando...",
   },
   components: {
+    logo: {
+      name: "Kukulcan",
+      homeLink: "Kukulcan home",
+    },
     equipmentDetails: {
       maximumCapacity: "Maximum Capacity:",
       notAvailable: "N/A",
@@ -237,6 +241,9 @@ export const UI_STRINGS = {
         "Zoom In": "Zoom In",
         "Zoom Out": "Zoom Out",
         "Full Screen": "Full Screen",
+        "Light Theme": "Light theme",
+        "Dark Theme": "Dark theme",
+        "System Theme": "Use system theme",
         Help: "Help",
         Documentation: "Documentation",
         About: "About",
@@ -246,7 +253,8 @@ export const UI_STRINGS = {
         accionNoPermitida: "Acción no permitida.",
         seleccionaste: (menu, option) => `Seleccionaste: ${menu} > ${option}`,
       },
-      logo: "Logo",
+      activeOption: "(active)",
+      activeMark: "✓ ",
       newWorkflow: "New Workflow",
       workflowActions: "Workflow Actions",
       reviewWorkflow: "Review Workflow",
@@ -511,7 +519,6 @@ export const UI_STRINGS = {
       alerts: {
         seleccionaste: (menu, option) => `Seleccionaste: ${menu} > ${option}`,
       },
-      logoDeLaEmpresa: "Logo de la empresa",
     },
     page: {
       loading: "Loading...",

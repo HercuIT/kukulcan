@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { updatePassword } from "../../backend/authApi";
 import { UI_STRINGS } from "../../constants/uiStrings";
+import Logo from "../../components/Logo/Logo";
 import "../../styles/LoginStyle/LoginStyle.css";
 
 // Mínimo por defecto de Supabase Auth (Authentication → Providers → Email).
@@ -51,6 +52,7 @@ export default function SetPassword() {
     <div className="login-container">
       {/* Un form para que Enter envíe desde cualquiera de los dos campos */}
       <form className="login-box" onSubmit={handleSave} noValidate>
+        <Logo size="lg" />
         <h2>{S.title}</h2>
         <p>{S.description}</p>
         <label htmlFor="new-password">{S.newPassword}</label>

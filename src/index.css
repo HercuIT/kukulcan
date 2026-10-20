@@ -1,13 +1,90 @@
+/*
+  App-wide defaults on top of the Kukulcan tokens (theme.css, imported first in index.js).
+  Colors, fonts, spacing and radii always come from var(--kk-…); see README → "Theme".
+*/
+
+:root {
+  /* Dark veil behind modals. Built from a token so no color literal lives outside theme.css. */
+  --kk-scrim: color-mix(in srgb, var(--kk-on-brand) 45%, transparent);
+  /* Hover of filled buttons (brand and destructive): 8% ink overlay, as in the design system's
+     Button. Apply as `box-shadow: inset 0 0 0 999px var(--kk-hover-overlay)`. */
+  --kk-hover-overlay: color-mix(in srgb, var(--kk-on-brand) 8%, transparent);
+}
+
+/* Body type comes from the generated .kk-text-body class on <body> (public/index.html). */
 body {
   margin: 0;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
-    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  background: var(--kk-bg);
+  color: var(--kk-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-  font-family:
-    source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+h1,
+h2,
+h3 {
+  font-family: var(--kk-font-display);
+}
+
+code,
+pre,
+kbd {
+  font-family: var(--kk-font-mono);
+}
+
+a {
+  color: var(--kk-mint-text);
+}
+
+/* Focus: 2px cyan-text ring with 2px offset on every focusable element, both themes. */
+:focus-visible {
+  outline: 2px solid var(--kk-cyan-text);
+  outline-offset: 2px;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+input,
+select,
+textarea {
+  background: var(--kk-surface);
+  color: var(--kk-ink);
+  border: 1px solid var(--kk-border-strong);
+  border-radius: var(--kk-radius-sm);
+  font: inherit;
+}
+
+::placeholder {
+  color: var(--kk-ink-muted);
+}
+
+/* The toolbar's PNG icons are dark line art; invert them on dark grounds until they're redrawn. */
+:root[data-theme="dark"] .toolbar img {
+  filter: invert(1);
+}
+
+/* Windows High Contrast / forced colors: let system colors win, keep the focus ring visible. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+/* Text for screen readers only (e.g. "(active)" next to the current theme in the View menu). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }

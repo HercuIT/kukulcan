@@ -1,13 +1,18 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+// Los tokens del tema van antes que cualquier otra hoja de estilo.
+import "./styles/theme.css";
 import "./index.css";
 import App from "./App";
+import { ThemeProvider } from "./theme/ThemeContext";
 import reportWebVitals from "./reportWebVitals";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   </React.StrictMode>,
 );
 

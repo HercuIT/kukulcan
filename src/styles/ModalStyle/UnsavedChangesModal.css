@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--kk-scrim);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -12,12 +12,12 @@
 }
 
 .unsaved-changes-modal {
-  background: white;
+  background: var(--kk-surface);
   border-radius: 12px;
   padding: 24px;
   width: 90%;
   max-width: 480px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--kk-shadow-overlay);
   animation: modal-appear 0.2s ease-out;
 }
 
@@ -37,13 +37,13 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--kk-border);
   padding-bottom: 16px;
 }
 
 .modal-header h2 {
   margin: 0;
-  color: #1f2937;
+  color: var(--kk-ink);
   font-size: 20px;
   font-weight: 600;
 }
@@ -58,12 +58,12 @@
 
 .modal-body p {
   margin: 8px 0;
-  color: #6b7280;
+  color: var(--kk-ink-muted);
   line-height: 1.5;
 }
 
 .modal-body p:first-child {
-  color: #374151;
+  color: var(--kk-ink);
   font-weight: 500;
 }
 
@@ -90,31 +90,31 @@
 }
 
 .btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
+  background: var(--kk-raised);
+  color: var(--kk-ink);
+  border: 1px solid var(--kk-border);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: var(--kk-border);
 }
 
 .btn-primary {
-  background: #2563eb;
-  color: white;
+  background: var(--kk-brand-mint);
+  color: var(--kk-on-brand);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1d4ed8;
+  box-shadow: inset 0 0 0 999px var(--kk-hover-overlay);
 }
 
 .btn-danger {
-  background: #dc2626;
-  color: white;
+  background: var(--kk-status-changes-fg);
+  color: var(--kk-surface);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #b91c1c;
+  box-shadow: inset 0 0 0 999px var(--kk-hover-overlay);
 }
 
 .loading-spinner {
@@ -140,14 +140,14 @@
 .saving-progress {
   margin-top: 16px;
   padding: 12px;
-  background: #f0f9ff;
+  background: var(--kk-cyan-soft);
   border-radius: 6px;
-  border-left: 4px solid #0ea5e9;
+  border-left: 4px solid var(--kk-cyan-text);
 }
 
 .saving-progress p {
   margin: 0;
-  color: #0369a1;
+  color: var(--kk-cyan-text);
   font-size: 14px;
 }
 

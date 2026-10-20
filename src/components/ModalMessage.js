@@ -12,7 +12,7 @@ export default function ModalMessage({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.45)",
+        background: "var(--kk-scrim)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -23,12 +23,12 @@ export default function ModalMessage({
     >
       <div
         style={{
-          background: "#fff",
+          background: "var(--kk-surface)",
           borderRadius: 12,
           width: 420,
           maxWidth: "90vw",
           padding: "20px 24px",
-          boxShadow: "0 12px 30px rgba(0,0,0,.25)",
+          boxShadow: "var(--kk-shadow-overlay)",
           zIndex: 10000,
         }}
         // evitar que clics dentro cierren
@@ -39,7 +39,7 @@ export default function ModalMessage({
         >
           {title}
         </h2>
-        <p style={{ margin: 0, color: "#374151", marginBottom: 18 }}>
+        <p style={{ margin: 0, color: "var(--kk-ink)", marginBottom: 18 }}>
           {message}
         </p>
 
@@ -49,8 +49,8 @@ export default function ModalMessage({
             style={{
               padding: "8px 14px",
               borderRadius: 6,
-              background: "#E5E7EB",
-              color: "#111827",
+              background: "var(--kk-raised)",
+              color: "var(--kk-ink)",
               border: "none",
               cursor: "pointer",
             }}
@@ -62,8 +62,8 @@ export default function ModalMessage({
             style={{
               padding: "8px 14px",
               borderRadius: 6,
-              background: "#2563EB", // azul
-              color: "#fff",
+              background: "var(--kk-brand-mint)", // azul
+              color: "var(--kk-on-brand)",
               border: "none",
               cursor: "pointer",
             }}

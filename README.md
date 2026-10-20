@@ -272,8 +272,19 @@ Claude Code asks you to approve project servers the first time you run `claude` 
 | `npm run lint` | Run ESLint |
 | `npm run format` / `npm run format-check` | Run Prettier (write / check) |
 | `npm run lint:css` / `npm run lint:html` | Run Stylelint / HTMLHint on `public/` |
+| `npm run theme` | Regenerate `src/styles/theme.css` from `src/styles/tokens.json` (see "Theme") |
 
 CI (`.github/workflows/code_check.yaml`) runs `npm run lint`, `npm run format-check`, the Jest unit tests (`npm test`) and `npm run test:node` on every pull request to `main`.
+
+## Theme
+
+The app uses the Kukulcan design system ([design system artifact](https://claude.ai/artifact/HtfdxXknT5ywmgbgJZTrt4)), with a light and a dark theme.
+
+- **Tokens:** `src/styles/tokens.json` is an exact copy of the design system's tokens. `npm run theme` (`scripts/build-theme.js`) generates `src/styles/theme.css` from it: `--kk-*` custom properties (colors and shadows per theme, spacing, radii, font families) and `.kk-text-<style>` classes. Don't edit `theme.css` by hand; `src/styles/theme.test.js` fails if it differs from the generator's output, or if (read from the generated CSS, both themes) `ink`/`ink-muted` on `bg`/`surface`/`raised`, any status pill (Deployed included) or `on-brand` on brand fills drop below 4.5:1, or `border-strong` below 3:1 on `surface`. Body text uses the generated `.kk-text-body` class (on `<body>`); the logo uses `.kk-text-wordmark` / `.kk-text-display`.
+- **No color literals in app code:** every design color in the app's CSS and JS (`src/`, test files aside) is a `var(--kk-…)`. `src/styles/noHardcodedColors.test.js` fails on a hex value, a color function (`rgb()`, `hsl()`, `oklch()`…) or any of the 148 CSS named colors in any letter case, in CSS values and in JS style strings. The keywords `transparent`, `currentColor` and `inherit` aren't design colors and stay allowed. Two places can't read CSS variables and keep literals on purpose: the `theme-color` tags in `public/index.html` (the `raised` values) and `manifest.json`, and the brand SVGs in `public/brand/`. Backdrops use `--kk-scrim` and filled-button hovers `--kk-hover-overlay` (both in `src/index.css`); secondary controls hover one step up (`surface` → `raised`). SVG colors go in `style` (`style={{ stroke: "var(--kk-cyan-text)" }}`), because presentation attributes don't resolve `var()`.
+- **Switching:** View → Light theme / Dark theme / Use system theme. `src/theme/ThemeContext.js` (`ThemeProvider`, `useTheme()`) sets `data-theme` on `<html>` and saves the choice per browser in `localStorage` key `kukulcan.theme` (no key = follow the OS, live). An inline script in `public/index.html` applies the same choice before React loads, so the page doesn't flash the wrong theme, and both set the browser chrome color (`theme-color`) to the chosen theme's `raised`. **Installed app (PWA) limitation:** `manifest.json` can't vary by color scheme, so its `background_color` (the launch splash) is the light `bg`; an installed app opened in dark mode can show that light splash for a moment before the page applies the dark theme. The no-flash guarantee covers the page itself, not the splash.
+- **Logo:** `src/components/Logo/Logo.js` renders the lockup (`size="sm"` in menu bars, `"lg"` on Login, Set Password and Home; `to` makes it a link). Brand files live in `public/brand/` (`kukulcan-mark.svg`, `-mark-ink`, `-mark-white`, `-favicon`); `favicon.ico`, `logo192.png` and `logo512.png` are rendered from them.
+- **Fonts:** loaded from Google Fonts in `public/index.html`. Use one of `var(--kk-font-sans)`, `var(--kk-font-display)` or `var(--kk-font-mono)`, or a `.kk-text-<style>` class.
 
 ## Deployment
 
@@ -316,8 +327,10 @@ src/
     Dashboard/UserDefinitionsTree.js   the User Created Definitions branch of the hierarchy panel (WFPR-003)
     Dashboard/canvasConnections.js     connections for a workflow being opened
     Dashboard/equipmentData.js, MaterialData.js   static catalog data
-  components/                  shared UI (ModalMessage, EquipmentDetails)
-  styles/                      CSS per page/modal
+  components/                  shared UI (ModalMessage, EquipmentDetails, Logo)
+  theme/ThemeContext.js        light/dark/system theme (ThemeProvider, useTheme)
+  styles/                      CSS per page/modal; tokens.json + generated theme.css (see "Theme")
+public/brand/                  Kukulcan logo SVGs
 public/ICONOSPNG/              toolbar icons
 supabase/migrations/           schema, RLS, triggers and RPC functions
 supabase/functions/compile-xml Edge Function (compiler.mjs holds the XML logic)
@@ -335,9 +348,9 @@ Features are specified before they're built, as Claude Docs, using the section t
 | --- | --- | --- |
 | Supabase migration (HTE-supabase-migration) | [Kukulcan: Firebase → Supabase Migration Spec](https://claude.ai/code/artifact/30984f03-013f-4dd7-a1ae-8fe059596380) | Implemented (PR #1) |
 | VCR-001 | [Version-Controlled Hierarchy Rules](https://claude.ai/code/artifact/b8a553aa-eeb5-4048-a173-d6b268216a3b) | Draft, partly written |
-| WFPR-003 | [Nested User Created Node Definitions](https://claude.ai/code/artifact/9753755e-5f4d-43bb-93af-e9e59d416800) | Implemented (branch `feat/HTE-59`); test plan `docs/WFPR-003-testing.md` |
+| WFPR-003 | [Nested User Created Node Definitions](https://claude.ai/code/artifact/9753755e-5f4d-43bb-93af-e9e59d416800) | Implemented (PR #6, merged); test plan `docs/WFPR-003-testing.md` |
 | WFPR-004 | [Expandable Pre-Defined Definitions](https://claude.ai/code/artifact/cf5b6f1e-aa6f-400f-bc6f-f425c4349488) | Draft, depends on VCR-001; open questions pending |
-| Theme and logo (no ticket yet) | [Spec: Theme and logo](https://claude.ai/code/artifact/bbc1a1f8-71e3-4839-834b-d630c81cae85) | Draft, open questions pending |
+| HTE-111 | [Spec: Theme and logo](https://claude.ai/code/artifact/bbc1a1f8-71e3-4839-834b-d630c81cae85) | Implemented on `feat/HTE-111` (PR #7); test plan `docs/HTE-111-testing.md` |
 | HTE-107 | [HTE-107: Email confirmation and registration form](https://claude.ai/code/artifact/6b732d1e-e3b8-461c-8c72-2d61864a50d0) | Draft, open questions pending |
 | Compiled XML can't be deployed (no ticket yet) | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Draft, open questions pending |
 

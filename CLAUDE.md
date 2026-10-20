@@ -13,6 +13,7 @@ npm install && npm start      # web app on :3000; /api is proxied to :3001
 npm run lint                  # ESLint (CI)
 npm run format-check          # Prettier (CI); run `npm run format` to fix
 npm run build                 # production build
+npm run theme                 # regenerate src/styles/theme.css from src/styles/tokens.json
 npm test                      # Jest watch mode (CI); `CI=true npm test` runs once
 npm run test:node             # Node tests: migrations on PGlite, compile-xml, server logger, migration scripts (CI)
 cd server && node src/index.js    # local API on 127.0.0.1:3001
@@ -30,6 +31,7 @@ CI runs lint, Prettier, the Jest unit tests and `npm run test:node`. Merges to `
 - `server/src/routes/`: `health`, `ignitionHealth`, `compile` (JSON→XML), `deployWorkflow` (XML→Ignition). `server/src/logger.js` inserts one Supabase `server_logs` row per event through `supabaseAdmin.js` (service role).
 - `scripts/migration/`: one-off Firebase → Supabase scripts (`import-users.js`, `migrate-data.js`, `verify.js`, `send-password-resets.js`) with their own `package.json`.
 - `src/pages/SetPassword/`: the `/set-password` page that the password email links to (imported users have no password until they set one there).
+- Theme (HTE-111): `src/styles/tokens.json` → `npm run theme` → `src/styles/theme.css` (`--kk-*`); `src/theme/ThemeContext.js` (`ThemeProvider`, `useTheme()`; the View menu's theme options call `setMode`); `src/components/Logo/Logo.js` (lockup used by every menu bar and the Login, Set Password and Home pages); brand SVGs in `public/brand/`.
 
 ## MCP servers
 
@@ -90,6 +92,7 @@ What specs and features in the designer have to work with (all in `src/pages/Das
   - **Ids vs. labels:** when the code compares a value as an id (menu ids like `"File"`/`"Save"`), keep the id in code and render its label through a map: `UI_STRINGS.dashboard.menuBar.menuLabels[option] ?? option`.
   - **Not UI strings:** catalog and domain data (`equipmentData.js`, `MaterialData.js`, node definition names, hierarchy-tree labels, PLC types and program names) and `console.*` messages stay where they are.
   - `src/constants/uiStrings.test.js` fails if any `UI_STRINGS.…` key used in `src/` doesn't exist.
+- **Colors come from the theme tokens.** In the app's CSS, JS and inline SVG, write `var(--kk-<token>)`, never a hex, a color function or a named color in any case (`src/styles/noHardcodedColors.test.js` fails otherwise; `transparent`, `currentColor` and `inherit` are fine). Exceptions, because CSS variables can't be resolved there: the `theme-color` tags in `public/index.html` and `manifest.json`'s `theme_color` (keep them equal to `raised`) and `background_color` (light `bg`), and the brand SVG files in `public/brand/`. Pick by role, not by look: `surface`/`raised`/`bg` for grounds, `ink`/`ink-muted` for text, `border`/`border-strong` for lines, `brand-mint` fills with `on-brand` text for primary actions, `status-*-bg`/`-fg` pairs for states, `--kk-scrim` for modal backdrops, `--kk-hover-overlay` (as an inset box-shadow) for hovering a filled button and one step up (`surface` → `raised`) for others, `shadow-node`/`shadow-overlay` for elevation. `brand-mint`/`brand-cyan` are fills only; use `mint-text`/`cyan-text` for colored text and lines. Each token's intended use is in `src/styles/tokens.json` (`usage`). To change a color, edit `tokens.json` and run `npm run theme`; never edit `theme.css`. In SVG, set colors through `style`, not presentation attributes. README → "Theme" has the details.
 - **Keep the docs current.** When new code changes something either file describes, update `CLAUDE.md` or `README.md` in the same change. That includes commands, setup, environment variables, endpoints, database tables and functions, roles, workflow rules, project layout and conventions.
 
 ## Writing specs
