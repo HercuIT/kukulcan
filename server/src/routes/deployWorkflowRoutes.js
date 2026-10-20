@@ -3,6 +3,7 @@ const router = express.Router();
 const axios = require("axios");
 const { XMLParser } = require("fast-xml-parser");
 const logger = require("../logger");
+const { summarizeBody } = require("../logger");
 const { getRequestUserId } = require("../requestUser");
 const { v4: uuidv4 } = require("uuid");
 const { validarWorkflow } = require("../validarWorkflow");
@@ -88,7 +89,8 @@ router.post("/", async (req, res) => {
     route,
     userId,
     workflowId,
-    body: req.body,
+    // Solo tamaño y vista previa: el cuerpo puede pesar hasta 10 MB y aún no está validado.
+    ...summarizeBody(req.body),
   });
 
   try {

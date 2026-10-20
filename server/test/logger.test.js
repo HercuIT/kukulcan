@@ -1,7 +1,7 @@
 // Correr con: npm run test:node (desde la raíz)
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { createLogger, toRow } = require("../src/logger");
+const { createLogger, summarizeBody, toRow } = require("../src/logger");
 const { getRequestUserId } = require("../src/requestUser");
 
 // Cliente falso de Supabase que guarda las filas insertadas.
@@ -155,5 +155,32 @@ describe("getRequestUserId", () => {
       ),
       "unknown",
     );
+  });
+});
+
+describe("summarizeBody (request bodies in server_logs)", () => {
+  test("positive: a small body is kept whole with its size", () => {
+    assert.deepEqual(summarizeBody("<Workflow/>"), {
+      bodyBytes: 11,
+      bodyPreview: "<Workflow/>",
+    });
+  });
+
+  test("negative: a large body is cut to a preview and flagged, size still exact", () => {
+    const big = "ñ".repeat(3000);
+    const s = summarizeBody(big);
+    assert.equal(s.bodyBytes, 6000);
+    assert.equal(s.bodyPreview.length, 2000);
+    assert.equal(s.bodyTruncated, true);
+  });
+
+  test("edge: missing bodies and objects", () => {
+    assert.deepEqual(summarizeBody(undefined), { bodyBytes: 0 });
+    assert.deepEqual(summarizeBody(null), { bodyBytes: 0 });
+    assert.deepEqual(summarizeBody({ a: 1 }), {
+      bodyBytes: 7,
+      bodyPreview: '{"a":1}',
+    });
+    assert.deepEqual(summarizeBody("abc", 3), { bodyBytes: 3, bodyPreview: "abc" });
   });
 });

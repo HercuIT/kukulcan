@@ -31,7 +31,7 @@ const isPlainObject = (v) =>
   v !== null && typeof v === "object" && !Array.isArray(v);
 
 // --- Ruta POST /api/compile ---
-// El tamaño máximo (5 MB, LIMITS.maxBodyBytes del compilador) lo aplica express.json en index.js.
+// El tamaño máximo (5 MB, LIMITS.maxBodyBytes del compilador) lo aplica express.json en app.js.
 router.post("/", express.json({ limit: "5mb" }), async (req, res) => {
   let compiler;
   try {

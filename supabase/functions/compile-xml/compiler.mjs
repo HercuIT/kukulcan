@@ -15,6 +15,10 @@ export const TARGETS = ["controller", "ignition"];
 // Límites para que una petición autenticada no pueda agotar memoria o CPU.
 export const LIMITS = {
   maxBodyBytes: 5 * 1024 * 1024,
+  // Tamaño máximo del documento de Ignition. El XML ocupa más que el JSON de entrada (marcado y
+  // escapes), así que tiene su propio límite; /api/deploy-workflow acepta exactamente este tamaño
+  // (server/src/app.js), de modo que todo lo que compila para Ignition también se puede desplegar.
+  maxXmlBytes: 10 * 1024 * 1024,
   maxNodes: 5000,
   maxConnections: 10000,
 };
@@ -522,11 +526,17 @@ export function compileRequest(body) {
         status: 400,
         json: { message: "Fallo de compilación", errors: deployable.errors },
       };
-    return {
-      status: 200,
-      xml: buildIgnitionXml(wf),
-      filename: xmlFileName(wf),
-    };
+    const xml = buildIgnitionXml(wf);
+    if (new TextEncoder().encode(xml).length > LIMITS.maxXmlBytes) {
+      return {
+        status: 413,
+        json: {
+          message: `El XML generado supera el tamaño máximo que acepta el despliegue (${LIMITS.maxXmlBytes} bytes).`,
+          errors: [],
+        },
+      };
+    }
+    return { status: 200, xml, filename: xmlFileName(wf) };
   }
 
   return { status: 200, xml: buildXml(wf), filename: xmlFileName(wf) };
