@@ -2334,7 +2334,9 @@ export function MenuBar({
                     <div
                       key={option}
                       className="dropdown-option"
-                      role={THEME_OPTIONS[option] ? "menuitemradio" : "menuitem"}
+                      role={
+                        THEME_OPTIONS[option] ? "menuitemradio" : "menuitem"
+                      }
                       aria-checked={
                         THEME_OPTIONS[option] ? isActive : undefined
                       }

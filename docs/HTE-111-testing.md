@@ -7,11 +7,11 @@ Apply the Kukulcan design system: the new logo on every page and in the browser 
 
 | File | Positive | Negative | Edge |
 | --- | --- | --- | --- |
-| `src/styles/theme.test.js` | Committed `theme.css` equals generator output; light values on `:root`, dark under both dark selectors; `{alias}` → `var()`; ink/ink-muted ≥ 4.5:1 on bg/surface/raised and status fg ≥ 4.5:1 on status bg, both themes | Missing dark value falls back to light; tokens without name or value skipped | Identifier sanitising; empty token file; empty font stack |
-| `src/styles/noHardcodedColors.test.js` | No color literal in `src/` outside `theme.css`/`tokens.json`; detector finds hex, `rgba()`, named colors | Ignores tokens, comments, `white-space`, `BlinkingRedLine` | Empty input; URLs with `//` |
-| `src/theme/ThemeContext.test.js` | Defaults to system and follows OS; Dark/Light set `data-theme` and save; saved choice restored; system mode tracks OS live and clears the key | Invalid stored value → system; invalid `setMode` → system; blocked storage still switches; no `matchMedia` → light | `useTheme()` outside provider is a no-op fallback; listener removed on unmount; legacy `addListener` |
-| `src/components/Logo/Logo.test.js` | Mark + name, decorative `alt=""`; `to` makes a named link; `lg` class | Broken mark hidden, name stays; no `to` → no link | Unknown size → `sm` |
-| `src/pages/Dashboard/MenuBarTheme.test.js` | Lockup links home; View lists three theme options as `menuitemradio`, system active by default with screen-reader "(active)"; choosing Dark applies, saves and moves the check | Other View options keep their alert and get no radio role | Exactly one option active |
+| `src/styles/theme.test.js` | Committed `theme.css` equals generator output; light values on `:root`, the same dark values under `[data-theme="dark"]` and inside the `@media (prefers-color-scheme: dark)` block; `{alias}` → `var()`; contrast read from the generated CSS in both themes: ink/ink-muted ≥ 4.5:1 on bg/surface/raised, every status pill ≥ 4.5:1 (Draft, Pending review, Changes requested, Approved, Deployed), on-brand ≥ 4.5:1 on mint/cyan, surface text ≥ 4.5:1 on destructive fills, border-strong ≥ 3:1 on surface | Missing dark value falls back to light; tokens without name or value skipped | Identifier sanitising; empty token file; empty font stack |
+| `src/styles/noHardcodedColors.test.js` | No color literal in `src/` outside `theme.css`/`tokens.json`; detector finds hex (any case), color functions (`RGB()`…), all 148 named colors in any case, in CSS values, JS style strings (incl. ternaries and border shorthands), SVG attributes and `cssText` | Ignores tokens (`var(--kk-brand-cyan)`), comments, `transparent`/`currentColor`, `white-space`, `BlinkingRedLine`, ordinary words in UI text ("tan", "navy") | Empty input; URLs with `//` |
+| `src/theme/ThemeContext.test.js` | Defaults to system and follows OS; Dark/Light set `data-theme` and save; saved choice restored; system mode tracks OS live and clears the key | Invalid stored value → system; invalid `setMode` → system; blocked storage still switches; no `matchMedia` → light | `useTheme()` outside provider is a no-op fallback; listener removed on unmount; legacy `addListener`: the registered callback updates the theme and the same callback is removed; `syncThemeColor` copies `--kk-raised` to every `theme-color` tag (also for an explicit pick against the OS), leaves them alone without the stylesheet, and tolerates no tags |
+| `src/components/Logo/Logo.test.js` | Mark + name, decorative `alt=""`; `to` makes a named link; `lg` class with `.kk-text-display`, `sm` with `.kk-text-wordmark` | Broken mark hidden, name stays; no `to` → no link | Unknown size → `sm` |
+| `src/pages/Dashboard/MenuBarTheme.test.js` | Lockup links home; View lists three theme options as `menuitemradio`, system active by default with screen-reader "(active)"; choosing Dark applies, saves and moves the check | Other View options keep their alert and get `menuitem`, not `menuitemradio`; other keys do nothing | Exactly one option active; options are focusable and Enter or Space applies a theme |
 
 ## Test Cases
 
@@ -55,6 +55,13 @@ Apply the Kukulcan design system: the new logo on every page and in the browser 
 
 **Expected:** All text is readable on its background; no white-on-white or black-on-black; modal backdrops dim the page; toolbar icons are visible (inverted on dark); status pills (Draft, Pending review, Changes requested, Approved, Deployed) and role pills keep distinct colors.
 
+### TC-06b: Hover feedback
+
+**Steps:**
+1. In each theme, hover the primary, destructive and secondary buttons on Login (Sign in, Register), the Dashboard (logout, zoom, Create Node buttons), and the Open, Share and Unsaved Changes dialogs; hover the Open and Share list scrollbars.
+
+**Expected:** Every control visibly changes on hover. Filled buttons darken slightly; secondary buttons step up to a slightly darker ground; scrollbar thumbs darken. The Share dialog's remove (×) icon stays visible (light on red) while hovered.
+
 ### TC-07: Canvas
 **Steps:**
 1. Open a workflow, toggle the grid on, zoom in and out, and pan.
@@ -67,6 +74,21 @@ Apply the Kukulcan design system: the new logo on every page and in the browser 
 1. Tab through Login and the Dashboard menu bar in both themes.
 
 **Expected:** Every focused control shows a visible cyan focus ring.
+
+### TC-08b: Theme options by keyboard
+
+**Steps:**
+1. On the Dashboard, Tab to the View menu button and press Enter.
+2. Tab to "Dark theme" and press Enter; reopen View, Tab to "Light theme" and press Space.
+
+**Expected:** Each option gets the focus ring and applies its theme; the check mark moves accordingly.
+
+### TC-08c: Browser chrome color
+
+**Steps:**
+1. On a mobile browser or desktop Safari, with the OS in light mode, choose View → Dark theme; reload.
+
+**Expected:** The browser's address bar/tab strip turns dark along with the app, and stays dark after the reload. Choosing "Use system theme" brings it back to light.
 
 ### TC-09: Blocked storage (negative)
 **Steps:**

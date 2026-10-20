@@ -11,7 +11,8 @@ const ALLOWED = new Set([
 ]);
 
 // Los 148 colores con nombre de CSS (CSS Color Module Level 4).
-const NAMED_COLORS = `aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond
+const NAMED_COLORS =
+  `aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond
 blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk
 crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta
 darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray
@@ -27,8 +28,8 @@ palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pi
 powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen
 seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal
 thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen`
-  .split(/\s+/)
-  .filter(Boolean);
+    .split(/\s+/)
+    .filter(Boolean);
 
 const FUNCTIONAL_RE =
   /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/i;
@@ -61,7 +62,8 @@ const COLOR_PROP_BEFORE_RE =
   /(?:color|background\w*|fill|stroke|border\w*|outline\w*|shadow\w*)\s*[:=][^;,]*$/i;
 
 function namedColorIn(line, isCss) {
-  if (isCss) return declarationValues(line).some((v) => NAMED_RE.test(withoutVars(v)));
+  if (isCss)
+    return declarationValues(line).some((v) => NAMED_RE.test(withoutVars(v)));
   return [...line.matchAll(/(["'`])((?:(?!\1)[^\\\n]|\\.)*)\1/g)].some(
     ({ 2: value, index }) => {
       const trimmed = value.trim();
@@ -118,11 +120,13 @@ describe("no hard-coded colors", () => {
       const css = { isCss: true };
       expect(findColorLiterals("a { color: #fff; }", css)).toHaveLength(1);
       expect(findColorLiterals("a { color: #ABCDEF; }", css)).toHaveLength(1);
-      expect(findColorLiterals("a { color: RGB(0 0 0); }", css)).toHaveLength(1);
-      expect(findColorLiterals("a { color: teal; }", css)).toHaveLength(1);
-      expect(findColorLiterals("a { border: 1px solid RED; }", css)).toHaveLength(
+      expect(findColorLiterals("a { color: RGB(0 0 0); }", css)).toHaveLength(
         1,
       );
+      expect(findColorLiterals("a { color: teal; }", css)).toHaveLength(1);
+      expect(
+        findColorLiterals("a { border: 1px solid RED; }", css),
+      ).toHaveLength(1);
       expect(
         findColorLiterals('style={{ background: "rgba(0,0,0,.4)" }}'),
       ).toHaveLength(1);
@@ -144,7 +148,10 @@ describe("no hard-coded colors", () => {
         findColorLiterals("a { fill: var(--kk-brand-cyan); }", css),
       ).toEqual([]);
       expect(
-        findColorLiterals("a { background: transparent; color: currentColor; }", css),
+        findColorLiterals(
+          "a { background: transparent; color: currentColor; }",
+          css,
+        ),
       ).toEqual([]);
       expect(findColorLiterals("/* was #fff */\n// red before")).toEqual([]);
       expect(findColorLiterals("white-space: nowrap;", css)).toEqual([]);
@@ -157,9 +164,7 @@ describe("no hard-coded colors", () => {
 
     test("edge: empty input and URLs with // are fine", () => {
       expect(findColorLiterals("")).toEqual([]);
-      expect(findColorLiterals('const u = "https://example.com";')).toEqual(
-        [],
-      );
+      expect(findColorLiterals('const u = "https://example.com";')).toEqual([]);
     });
   });
 });

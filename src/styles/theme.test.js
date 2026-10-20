@@ -35,7 +35,10 @@ function declarationsOf(css, selector) {
 
 const LIGHT = declarationsOf(GENERATED, ":root");
 const DARK = declarationsOf(GENERATED, ':root[data-theme="dark"]');
-const DARK_MEDIA = declarationsOf(GENERATED, '  :root:not([data-theme="light"])');
+const DARK_MEDIA = declarationsOf(
+  GENERATED,
+  '  :root:not([data-theme="light"])',
+);
 
 // Valor final de una variable en un tema, siguiendo var(--kk-…) como lo haría el navegador
 // (el bloque oscuro hereda de :root lo que no redefine).
@@ -100,7 +103,8 @@ describe("build-theme", () => {
 
     test("ink and ink-muted reach 4.5:1 on bg, surface and raised in both themes", () => {
       for (const fg of ["ink", "ink-muted"]) {
-        for (const bg of ["bg", "surface", "raised"]) expectContrast(fg, bg, 4.5);
+        for (const bg of ["bg", "surface", "raised"])
+          expectContrast(fg, bg, 4.5);
       }
     });
 
