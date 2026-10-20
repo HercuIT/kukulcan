@@ -9,3 +9,7 @@ supabase/tests/
 scripts/migration/test/
 
 build/
+
+# YAML isn't linted (ESLint only reads .js anyway); same rule in .prettierignore.
+*.yml
+*.yaml

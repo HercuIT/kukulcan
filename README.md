@@ -355,17 +355,12 @@ Features are specified before they're built, as Claude Docs, using the section t
 
 ## Claude Code review
 
-Two workflows use Anthropic's [`claude-code-action`](https://github.com/anthropics/claude-code-action) (pinned by commit SHA, like the other actions):
+Two workflows use Anthropic's [`claude-code-action`](https://github.com/anthropics/claude-code-action). They were created by `/install-github-app` in Claude Code, which also installed the Claude GitHub app and added the `CLAUDE_CODE_OAUTH_TOKEN` secret (the Claude subscription token of whoever ran it, not API billing):
 
-- `.github/workflows/claude-code-review.yml` reviews every non-draft pull request to `main` when it's opened, updated, reopened or marked ready. Claude checks the diff against `CLAUDE.md` (correctness, security and RLS, migrations, tests, UI strings and color tokens, docs), posts inline comments and one summary comment, and can't push. A newer push to the same PR cancels a review in progress. PRs from forks are skipped (they get no secrets).
-- `.github/workflows/claude.yml` answers `@claude` in PR comments, review comments, reviews and issues, and can push changes to the PR branch. It only responds to people with write access.
+- `.github/workflows/claude-code-review.yml` reviews every pull request when it's opened, updated, reopened or marked ready, with Anthropic's official `code-review` plugin (`/code-review:code-review --comment`). The plugin checks the change, including against `CLAUDE.md`, and posts its findings as inline comments. The job has read-only repository permissions, so it can't push.
+- `.github/workflows/claude.yml` answers `@claude` in PR comments, review comments, reviews and issues (title or body). It also runs with read-only permissions (plus reading CI results), so it answers and comments but doesn't push changes.
 
-Setup, once per repository (both workflows fail until it's done):
-
-1. Install the [Claude GitHub app](https://github.com/apps/claude) on `HercuIT/kukulcan`.
-2. Run `claude setup-token` locally and add the token as the Actions secret `CLAUDE_CODE_OAUTH_TOKEN` (Settings → Secrets and variables → Actions). It uses the Claude subscription of whoever created it, not API billing.
-
-`/install-github-app` in Claude Code does both steps interactively. To change what the review looks for, edit the `prompt` in `claude-code-review.yml`.
+Both use the action's moving `@v1` tag (and `actions/checkout@v4`), as the installer generates them. To redo the setup (for example after the token expires), run `/install-github-app` again or replace the secret with a new `claude setup-token` value. To filter which PRs get reviewed (authors, paths), see the commented options in `claude-code-review.yml`.
 
 ## Contributing
 
