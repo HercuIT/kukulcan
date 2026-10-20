@@ -1,0 +1,81 @@
+/* HTE-107: registro, confirmación de correo y avisos del login. Sobre LoginStyle.css. */
+
+.kk-field {
+  text-align: left;
+  margin-bottom: 16px;
+}
+
+.kk-field label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--kk-ink);
+  font-weight: 600;
+}
+
+.login-box .kk-field input {
+  margin-bottom: 0;
+}
+
+.login-box .kk-field input[aria-invalid="true"] {
+  border-color: var(--kk-status-changes-fg);
+}
+
+.kk-field__error {
+  margin: 4px 0 0;
+  color: var(--kk-status-changes-fg);
+  font-size: 13px;
+}
+
+/* Campo de contraseña con botón Mostrar/Ocultar dentro */
+.kk-password {
+  display: flex;
+  gap: var(--kk-space-2);
+  align-items: stretch;
+}
+
+.kk-password input {
+  flex: 1;
+}
+
+.login-box button.kk-password__toggle {
+  width: auto;
+  margin-top: 0;
+  padding: 0 12px;
+  background: var(--kk-surface);
+  color: var(--kk-ink);
+  border: 1px solid var(--kk-border-strong);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.login-box button.kk-password__toggle:hover {
+  background: var(--kk-raised);
+  box-shadow: none;
+}
+
+/* Lista de reglas de la contraseña, marcadas a medida que se cumplen */
+.kk-rules {
+  list-style: none;
+  margin: -8px 0 16px;
+  padding: 0;
+  text-align: left;
+  font-size: 13px;
+}
+
+.kk-rules__item {
+  color: var(--kk-ink-muted);
+}
+
+.kk-rules__item--met {
+  color: var(--kk-mint-text);
+}
+
+.kk-notice {
+  margin-top: 16px;
+  color: var(--kk-mint-text);
+}
+
+.kk-switch {
+  margin: 16px 0 0;
+  color: var(--kk-ink-muted);
+}

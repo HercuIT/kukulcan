@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { updatePassword } from "../../backend/authApi";
 import { UI_STRINGS } from "../../constants/uiStrings";
 import Logo from "../../components/Logo/Logo";
+import { checkPassword, PASSWORD_RULES } from "../../constants/passwordRules";
 import "../../styles/LoginStyle/LoginStyle.css";
 
-// Mínimo por defecto de Supabase Auth (Authentication → Providers → Email).
-export const MIN_PASSWORD_LENGTH = 6;
+// Las mismas reglas que el registro y que Supabase Auth (HTE-107): 8 a 72 caracteres, letra y número.
+export const MIN_PASSWORD_LENGTH = PASSWORD_RULES.minLength;
 
 const S = UI_STRINGS.setPassword;
 
@@ -27,6 +28,10 @@ export default function SetPassword() {
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(S.errors.tooShort(MIN_PASSWORD_LENGTH));
+      return;
+    }
+    if (checkPassword(password).length) {
+      setError(S.errors.weakPassword);
       return;
     }
     if (password !== confirm) {

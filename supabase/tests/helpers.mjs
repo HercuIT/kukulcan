@@ -16,7 +16,11 @@ const SUPABASE_STUB = `
   create role authenticated nologin;
   create role service_role nologin bypassrls;
   create schema auth;
-  create table auth.users (id uuid primary key default gen_random_uuid(), email text);
+  create table auth.users (
+    id uuid primary key default gen_random_uuid(),
+    email text,
+    email_confirmed_at timestamptz
+  );
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
   $$;
@@ -37,13 +41,15 @@ export async function createTestDb() {
 
   const q = (sql, params) => db.query(sql, params);
 
-  // Crea un usuario de auth (el trigger crea su perfil) y le pone los roles dados.
-  async function createUser(email, roles = {}) {
+  // Crea un usuario de auth (el trigger crea su perfil) y le pone los roles dados. Por defecto la
+  // cuenta llega confirmada, como las de hoy; { confirmed: false } la deja sin confirmar (HTE-107).
+  async function createUser(email, roles = {}, { confirmed = true } = {}) {
     const {
       rows: [{ id }],
-    } = await q("insert into auth.users (email) values ($1) returning id", [
-      email,
-    ]);
+    } = await q(
+      "insert into auth.users (email, email_confirmed_at) values ($1, $2) returning id",
+      [email, confirmed ? new Date().toISOString() : null],
+    );
     const sets = Object.keys(roles);
     if (sets.length) {
       await q(

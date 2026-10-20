@@ -33,6 +33,14 @@ jest.mock("./pages/Login/Login", () => {
   const Login = () => <div data-testid="login">Login</div>;
   return Login;
 });
+jest.mock("./pages/Register/Register", () => {
+  const Register = () => <div data-testid="register">Register</div>;
+  return Register;
+});
+jest.mock("./pages/AuthConfirm/AuthConfirm", () => {
+  const AuthConfirm = () => <div data-testid="auth-confirm">AuthConfirm</div>;
+  return AuthConfirm;
+});
 
 const USER = { uid: "user-1", email: "designer@example.com" };
 
@@ -57,6 +65,49 @@ async function renderAt(path, currentUser) {
   });
   return utils;
 }
+
+describe("App routes for sign-up and email confirmation (HTE-107)", () => {
+  test("positive: signed out, /register opens the registration form", async () => {
+    await renderAt("/register", null);
+    expect(screen.getByTestId("register")).toBeInTheDocument();
+  });
+
+  test("positive: signed out, /auth/confirm opens the confirmation page", async () => {
+    await renderAt("/auth/confirm?token_hash=abc&type=email", null);
+    expect(screen.getByTestId("auth-confirm")).toBeInTheDocument();
+  });
+
+  test("positive: a confirmation link that fell back to the Site URL root is forwarded to /auth/confirm", async () => {
+    await renderAt("/?token_hash=abc123&type=email", null);
+    expect(screen.getByTestId("auth-confirm")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/auth/confirm");
+    expect(window.location.search).toBe("?token_hash=abc123&type=email");
+  });
+
+  test("edge: other query strings on a signed-out path still show Login", async () => {
+    await renderAt("/?foo=1", null);
+    expect(screen.getByTestId("login")).toBeInTheDocument();
+  });
+
+  test("negative: signed out, any other path shows Login", async () => {
+    await renderAt("/anything", null);
+    expect(screen.getByTestId("login")).toBeInTheDocument();
+    expect(screen.queryByTestId("register")).toBeNull();
+  });
+
+  test("edge: once the link signs the user in, /auth/confirm goes to Home", async () => {
+    getMyRoles.mockResolvedValue({});
+    await renderAt("/auth/confirm?token_hash=abc&type=email", USER);
+    expect(screen.getByTestId("home")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+  });
+
+  test("edge: a signed-in user opening /register lands on Home", async () => {
+    getMyRoles.mockResolvedValue({});
+    await renderAt("/register", USER);
+    expect(screen.getByTestId("home")).toBeInTheDocument();
+  });
+});
 
 describe("App", () => {
   describe("positive", () => {

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Confirm your Kukulcan account</title>
+  </head>
+  <!--
+    HTE-107 confirmation email. Local: supabase/config.toml points here. Live project: paste this
+    HTML under Authentication → Email Templates → Confirm signup. The link goes to RedirectTo, the
+    emailRedirectTo the app sends (<origin>/auth/confirm, so local, production and allowed previews
+    each get their own link). If that origin isn't in the allowed Redirect URLs, Supabase falls back
+    to the Site URL and the app forwards /?token_hash=… to /auth/confirm (App.js). The link carries a
+    token hash (not a PKCE code), so it works on any device; it expires after 24 hours and works
+    once. Email clients ignore CSS variables, so colors are written out here.
+  -->
+  <body
+    style="
+      margin: 0;
+      padding: 24px;
+      background: #f4f7f6;
+      font-family: Arial, sans-serif;
+      color: #14171c;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellspacing="0"
+      cellpadding="0"
+      style="
+        max-width: 480px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 8px;
+      "
+    >
+      <tr>
+        <td style="padding: 32px">
+          <h1 style="margin: 0 0 16px; font-size: 22px">Confirm your email</h1>
+          <p style="margin: 0 0 16px; line-height: 1.5">
+            Someone created a Kukulcan account with this email ({{ .Email }}).
+            Open the link below to activate it.
+          </p>
+          <p style="margin: 0 0 24px">
+            <a
+              href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email"
+              style="
+                display: inline-block;
+                padding: 12px 20px;
+                background: #00f0a8;
+                color: #14171c;
+                text-decoration: none;
+                border-radius: 4px;
+                font-weight: bold;
+              "
+              >Confirm my email</a
+            >
+          </p>
+          <p
+            style="margin: 0; font-size: 13px; color: #565e66; line-height: 1.5"
+          >
+            The link expires in 24 hours and works once. If it has expired, sign
+            in or open the link again to get a new one. If you didn't create
+            this account, you can ignore this email.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

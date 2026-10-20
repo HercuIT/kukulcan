@@ -17,6 +17,10 @@ export const AUTH_ERROR_CODES = {
   email_exists: "email-in-use",
   weak_password: "weak-password",
   same_password: "same-password",
+  // HTE-107 (confirmación de correo)
+  email_not_confirmed: "email-not-confirmed",
+  over_email_send_rate_limit: "rate-limited",
+  otp_expired: "link-expired",
 };
 
 // Convierte un error de Supabase (PostgREST, Auth o Functions) en un Error con un `code` de la app.

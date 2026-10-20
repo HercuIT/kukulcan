@@ -75,11 +75,23 @@ describe("SetPassword", () => {
         Object.assign(new Error("weak"), { code: "weak-password" }),
       );
       const { fill, save } = renderPage();
-      fill("123456");
+      fill("abcdefg1");
       save();
       expect(
         await screen.findByText(S.errors.weakPassword),
       ).toBeInTheDocument();
+      expect(updatePassword).toHaveBeenCalledWith("abcdefg1");
+    });
+
+    test("a password without a letter or a digit is rejected without calling Supabase (HTE-107 rules)", () => {
+      const { fill, save } = renderPage();
+      fill("abcdefgh");
+      save();
+      expect(screen.getByText(S.errors.weakPassword)).toBeInTheDocument();
+      fill("12345678");
+      save();
+      expect(screen.getByText(S.errors.weakPassword)).toBeInTheDocument();
+      expect(updatePassword).not.toHaveBeenCalled();
     });
 
     test("other failures show the generic message and stay on the page", async () => {
@@ -102,19 +114,18 @@ describe("SetPassword", () => {
     test("passwords shorter than the minimum are rejected; exactly the minimum is accepted", async () => {
       updatePassword.mockResolvedValue();
       const { fill, save } = renderPage();
-      fill("a".repeat(MIN_PASSWORD_LENGTH - 1));
+      expect(MIN_PASSWORD_LENGTH).toBe(8);
+      const short = `${"a".repeat(MIN_PASSWORD_LENGTH - 2)}1`;
+      fill(short);
       save();
       expect(
         screen.getByText(S.errors.tooShort(MIN_PASSWORD_LENGTH)),
       ).toBeInTheDocument();
 
-      fill("a".repeat(MIN_PASSWORD_LENGTH));
+      const exact = `${"a".repeat(MIN_PASSWORD_LENGTH - 1)}1`;
+      fill(exact);
       save();
-      await waitFor(() =>
-        expect(updatePassword).toHaveBeenCalledWith(
-          "a".repeat(MIN_PASSWORD_LENGTH),
-        ),
-      );
+      await waitFor(() => expect(updatePassword).toHaveBeenCalledWith(exact));
     });
   });
 });
