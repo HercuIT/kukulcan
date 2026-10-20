@@ -522,15 +522,7 @@ describe("File -> New workflow and unsaved changes guard", () => {
     expect(getWorkflowTitle(container)).toBe(sampleWorkflowDraft.name);
   });
 
-  test("Unsaved-changes guard: designer role revoked, New, Save now shows the permission message and saves nothing", () => {
-    const { container, rerender } = renderDashboard();
-
-    // Unsaved edits made while still a designer.
-    const canvas = container.querySelector(".canvas-area");
-    window._dragComponent = { label: "Mixing", type: "Procedure Phase" };
-    fireEvent.drop(canvas, { clientX: 150, clientY: 150 });
-
-    // The designer role is removed mid-session.
+  const revokeDesignerRole = (rerender) =>
     rerender(
       <MemoryRouter>
         <ThemeProvider>
@@ -542,11 +534,46 @@ describe("File -> New workflow and unsaved changes guard", () => {
       </MemoryRouter>,
     );
 
-    pickFileMenu(M.menuLabels.New);
-    fireEvent.click(screen.getByText(U.saveNow));
+  test("Unsaved-changes guard: designer role revoked, New offers Discard and Cancel but not Save now", () => {
+    const { container, rerender } = renderDashboard();
 
-    expect(screen.getByText(P.errors.designerRoleRequired)).toBeInTheDocument();
-    expect(screen.queryByText(S.guardarFlujoDeTrabajo)).toBeNull();
+    // Unsaved edits made while still a designer.
+    const canvas = container.querySelector(".canvas-area");
+    window._dragComponent = { label: "Mixing", type: "Procedure Phase" };
+    fireEvent.drop(canvas, { clientX: 150, clientY: 150 });
+
+    revokeDesignerRole(rerender);
+    pickFileMenu(M.menuLabels.New);
+
+    expect(screen.getByText(U.newWorkflowTitle)).toBeInTheDocument();
+    expect(screen.queryByText(U.saveNow)).toBeNull();
+    expect(screen.getByText(U.discardChanges)).toBeInTheDocument();
+    expect(screen.getByText(U.cancel)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(U.discardChanges));
+    expect(getWorkflowTitle(container)).toBe(P.unsavedWorkflowTitle);
+    expect(workflowsApi.createWorkflow).not.toHaveBeenCalled();
+    expect(workflowsApi.saveWorkflow).not.toHaveBeenCalled();
+  });
+
+  test("Session expiry guard: designer role revoked, the prompt offers only Discard and never saves", async () => {
+    authApi.signOut.mockResolvedValue();
+    const { container, rerender } = renderDashboard();
+
+    const canvas = container.querySelector(".canvas-area");
+    window._dragComponent = { label: "Mixing", type: "Procedure Phase" };
+    fireEvent.drop(canvas, { clientX: 150, clientY: 150 });
+
+    revokeDesignerRole(rerender);
+    const onSession = authApi.onSessionChange.mock.calls.at(-1)[0];
+    act(() => onSession(null));
+
+    expect(screen.getByText(U.sessionExpiredTitle)).toBeInTheDocument();
+    expect(screen.queryByText(U.saveNow)).toBeNull();
+    expect(screen.queryByText(U.cancel)).toBeNull();
+
+    fireEvent.click(screen.getByText(U.discardChanges));
+    await waitFor(() => expect(authApi.signOut).toHaveBeenCalledTimes(1));
     expect(workflowsApi.createWorkflow).not.toHaveBeenCalled();
     expect(workflowsApi.saveWorkflow).not.toHaveBeenCalled();
   });

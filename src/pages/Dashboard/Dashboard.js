@@ -3837,6 +3837,7 @@ export default function App({ user, userRoles }) {
         <UnsavedChangesModal
           open={showUnsavedModal}
           reason={unsavedModalReason}
+          canSave={isDesigner}
           onCancel={() => setShowUnsavedModal(false)}
           onDiscard={() => {
             console.log("🗑️ Usuario descartó cambios");
@@ -3850,14 +3851,18 @@ export default function App({ user, userRoles }) {
           }}
           onSave={async () => {
             console.log("💾 Usuario eligió guardar");
+            // Same guard as handleSave / handleSaveAs. The modal hides "Save now" without the
+            // designer role (canSave); this covers a role removed while the modal is open.
+            if (!isDesigner) {
+              if (unsavedModalReason === "new") {
+                setShowUnsavedModal(false);
+                showPermissionError();
+              }
+              // Logout: no save attempt; the prompt stays open with Discard.
+              return;
+            }
             if (unsavedModalReason === "new") {
               setShowUnsavedModal(false);
-              // Same guard as handleSave / handleSaveAs: the usual permission message instead of a
-              // Save dialog that ends in a server error.
-              if (!isDesigner) {
-                showPermissionError();
-                return;
-              }
               if (currentWorkflowId) {
                 await executeUpdateWorkflow({ onSaved: startNewWorkflow });
               } else {

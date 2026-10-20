@@ -4,10 +4,12 @@ import "../../styles/ModalStyle/UnsavedChangesModal.css";
 import { UI_STRINGS } from "../../constants/uiStrings";
 
 // reason: "logout" (session expired or inactivity; save or discard, then sign out) or "new"
-// (File -> New; save, discard or cancel and stay on the canvas).
+// (File -> New; save, discard or cancel and stay on the canvas). canSave = false (no designer role)
+// hides "Save now", since the save would only be refused.
 export default function UnsavedChangesModal({
   open,
   reason = "logout",
+  canSave = true,
   onSave,
   onDiscard,
   onCancel,
@@ -38,16 +40,22 @@ export default function UnsavedChangesModal({
         </div>
 
         <div className="modal-buttons">
-          <button onClick={onSave} className="btn-primary" disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <div className="loading-spinner"></div>
-                {UI_STRINGS.dashboard.unsavedChangesModal.saving}
-              </>
-            ) : (
-              UI_STRINGS.dashboard.unsavedChangesModal.saveNow
-            )}
-          </button>
+          {canSave && (
+            <button
+              onClick={onSave}
+              className="btn-primary"
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <div className="loading-spinner"></div>
+                  {UI_STRINGS.dashboard.unsavedChangesModal.saving}
+                </>
+              ) : (
+                UI_STRINGS.dashboard.unsavedChangesModal.saveNow
+              )}
+            </button>
+          )}
 
           <button
             onClick={onDiscard}

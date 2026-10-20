@@ -72,6 +72,19 @@ describe("UnsavedChangesModal", () => {
     expect(screen.queryByText(S.newWorkflowTitle)).toBeNull();
   });
 
+  test("canSave false hides Save now and keeps Discard", () => {
+    render(
+      <UnsavedChangesModal
+        open={true}
+        canSave={false}
+        onSave={jest.fn()}
+        onDiscard={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText(S.saveNow)).toBeNull();
+    expect(screen.getByText(S.discardChanges)).toBeInTheDocument();
+  });
+
   test("calls onSave and onDiscard handlers when buttons are clicked", () => {
     const onSave = jest.fn();
     const onDiscard = jest.fn();
