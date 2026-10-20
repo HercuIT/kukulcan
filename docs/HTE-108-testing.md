@@ -23,7 +23,10 @@ What changed:
 | Positive | `/api/compile` response | Canvas ids and type names kept; `X-Compiler: local`; file name from the workflow name |
 | Negative | `workflow.json` (empty `Temp` value) for Ignition | 400 `Fallo de compilación`, exactly `El nodo 'Mix & Heat' requiere un valor para el parámetro 'Temp'.`; no XML, on both paths |
 | Negative | A middle node with no parameters | 400 `El nodo 'Dose' debe tener al menos un parámetro.` on both paths; the same workflow with `target: "controller"` still returns XML |
-| Negative | A parameter with a value but no name (next to a named one) | 400 `El nodo 'Dose' tiene un parámetro sin nombre.`; as the only parameter → "debe tener al menos un parámetro" |
+| Negative | A parameter with a value but no name (next to a named one) | 400 `El nodo 'Dose' tiene un parámetro sin nombre.` on both paths |
+| Negative | Every parameter row lacks a name (value or units only) | One `tiene un parámetro sin nombre` per row, not "debe tener al menos un parámetro" |
+| Negative | Workflow `id` of only spaces | 400 `El workflow necesita un id que no esté en blanco.` on both paths; `controller` still compiles it |
+| Edge | Workflow `id` empty string | Falls back to `W-001` and passes |
 | Negative | `target: "plc"` | 400 `Target desconocido: 'plc'. Usa 'controller' o 'ignition'.` on both paths |
 | Negative | The controller document posted to the validator | Rejected: `The root element <Workflow> was not found.` (why the target exists) |
 | Negative | `/api/compile` body without `nodes` | 400 with the compiler's `Se esperan "nodes[]" y "connections[]"` |

@@ -146,9 +146,11 @@ export const checkoutWorkflow = (wf, description) =>
 /**
  * Compila el workflow con la Edge Function compile-xml y devuelve el XML como Blob.
  * Si la compilación falla, lanza un Error con el mensaje y una línea "- error" por cada error.
+ * @param {object} workflow El workflow a compilar (nodes, connections, id, …).
+ * @param {{ target?: "controller" | "ignition" }} [options] target: "controller" (por defecto, el
+ *   documento del PLC que descarga Compile) o "ignition" (el <Workflow> que acepta
+ *   /api/deploy-workflow). Sin target el cuerpo se envía sin cambios.
  */
-// target: "controller" (por defecto, el documento del PLC que descarga Compile) o "ignition" (el
-// <Workflow> que acepta /api/deploy-workflow). Sin target el cuerpo no cambia.
 export async function compileWorkflow(workflow, { target } = {}) {
   const { data, error } = await supabase.functions.invoke("compile-xml", {
     body: target === undefined ? workflow : { ...workflow, target },

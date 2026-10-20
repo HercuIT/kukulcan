@@ -170,15 +170,39 @@ describe("contract: negative", () => {
         "El nodo 'Dose' tiene un parámetro sin nombre.",
       ]);
     }
-    // Si es el único parámetro, al nodo le falta un parámetro con nombre.
-    const only = compileViaEdge(
-      chain([
-        middle("m", { name: "Dose", parameters: [{ name: "", value: "5" }] }),
-      ]),
-    );
-    assert.deepEqual(only.json.errors, [
-      "El nodo 'Dose' debe tener al menos un parámetro.",
+    // Aunque ninguna fila tenga nombre, el nodo sí tiene parámetros: el error es el nombre.
+    const onlyUnnamed = chain([
+      middle("m", {
+        name: "Dose",
+        parameters: [
+          { name: "", value: "5" },
+          { name: " ", units: "kg" },
+        ],
+      }),
     ]);
+    for (const [via, result] of await compileBoth(onlyUnnamed)) {
+      assert.equal(result.status, 400, via);
+      assert.deepEqual(result.json.errors, [
+        "El nodo 'Dose' tiene un parámetro sin nombre.",
+        "El nodo 'Dose' tiene un parámetro sin nombre.",
+      ]);
+    }
+  });
+
+  test("a whitespace-only workflow id fails at compile time, not at deploy", async () => {
+    const wf = { ...fixture("complete.json"), id: "   " };
+    for (const [via, result] of await compileBoth(wf)) {
+      assert.equal(result.status, 400, via);
+      assert.deepEqual(result.json.errors, [
+        "El workflow necesita un id que no esté en blanco.",
+      ]);
+    }
+    // Sin id (o vacío) se usa W-001 y pasa; el controller sigue aceptando el id tal cual.
+    await assertBothDeployable(
+      { ...fixture("complete.json"), id: "" },
+      "W-001",
+    );
+    assert.equal(compileRequest({ ...wf, target: "controller" }).status, 200);
   });
 
   test("an unknown target is rejected on both paths", async () => {

@@ -120,11 +120,15 @@ export function validateWorkflow(wf) {
  */
 export function validateDeployable(wf) {
   const errors = [];
+  // Sin id se usa "W-001"; un id de solo espacios llegaría vacío a validarWorkflow (que recorta).
+  if (typeof wf.id === "string" && wf.id !== "" && wf.id.trim() === "") {
+    errors.push("El workflow necesita un id que no esté en blanco.");
+  }
   for (const n of wf.nodes) {
     if (/^(begin|start|end)$/i.test(String(n.type))) continue;
     const name = nodeName(n);
     const params = flattenParams(n);
-    if (!params.some((p) => String(p.name).trim() !== "")) {
+    if (params.length === 0) {
       errors.push(`El nodo '${name}' debe tener al menos un parámetro.`);
       continue;
     }
