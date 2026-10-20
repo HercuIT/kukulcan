@@ -2976,7 +2976,9 @@ export default function App({ user, userRoles }) {
   };
 
   // Devuelve true si se guardó; onSaved corre solo en ese caso (p. ej. File -> New después de guardar).
-  const executeUpdateWorkflow = async ({ onSaved } = {}) => {
+  /** @param {{ onSaved?: (() => void) | null }} [options] */
+  const executeUpdateWorkflow = async (options = {}) => {
+    const { onSaved } = options;
     if (!user || !currentWorkflowId) {
       alert(UI_STRINGS.dashboard.page.alerts.userOrWorkflowNotVerified);
       return false;
@@ -3021,7 +3023,12 @@ export default function App({ user, userRoles }) {
   };
 
   // Devuelve true si se creó; onSaved corre solo en ese caso.
-  const executeSaveAsNew = async (workflowName, { onSaved } = {}) => {
+  /**
+   * @param {string} workflowName
+   * @param {{ onSaved?: (() => void) | null }} [options]
+   */
+  const executeSaveAsNew = async (workflowName, options = {}) => {
+    const { onSaved } = options;
     if (!user) {
       alert(UI_STRINGS.dashboard.page.alerts.userNotVerified);
       return false;
