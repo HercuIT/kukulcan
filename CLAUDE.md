@@ -100,7 +100,7 @@ What specs and features in the designer have to work with (all in `src/pages/Das
 
 ## Writing specs
 
-A spec is written before implementation, as a Claude Doc (not a file in the repo), and listed in the **Specs** table in `README.md` with its link and status. Read the specs it depends on first (e.g. WFPR-003 builds on VCR-001's rules). Use these sections, in this order:
+A spec is written before implementation, as a Claude Doc (not a file in the repo), and listed in the **Specs** table in `README.md` with its link and status. For a Linear ticket (`HTE-<n>`), once the spec doc is created, add its link as a comment on that issue in Linear (team HTE, through the Linear MCP server): the doc's title and link, what it builds on, and a line pointing to its open questions. Read the specs it depends on first (e.g. WFPR-003 builds on VCR-001's rules). Use these sections, in this order:
 
 1. **Overview:** the user story verbatim, goals, non-goals, and a "Done when" list of checkable outcomes.
 2. **Current state:** what the code does today, naming files, components and constants (see "Editor domain model" above), and the known defects the feature touches.

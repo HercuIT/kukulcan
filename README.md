@@ -358,7 +358,7 @@ docs/<TICKET>-testing.md       manual test plans, one per ticket or story (HTE-,
 
 ## Specs
 
-Features are specified before they're built, as Claude Docs, using the section template in `CLAUDE.md` ("Writing specs"). Add each new spec here.
+Features are specified before they're built, as Claude Docs, using the section template in `CLAUDE.md` ("Writing specs"). Add each new spec here, and post its link as a comment on its Linear issue (`HTE-<n>`).
 
 | Ticket | Spec | Status |
 | --- | --- | --- |
@@ -369,6 +369,12 @@ Features are specified before they're built, as Claude Docs, using the section t
 | HTE-111 | [Spec: Theme and logo](https://claude.ai/code/artifact/bbc1a1f8-71e3-4839-834b-d630c81cae85) | Implemented on `feat/HTE-111` (PR #7); test plan `docs/HTE-111-testing.md` |
 | HTE-107 | [HTE-107: Email confirmation and registration form](https://claude.ai/code/artifact/6b732d1e-e3b8-461c-8c72-2d61864a50d0) | Implemented on `feat/HTE-107-email-confirmation` (strings in English; open questions taken at the spec's defaults); test plan `docs/HTE-107-testing.md` |
 | HTE-108 | [Spec: Compiled XML can't be deployed](https://claude.ai/code/artifact/6f4d1b1f-de3d-45c7-9a7f-93d1af0b8d81) | Implemented on `fix/HTE-108-compile-targets` (Option A); test plan `docs/HTE-108-testing.md` |
+| HTE-113 | [HTE-113: Diagram saved as JSON, XML as build output](https://claude.ai/code/artifact/13541544-59af-4896-8390-492cb7f44ba8) | Draft; the base for VCR-018, HTE-14, HTE-16 and HTE-18 |
+| VCR-018 | [VCR-018: Version-controlled workflow nodes](https://claude.ai/code/artifact/f577c7e5-399d-40d8-9ecd-7887fe73d658) | Draft, depends on HTE-113 |
+| HTE-14 (VCR-003) | [HTE-14 (VCR-003): Version-controlled equipment entities](https://claude.ai/code/artifact/4a98385d-a73b-43a3-ad5e-4d30a18b2530) | Draft, depends on HTE-113 and VCR-018 |
+| HTE-16 (VCR-004) | [HTE-16 (VCR-004): Version-controlled parameters](https://claude.ai/code/artifact/7b05ac16-d1cd-4866-9aca-ed32d789cd9f) | Draft, depends on HTE-113 and VCR-018 |
+| HTE-115 | [HTE-115: Material id on canvas nodes](https://claude.ai/code/artifact/089baea3-d9cc-417c-8ebc-a0dda444bd48) | Draft; ids created by the app and checked against the database |
+| HTE-18 (VCR-005) | [HTE-18 (VCR-005): Version-controlled materials](https://claude.ai/code/artifact/16b2cc43-65ec-4dc6-a2e6-661417e6a72f) | Draft, depends on HTE-115, HTE-113 and VCR-018 |
 
 ## Claude Code review
 
