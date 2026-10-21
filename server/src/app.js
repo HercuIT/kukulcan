@@ -28,6 +28,7 @@ app.use("/api/health", require("./routes/healthRoutes"));
 app.use("/api/ignition-health", require("./routes/ignitionHealthRoutes"));
 app.use("/api/compile", require("./routes/compileRoutes"));
 app.use("/api/deploy-workflow", require("./routes/deployWorkflowRoutes"));
+app.use("/api/deploy-siemens", require("./routes/deploySiemensRoutes"));
 
 const toMb = (bytes) => Math.round(bytes / (1024 * 1024));
 

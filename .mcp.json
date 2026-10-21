@@ -15,6 +15,10 @@
     "context7": {
       "type": "http",
       "url": "https://mcp.context7.com/mcp"
+    },
+    "postman": {
+      "type": "http",
+      "url": "https://mcp.postman.com/mcp"
     }
   }
 }

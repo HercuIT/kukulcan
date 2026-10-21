@@ -144,6 +144,15 @@ npm install
 node src/index.js      # or: npx nodemon src/index.js
 ```
 
+`/api/deploy-siemens` is a stub (see "Known defects" in `CLAUDE.md`): there is no TIA Portal Openness server to push to yet. To exercise the Siemens XML contract itself (SimaticML `<Document>` / AutomationML `<CAEXFile>`) without that real server, run the local mock:
+
+```bash
+cd server                          # skip if already there from "Local API server" above
+node src/mock/index.js             # listens on 127.0.0.1:4100 (MOCK_SIEMENS_PORT)
+```
+
+It mocks the HTTP contract of an ASP.NET Core controller wrapping Openness: `POST /api/v1/siemens/import` as `multipart/form-data` with a `File` field, `TargetType` (`PlcBlock`/`PlcType`/`PlcTagTable`/`HardwareCAx`), `ImportOption`, `SwImportOption`, `CaxImportOption`, returning `{Success, Message, ImportedObjectNames, LogFilePath, ExecutionTimeMs}`. The SimaticML/AutomationML tag rules it checks inside that are an unverified reading of Siemens' format, not a confirmed TIA Portal export — see `server/src/mock/opennessMockApp.js`'s top comment and its tests in `server/test/opennessMockApp.test.js`. It is not wired into `deploySiemensRoutes.js`.
+
 The server listens on `127.0.0.1:3001` and reads these settings from `server/.env`:
 
 | Variable | Meaning |
@@ -165,6 +174,7 @@ Endpoints:
 | GET | `/api/ignition-health` | Checks that the Ignition gateway is reachable and `RUNNING` |
 | POST | `/api/compile` | Compiles a workflow JSON with the same compiler as `compile-xml` (`supabase/functions/compile-xml/compiler.mjs`; the server must run from a checkout that includes `supabase/`). Target `ignition` by default: returns the `<Workflow>` document `/api/deploy-workflow` accepts, or 400 naming each node/parameter that would fail deploy. Send `"target": "controller"` for the PLC document. Bodies up to 5 MB |
 | POST | `/api/deploy-workflow` | Validates workflow XML (`Content-Type: application/xml`, up to 10 MB) and forwards it to Ignition. Its request log stores the body's size and a 2,000-character preview, not the whole body |
+| POST | `/api/deploy-siemens` | Stub (HTE-110): checks the request shape and logs it, but always answers `501 NOT_CONFIGURED`. There is no TIA Portal Openness server to push to yet — see `CLAUDE.md` → "Watch out for" |
 
 ### Ignition XML contract
 
@@ -258,6 +268,8 @@ Steps:
 | `supabase` | Supabase hosted MCP server (`https://mcp.supabase.com/mcp?read_only=true`) | OAuth in the browser on first use; read-only |
 | `linear` | Linear hosted MCP server (`https://mcp.linear.app/mcp`), used to post spec links on `HTE-<n>` issues (see "Specs") | OAuth in the browser on first use; acts as you, with your Linear permissions |
 | `context7` | Hosted MCP server (`https://mcp.context7.com/mcp`) for public library/framework/API documentation lookups | No sign-in; no repo access, public docs only |
+| `postman` | Postman hosted MCP server (`https://mcp.postman.com/mcp`, Full mode), used to build a mock server standing in for the TIA Portal Openness endpoint (HTE-110) until that real server exists | OAuth in the browser on first use; acts as you, with your Postman workspaces |
+| `postman` (EU workspaces) | Same server at `https://mcp.eu.postman.com/mcp` | The EU endpoint doesn't support OAuth; configure a Postman API key instead (Postman's MCP docs cover generating one) |
 
 Agent instructions live in `CLAUDE.md`; `GEMINI.md` imports it for Gemini CLI (which reads MCP servers from `.gemini/settings.json`, not `.mcp.json`). Claude Code asks you to approve project servers the first time you run `claude` in the repo; check them with `claude mcp list`. On native Windows, if the `firebase` server fails to start, change its `command` to `cmd` and put `"/c", "npx"` in front of its args. Don't commit tokens to `.mcp.json`.
 
@@ -268,7 +280,7 @@ Agent instructions live in `CLAUDE.md`; `GEMINI.md` imports it for Gemini CLI (w
 | `npm start` | Start the dev server |
 | `npm run build` | Build for production into `build/` |
 | `npm test` | Run Jest in watch mode |
-| `npm run test:node` | Run the Node tests: database (PGlite), `compile-xml`, the XML deploy contract, server logger, migration transforms. The contract test needs `server/`'s dependencies: run `npm ci --prefix server` once (CI does) |
+| `npm run test:node` | Run the Node tests: database (PGlite), `compile-xml`, the XML deploy contract, server logger, the Siemens Openness mock, migration transforms. The contract test needs `server/`'s dependencies: run `npm ci --prefix server` once (CI does) |
 | `npm run lint` | Run ESLint |
 | `npm run format` / `npm run format-check` | Run Prettier (write / check) |
 | `npm run typecheck` | Type-check the JavaScript with TypeScript (`checkJs`, `tsconfig.typecheck.json`): `src/`, `server/src/`, the compiler and `scripts/*.js`. Needs `server/`'s dependencies (`npm ci --prefix server`) for the Express and axios types |
@@ -378,6 +390,8 @@ Features are specified before they're built, as Claude Docs, using the section t
 | HTE-115 | [HTE-115: Material id on canvas nodes](https://claude.ai/code/artifact/089baea3-d9cc-417c-8ebc-a0dda444bd48) | Draft; ids created by the app and checked against the database |
 | HTE-18 (VCR-005) | [HTE-18 (VCR-005): Version-controlled materials](https://claude.ai/code/artifact/16b2cc43-65ec-4dc6-a2e6-661417e6a72f) | Draft, depends on HTE-115, HTE-113 and VCR-018 |
 | HTE-20 (VCR-006) | [HTE-20 (VCR-006): Version-controlled work masters](https://claude.ai/code/artifact/a64fb9a3-23fe-4e2b-ae4a-2bf23a90f7c9) | Draft, depends on HTE-113; open questions pending |
+| HTE-117 | [HTE-117: Siemens XML schema validation](https://claude.ai/artifact/4p5p2gWVWrpfFF7cnu7fQj) | Draft, depends on HTE-110; open questions pending (no real Siemens XSD files yet) |
+| HTE-118 | [HTE-118: Siemens authentication (UMAC) for Openness](https://claude.ai/artifact/77DwKHLgJ4jSXvShw2ra5Z) | Draft, depends on HTE-110; excludes live PLC download/control as a non-goal; open questions pending |
 
 ## Claude Code review
 
