@@ -388,6 +388,8 @@ Features are specified before they're built, as Claude Docs, using the section t
 | HTE-115 | [HTE-115: Material id on canvas nodes](https://claude.ai/code/artifact/089baea3-d9cc-417c-8ebc-a0dda444bd48) | Draft; ids created by the app and checked against the database |
 | HTE-18 (VCR-005) | [HTE-18 (VCR-005): Version-controlled materials](https://claude.ai/code/artifact/16b2cc43-65ec-4dc6-a2e6-661417e6a72f) | Draft, depends on HTE-115, HTE-113 and VCR-018 |
 | HTE-20 (VCR-006) | [HTE-20 (VCR-006): Version-controlled work masters](https://claude.ai/code/artifact/a64fb9a3-23fe-4e2b-ae4a-2bf23a90f7c9) | Draft, depends on HTE-113; open questions pending |
+| HTE-117 | [HTE-117: Siemens XML schema validation](https://claude.ai/artifact/4p5p2gWVWrpfFF7cnu7fQj) | Draft, depends on HTE-110; open questions pending (no real Siemens XSD files yet) |
+| HTE-118 | [HTE-118: Siemens authentication (UMAC) for Openness](https://claude.ai/artifact/77DwKHLgJ4jSXvShw2ra5Z) | Draft, depends on HTE-110; excludes live PLC download/control as a non-goal; open questions pending |
 
 ## Claude Code review
 
