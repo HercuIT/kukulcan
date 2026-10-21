@@ -9,9 +9,9 @@ const { v4: uuidv4 } = require("uuid");
 // machine running TIA Portal with the Openness add-on enabled, listening for requests like
 // this one — infrastructure this project doesn't have yet. Unlike Ignition (already just a
 // gateway sitting on the network), there is nothing to POST to. This route exists so the
-// request/response contract can be built and tested now, but it never contacts anything and
-// always answers 501: it must not be mistaken for a working deploy. Replace the body of the
-// try block below with a real Openness call once that server exists.
+// request/response contract can be built and tested now, but it never contacts anything: a
+// valid POST always answers 501, so it must not be mistaken for a working deploy. Replace the
+// body of the try block below with a real Openness call once that server exists.
 router.post("/", async (req, res) => {
   const requestId = uuidv4();
   const userId = await getRequestUserId(req);

@@ -147,7 +147,8 @@ node src/index.js      # or: npx nodemon src/index.js
 `/api/deploy-siemens` is a stub (see "Known defects" in `CLAUDE.md`): there is no TIA Portal Openness server to push to yet. To exercise the Siemens XML contract itself (SimaticML `<Document>` / AutomationML `<CAEXFile>`) without that real server, run the local mock:
 
 ```bash
-node server/src/mock/index.js      # listens on 127.0.0.1:4100 (MOCK_SIEMENS_PORT)
+cd server                          # skip if already there from "Local API server" above
+node src/mock/index.js             # listens on 127.0.0.1:4100 (MOCK_SIEMENS_PORT)
 ```
 
 It mocks the HTTP contract of an ASP.NET Core controller wrapping Openness: `POST /api/v1/siemens/import` as `multipart/form-data` with a `File` field, `TargetType` (`PlcBlock`/`PlcType`/`PlcTagTable`/`HardwareCAx`), `ImportOption`, `SwImportOption`, `CaxImportOption`, returning `{Success, Message, ImportedObjectNames, LogFilePath, ExecutionTimeMs}`. The SimaticML/AutomationML tag rules it checks inside that are an unverified reading of Siemens' format, not a confirmed TIA Portal export — see `server/src/mock/opennessMockApp.js`'s top comment and its tests in `server/test/opennessMockApp.test.js`. It is not wired into `deploySiemensRoutes.js`.
@@ -267,7 +268,8 @@ Steps:
 | `supabase` | Supabase hosted MCP server (`https://mcp.supabase.com/mcp?read_only=true`) | OAuth in the browser on first use; read-only |
 | `linear` | Linear hosted MCP server (`https://mcp.linear.app/mcp`), used to post spec links on `HTE-<n>` issues (see "Specs") | OAuth in the browser on first use; acts as you, with your Linear permissions |
 | `context7` | Hosted MCP server (`https://mcp.context7.com/mcp`) for public library/framework/API documentation lookups | No sign-in; no repo access, public docs only |
-| `postman` | Postman hosted MCP server (`https://mcp.postman.com/mcp`, Full mode; `https://mcp.eu.postman.com/mcp` for EU workspaces), used to build a mock server standing in for the TIA Portal Openness endpoint (HTE-110) until that real server exists | OAuth in the browser on first use; acts as you, with your Postman workspaces |
+| `postman` | Postman hosted MCP server (`https://mcp.postman.com/mcp`, Full mode), used to build a mock server standing in for the TIA Portal Openness endpoint (HTE-110) until that real server exists | OAuth in the browser on first use; acts as you, with your Postman workspaces |
+| `postman` (EU workspaces) | Same server at `https://mcp.eu.postman.com/mcp` | The EU endpoint doesn't support OAuth; configure a Postman API key instead (Postman's MCP docs cover generating one) |
 
 Agent instructions live in `CLAUDE.md`; `GEMINI.md` imports it for Gemini CLI (which reads MCP servers from `.gemini/settings.json`, not `.mcp.json`). Claude Code asks you to approve project servers the first time you run `claude` in the repo; check them with `claude mcp list`. On native Windows, if the `firebase` server fails to start, change its `command` to `cmd` and put `"/c", "npx"` in front of its args. Don't commit tokens to `.mcp.json`.
 

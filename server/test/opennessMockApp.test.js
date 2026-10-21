@@ -174,13 +174,49 @@ describe("Siemens Openness mock: SimaticML (SW blocks)", () => {
     assert.equal(res.status, 200);
   });
 
-  test("edge: TargetType=PlcType and PlcTagTable also accept a <Document> payload", async () => {
+  test("negative: TargetType=PlcType and PlcTagTable are rejected as not yet implemented", async () => {
     for (const targetType of ["PlcType", "PlcTagTable"]) {
       const res = await importXml(simaticBlock(`Obj_${targetType}`), {
         TargetType: targetType,
       });
-      assert.equal(res.status, 200, `expected 200 for TargetType=${targetType}`);
+      assert.equal(res.status, 400, `expected 400 for TargetType=${targetType}`);
+      assert.match((await res.json()).Message, /isn't implemented/);
     }
+  });
+
+  test("negative: an unclosed root tag is rejected, not silently parsed as valid", async () => {
+    // fast-xml-parser's parse() alone doesn't throw on this (confirmed separately); the mock
+    // must pre-validate with XMLValidator so a malformed document can't "succeed."
+    const unclosed =
+      '<Document><Engineering version="V16"/><SW.Blocks.CompileUnit><AttributeList><Name>Foo</Name></AttributeList></SW.Blocks.CompileUnit>';
+    const res = await importXml(unclosed);
+    assert.equal(res.status, 400);
+    assert.match((await res.json()).Message, /syntax error/);
+  });
+
+  test("edge: a numeric-looking <Name> stays a string and isn't dropped", async () => {
+    const res = await importXml(simaticBlock("100"));
+    assert.equal(res.status, 200);
+    assert.deepEqual((await res.json()).ImportedObjectNames, ["100"]);
+  });
+
+  test("negative: duplicate object names within one file are rejected", async () => {
+    const xml = `<Document>
+      <Engineering version="V16"/>
+      <SW.Blocks.CompileUnit ID="0"><AttributeList><Name>Dup</Name></AttributeList></SW.Blocks.CompileUnit>
+      <SW.Blocks.GlobalDB ID="1"><AttributeList><Name>Dup</Name></AttributeList></SW.Blocks.GlobalDB>
+    </Document>`;
+    const res = await importXml(xml);
+    assert.equal(res.status, 400);
+    assert.match((await res.json()).Message, /Duplicate object name/);
+  });
+
+  test("negative: an oversized file gets a structured 413, not an HTML error page", async () => {
+    const big = simaticBlock("Big") + "x".repeat(11 * 1024 * 1024);
+    const res = await importXml(big);
+    assert.equal(res.status, 413);
+    assert.equal(res.headers.get("content-type")?.includes("application/json"), true);
+    assert.equal((await res.json()).Success, false);
   });
 });
 
@@ -194,6 +230,25 @@ describe("Siemens Openness mock: AutomationML/CAx (hardware)", () => {
     assert.equal(json.Success, true);
     assert.deepEqual(json.ImportedObjectNames, ["ET 200SP station_1"]);
     assert.match(json.LogFilePath, /CAx_Import_Log_.*\.log/);
+  });
+
+  test("positive: nested InternalElement descendants are all extracted, not just direct children", async () => {
+    const xml = `<CAEXFile SchemaVersion="2.15">
+      <InstanceHierarchy Name="Plant">
+        <InternalElement Name="Station">
+          <InternalElement Name="Rack">
+            <InternalElement Name="Module"/>
+          </InternalElement>
+        </InternalElement>
+      </InstanceHierarchy>
+    </CAEXFile>`;
+    const res = await importXml(xml, { TargetType: "HardwareCAx" });
+    assert.equal(res.status, 200);
+    assert.deepEqual((await res.json()).ImportedObjectNames, [
+      "Station",
+      "Rack",
+      "Module",
+    ]);
   });
 
   test("negative: <CAEXFile> missing SchemaVersion gets a 400", async () => {
