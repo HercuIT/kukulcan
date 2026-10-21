@@ -1,4 +1,4 @@
-name: Code Quality Checks
+name: Code Quality & Unit Tests
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   lint-and-format:
-    name: Lint & Format
+    name: Code Quality & Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
