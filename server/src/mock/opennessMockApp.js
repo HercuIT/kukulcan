@@ -1,7 +1,10 @@
 const express = require("express");
 const multer = require("multer");
-const { XMLParser } = require("fast-xml-parser");
+const { XMLParser, XMLValidator } = require("fast-xml-parser");
 const { v4: uuidv4 } = require("uuid");
+
+// Bodies up to 10 MB, matching the XML limit server/src/app.js already uses for the real routes.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 // Mock of a REST wrapper around Siemens TIA Portal Openness (Siemens.Engineering.dll), which is
 // a local .NET assembly, not an HTTP server itself — see CLAUDE.md -> "Watch out for" and
@@ -50,6 +53,12 @@ const CAX_IMPORT_OPTIONS = [
 // Matches the real controller's ImportTargetType enum (PlcBlock is its default, value 0).
 const SW_TARGET_TYPES = ["PlcBlock", "PlcType", "PlcTagTable"];
 const TARGET_TYPES = [...SW_TARGET_TYPES, "HardwareCAx"];
+// Only PlcBlock's SimaticML shape (SW.Blocks.*) has been read against Siemens' docs and tested.
+// PlcType (UDTs) and PlcTagTable almost certainly use a different root element this mock doesn't
+// know yet; rejecting them explicitly beats silently misreading their XML as a block, or
+// guessing at an unverified shape for them (the same risk HTE-117's spec flags for the schema
+// rules below).
+const IMPLEMENTED_SW_TARGET_TYPES = ["PlcBlock"];
 
 function extractSwBlockNames(doc) {
   const blocks = Object.keys(doc)
@@ -60,18 +69,30 @@ function extractSwBlockNames(doc) {
     .filter((name) => typeof name === "string" && name.length > 0);
 }
 
+// CAEX/AutomationML elements nest (a station contains racks contain modules): walk every
+// InternalElement at any depth, not just InstanceHierarchy's direct children.
 function extractHardwareElementNames(caexFile) {
-  const elements = caexFile?.InstanceHierarchy?.InternalElement;
-  if (!elements) return [];
-  const list = Array.isArray(elements) ? elements : [elements];
-  return list
-    .map((el) => el?.["@_Name"])
-    .filter((name) => typeof name === "string" && name.length > 0);
+  const root = caexFile?.InstanceHierarchy?.InternalElement;
+  if (!root) return [];
+  const names = [];
+  const visit = (node) => {
+    const list = Array.isArray(node) ? node : [node];
+    for (const el of list) {
+      const name = el?.["@_Name"];
+      if (typeof name === "string" && name.length > 0) names.push(name);
+      if (el?.InternalElement) visit(el.InternalElement);
+    }
+  };
+  visit(root);
+  return names;
 }
 
 function createOpennessMockApp() {
   const app = express();
-  const upload = multer({ storage: multer.memoryStorage() });
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_UPLOAD_BYTES },
+  });
 
   // Object names already "imported", keyed by TargetType — lets a second import of the same
   // name without ImportOption=Override reproduce the exception Openness throws for that case.
@@ -136,12 +157,32 @@ function createOpennessMockApp() {
       });
     }
 
+    const xmlText = req.file.buffer.toString("utf8");
+
+    // XMLParser.parse() doesn't reject malformed tags by default (an unclosed or mismatched
+    // document parses "successfully" into whatever it managed to read); XMLValidator.validate()
+    // is the part of fast-xml-parser that actually checks well-formedness, so it runs first.
+    const validation = XMLValidator.validate(xmlText);
+    if (validation !== true) {
+      const { msg, line } = validation.err || {};
+      return respond(400, {
+        Success: false,
+        Message: `Openness Exception: The XML has a syntax error${line ? ` at line ${line}` : ""}: ${msg || "invalid XML"}.`,
+        ImportedObjectNames: [],
+        LogFilePath: null,
+      });
+    }
+
     let parsed;
     try {
       parsed = new XMLParser({
         ignoreAttributes: false,
         attributeNamePrefix: "@_",
-      }).parse(req.file.buffer.toString("utf8"));
+        // A numeric-looking <Name> or Name="..." would otherwise parse as a JS number and get
+        // silently dropped by extractSwBlockNames'/extractHardwareElementNames' string filter.
+        parseTagValue: false,
+        parseAttributeValue: false,
+      }).parse(xmlText);
     } catch (error) {
       return respond(400, {
         Success: false,
@@ -152,6 +193,19 @@ function createOpennessMockApp() {
     }
 
     const respondWithImport = (names, logFilePath = null) => {
+      const counts = new Map();
+      names.forEach((name) => counts.set(name, (counts.get(name) || 0) + 1));
+      const duplicatesInFile = [...counts]
+        .filter(([, count]) => count > 1)
+        .map(([name]) => name);
+      if (duplicatesInFile.length > 0) {
+        return respond(400, {
+          Success: false,
+          Message: `Openness Exception: Duplicate object name(s) within the uploaded file: ${duplicatesInFile.join(", ")}.`,
+          ImportedObjectNames: [],
+          LogFilePath: null,
+        });
+      }
       const already = names.filter((name) => imported[targetType].has(name));
       if (already.length > 0 && importOption !== "Override") {
         return respond(400, {
@@ -171,6 +225,14 @@ function createOpennessMockApp() {
     };
 
     if (SW_TARGET_TYPES.includes(targetType)) {
+      if (!IMPLEMENTED_SW_TARGET_TYPES.includes(targetType)) {
+        return respond(400, {
+          Success: false,
+          Message: `General Exception: TargetType '${targetType}' isn't implemented in this mock yet (no verified SimaticML shape for it). Use PlcBlock or HardwareCAx.`,
+          ImportedObjectNames: [],
+          LogFilePath: null,
+        });
+      }
       if (!parsed.Document) {
         return respond(400, {
           Success: false,
@@ -255,6 +317,28 @@ function createOpennessMockApp() {
 
   app.use((req, res) => {
     res.status(404).json({ Success: false, Message: "Unknown route." });
+  });
+
+  // Multer reports a bad upload (oversized file, malformed multipart) by calling next(err)
+  // instead of running the route handler, which would otherwise fall through to Express's
+  // default HTML error page — breaking the JSON contract every other response here keeps.
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+      const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+      return res.status(status).json({
+        Success: false,
+        Message: `Upload error: ${err.message}`,
+        ImportedObjectNames: [],
+        LogFilePath: null,
+      });
+    }
+    return res.status(400).json({
+      Success: false,
+      Message: `Bad request: ${err.message}`,
+      ImportedObjectNames: [],
+      LogFilePath: null,
+    });
   });
 
   return app;
