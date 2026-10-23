@@ -70,21 +70,27 @@ function extractSwBlockNames(doc) {
 }
 
 // CAEX/AutomationML elements nest (a station contains racks contain modules): walk every
-// InternalElement at any depth, not just InstanceHierarchy's direct children.
+// InternalElement at any depth, not just InstanceHierarchy's direct children. A CAEXFile can
+// also have several sibling <InstanceHierarchy> elements, which the parser then returns as an
+// array (no .InternalElement of its own), so that has to be normalized too before traversing.
 function extractHardwareElementNames(caexFile) {
-  const root = caexFile?.InstanceHierarchy?.InternalElement;
-  if (!root) return [];
+  const hierarchies = caexFile?.InstanceHierarchy;
+  if (!hierarchies) return [];
+  const hierarchyList = Array.isArray(hierarchies) ? hierarchies : [hierarchies];
   const names = [];
-  const visit = (node) => {
-    const list = Array.isArray(node) ? node : [node];
-    for (const el of list) {
-      const name = el?.["@_Name"];
-      if (typeof name === "string" && name.length > 0) names.push(name);
-      if (el?.InternalElement) visit(el.InternalElement);
-    }
-  };
-  visit(root);
+  for (const hierarchy of hierarchyList) {
+    if (hierarchy?.InternalElement) collectElementNames(hierarchy.InternalElement, names);
+  }
   return names;
+}
+
+function collectElementNames(root, names) {
+  const list = Array.isArray(root) ? root : [root];
+  for (const el of list) {
+    const name = el?.["@_Name"];
+    if (typeof name === "string" && name.length > 0) names.push(name);
+    if (el?.InternalElement) collectElementNames(el.InternalElement, names);
+  }
 }
 
 function createOpennessMockApp() {
