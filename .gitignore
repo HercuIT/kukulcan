@@ -39,3 +39,4 @@ scripts/migration/out/
 # Supabase CLI local state (project link, branches)
 supabase/.temp/
 supabase/.branches/
+.claude/settings.json
