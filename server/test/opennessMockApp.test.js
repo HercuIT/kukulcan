@@ -251,6 +251,19 @@ describe("Siemens Openness mock: AutomationML/CAx (hardware)", () => {
     ]);
   });
 
+  test("positive: several sibling <InstanceHierarchy> elements are all extracted", async () => {
+    // The parser returns sibling InstanceHierarchy elements as an array, which has no
+    // .InternalElement of its own — a prior version of this extraction silently dropped
+    // everything in that case instead of walking each hierarchy.
+    const xml = `<CAEXFile SchemaVersion="2.15">
+      <InstanceHierarchy Name="H1"><InternalElement Name="A"/></InstanceHierarchy>
+      <InstanceHierarchy Name="H2"><InternalElement Name="B"/></InstanceHierarchy>
+    </CAEXFile>`;
+    const res = await importXml(xml, { TargetType: "HardwareCAx" });
+    assert.equal(res.status, 200);
+    assert.deepEqual((await res.json()).ImportedObjectNames, ["A", "B"]);
+  });
+
   test("negative: <CAEXFile> missing SchemaVersion gets a 400", async () => {
     const res = await importXml(
       '<CAEXFile><InstanceHierarchy><InternalElement Name="X"/></InstanceHierarchy></CAEXFile>',
