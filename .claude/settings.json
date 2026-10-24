@@ -5,7 +5,8 @@
     "OTEL_LOGS_EXPORTER": "otlp",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
     "OTEL_EXPORTER_OTLP_ENDPOINT": "https://claude-code-telemetry-ingest.ramirezgjennyg.workers.dev",
-    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer adf03841778dfdcfbc4db884c329e9043673c2b52b80137ecb554f1a7c6eebe3"
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer adf03841778dfdcfbc4db884c329e9043673c2b52b80137ecb554f1a7c6eebe3",
+    "OTEL_METRICS_INCLUDE_REPOSITORY": "true"
   },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true
