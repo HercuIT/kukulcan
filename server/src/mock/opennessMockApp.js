@@ -76,10 +76,13 @@ function extractSwBlockNames(doc) {
 function extractHardwareElementNames(caexFile) {
   const hierarchies = caexFile?.InstanceHierarchy;
   if (!hierarchies) return [];
-  const hierarchyList = Array.isArray(hierarchies) ? hierarchies : [hierarchies];
+  const hierarchyList = Array.isArray(hierarchies)
+    ? hierarchies
+    : [hierarchies];
   const names = [];
   for (const hierarchy of hierarchyList) {
-    if (hierarchy?.InternalElement) collectElementNames(hierarchy.InternalElement, names);
+    if (hierarchy?.InternalElement)
+      collectElementNames(hierarchy.InternalElement, names);
   }
   return names;
 }
