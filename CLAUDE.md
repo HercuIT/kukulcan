@@ -86,6 +86,7 @@ What specs and features in the designer have to work with (all in `src/pages/Das
 
 ## Rules for new code
 
+- **Catch exceptions clearly.** Every new code path must catch errors explicitly rather than letting them propagate unhandled or fail silently. A caught error's message or log must help the developer debug it: include what operation failed, the relevant identifiers (workflow id, node id, route, RPC name), and the underlying error (`error.message`/`error.hint`), not just a generic "something went wrong." Don't swallow an error without surfacing it somewhere (thrown, logged via `server/src/logger.js`, or shown to the user through `UI_STRINGS`/`mappers.js` error codes).
 - **Fixing an error:** follow this protocol rather than patching the first line that threw.
   1. **Effect:** state the observed symptom precisely (error text, failing test, wrong behavior) as the fish's head.
   2. **Bones/categories:** walk the likely cause categories for this codebase — data/DB (schema, RLS, migrations, RPC functions), server logic (`server/src/routes/`, `server/src/validarWorkflow.js`), compiler (`compiler.mjs`, both the Edge Function and `compileRoutes.js` copies), client/UI (`Dashboard.js` components, state, `src/backend/`), deploy targets (Ignition gateway, Siemens/TIA Portal Openness), auth/roles (designer/reviewer/deployer) — and list candidate causes under each that could plausibly produce the symptom.
