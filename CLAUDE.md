@@ -86,6 +86,12 @@ What specs and features in the designer have to work with (all in `src/pages/Das
 
 ## Rules for new code
 
+- **Fixing an error:** follow this protocol rather than patching the first line that threw.
+  1. **Effect:** state the observed symptom precisely (error text, failing test, wrong behavior) as the fish's head.
+  2. **Bones/categories:** walk the likely cause categories for this codebase — data/DB (schema, RLS, migrations, RPC functions), server logic (`server/src/routes/`, `server/src/validarWorkflow.js`), compiler (`compiler.mjs`, both the Edge Function and `compileRoutes.js` copies), client/UI (`Dashboard.js` components, state, `src/backend/`), deploy targets (Ignition gateway, Siemens/TIA Portal Openness), auth/roles (designer/reviewer/deployer) — and list candidate causes under each that could plausibly produce the symptom.
+  3. **Root cause:** from the candidate causes, identify the actual root cause (not just the proximate line that threw) — trace it back through the relevant modules/migrations.
+  4. **Blast radius:** using the same categories, enumerate every other place in the project this root cause could also affect (other call sites, other roles, the other compiler copy, other routes, similar migrations, etc.) — don't limit the fix to the one spot that was reported. Explicitly check each layer: **UI** (other components/screens rendering the same data or state), **API** (other route handlers/endpoints or RPC functions touching the same logic or table), **DB** (RLS, grants, triggers), and any **other** affected layer (`uiStrings.js`, `theme.css`/tokens, `README.md`/`CLAUDE.md`, tests) — not just the layer where the symptom surfaced.
+  5. **Fix:** implement one fix that addresses the root cause and all the affected spots found in step 4, not just the originally reported symptom. Add or update tests per "Cover every scenario" above for every affected spot.
 - **Cover every scenario.** For every piece of new code, write test scenarios of three kinds:
   - **Positive:** the expected, valid use works.
   - **Negative:** invalid input, missing permissions or failing dependencies are rejected or handled gracefully.
