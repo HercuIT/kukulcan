@@ -2,6 +2,8 @@ const path = require("path");
 const { pathToFileURL } = require("url");
 const express = require("express");
 const router = express.Router();
+const { v4: uuidv4 } = require("uuid");
+const logger = require("../logger");
 
 // POST /api/compile usa el mismo compilador que la Edge Function compile-xml (un solo compilador;
 // ver README → "Ignition XML contract"). Por defecto compila para Ignition: el <Workflow> que acepta
@@ -33,13 +35,21 @@ const isPlainObject = (v) =>
 // --- Ruta POST /api/compile ---
 // El tamaño máximo (5 MB, LIMITS.maxBodyBytes del compilador) lo aplica express.json en app.js.
 router.post("/", express.json({ limit: "5mb" }), async (req, res) => {
+  const requestId = uuidv4();
   let compiler;
   try {
     compiler = await loadCompiler();
   } catch (e) {
+    // The raw error can contain a local filesystem path (COMPILER_PATH); keep it in the
+    // server log only, never in the response sent to the client.
+    logger.error({
+      requestId,
+      event: "COMPILER_LOAD_FAILED",
+      route: req.originalUrl,
+      message: `Failed to load compiler.mjs: ${e.message}`,
+    });
     return res.status(500).json({
-      message: "Compilador no disponible",
-      error: String(e),
+      message: "Compilador no disponible. Verifica el checkout del servidor.",
     });
   }
 

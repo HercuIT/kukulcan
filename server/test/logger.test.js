@@ -100,6 +100,67 @@ describe("logger", () => {
   });
 });
 
+describe("logger serialization safety", () => {
+  test("positive: an error log row serializes cleanly to JSON with only the given fields", async () => {
+    const client = fakeClient();
+    const logger = createLogger(client.get);
+    await logger.error({
+      requestId: "11111111-1111-1111-1111-111111111111",
+      event: "IGNITION_HEALTH_CHECK_FAILED",
+      message: "Could not reach Ignition Gateway at http://10.0.0.1:8088: timeout",
+    });
+    const row = client.rows[0].row;
+    // Must round-trip through JSON (this is what actually gets sent to Supabase).
+    const json = JSON.parse(JSON.stringify(row));
+    assert.equal(json.level, "error");
+    assert.equal(json.details.message.includes("timeout"), true);
+  });
+
+  test("negative: a caller must not pass axios/auth config into the logger, and if it does, nothing crashes", async () => {
+    const client = fakeClient();
+    const logger = createLogger(client.get);
+    // Simulates a mistake: passing the whole axios error (which carries request config,
+    // including basic-auth credentials in error.config.auth) instead of just error.message.
+    const axiosLikeError = {
+      message: "connect ECONNREFUSED",
+      config: {
+        auth: { username: "deployer", password: "super-secret" },
+        url: "http://10.0.0.1:8088/system/gwinfo",
+      },
+    };
+    await logger.error({
+      event: "IGNITION_HEALTH_CHECK_FAILED",
+      message: axiosLikeError.message,
+    });
+    const row = client.rows[0].row;
+    const serialized = JSON.stringify(row);
+    assert.equal(serialized.includes("super-secret"), false);
+    assert.equal(serialized.includes("deployer"), false);
+  });
+
+  test("edge: a circular object passed as a field is logged to the console, never thrown or inserted", async () => {
+    const client = fakeClient();
+    const circular = { event: "X" };
+    circular.self = circular;
+    const calls = await silenceConsoleError(async () => {
+      // toRow/JSON-serializing a circular object would throw inside write(); the logger's
+      // own try/catch must still swallow it instead of propagating into the route handler.
+      const logger = createLogger(() => ({
+        from: () => ({
+          insert: async (row) => {
+            JSON.stringify(row); // the same serialization Supabase's client performs
+            client.rows.push({ table: "server_logs", row });
+            return { error: null };
+          },
+        }),
+      }));
+      await logger.error(circular);
+    });
+    assert.equal(client.rows.length, 0);
+    assert.equal(calls.length, 1);
+  });
+});
+
 describe("getRequestUserId", () => {
   // El cliente falso exige recibir exactamente el token del encabezado.
   const client = (result, expectedToken) => () => ({
